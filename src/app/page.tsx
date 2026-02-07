@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import LogoutButton from './logout-button'
+import { Header } from '@/components/layout/header'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -19,66 +19,39 @@ export default async function HomePage() {
     .single()
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: '#f2f2f0' }}
-    >
-      {/* Header */}
-      <header
-        className="h-[52px] flex items-center justify-between px-6"
-        style={{ backgroundColor: '#ffffff' }}
-      >
-        <h1
-          className="text-lg font-semibold"
-          style={{
-            fontFamily: "'Fraunces', serif",
-            color: '#0a0a0a',
-          }}
-        >
-          (bao) flow
-        </h1>
-        <div className="flex items-center gap-4">
-          <span
-            className="text-sm"
-            style={{
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              color: '#555555',
-            }}
-          >
-            {profile?.display_name || user.email}
-          </span>
-          <LogoutButton />
-        </div>
-      </header>
+    <div className="min-h-screen">
+      <Header userName={profile?.display_name || user.email || undefined} />
 
       {/* Main Content */}
-      <main className="p-6">
+      <main style={{ padding: '24px 26px' }}>
+        <h1
+          style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: '24px',
+            fontWeight: 600,
+            color: '#0a0a0a',
+            marginBottom: '16px',
+          }}
+        >
+          Overview
+        </h1>
         <div
-          className="p-6"
           style={{
             backgroundColor: '#ffffff',
             borderRadius: '20px',
             border: '1px solid rgba(0,0,0,0.06)',
+            padding: '20px 22px',
           }}
         >
-          <h2
-            className="text-xl font-semibold mb-4"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              color: '#0a0a0a',
-            }}
-          >
-            Overview Panel
-          </h2>
           <div
-            className="text-sm"
             style={{
               fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+              fontSize: '13px',
               color: '#555555',
             }}
           >
-            <p className="mb-2">ようこそ、{profile?.display_name || user.email} さん</p>
-            <p className="mb-2">
+            <p style={{ marginBottom: '8px' }}>ようこそ、{profile?.display_name || user.email} さん</p>
+            <p style={{ marginBottom: '8px' }}>
               <span style={{ color: '#888888' }}>ロール:</span>{' '}
               <span style={{ color: '#0a0a0a' }}>{profile?.role || 'sales'}</span>
             </p>
