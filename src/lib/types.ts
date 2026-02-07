@@ -92,3 +92,25 @@ export interface DealStatusHistory {
   changed_at: string
   profiles?: Profile
 }
+
+export type PaymentType = 'deposit' | 'balance' | 'full'
+export type PaymentMethodType = 'wise' | 'alibaba' | 'bank_transfer'
+export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export interface Payment {
+  id: string
+  deal_id: string
+  payment_type: PaymentType
+  payment_method: PaymentMethodType
+  amount_cny: number | null
+  amount_jpy: number | null
+  exchange_rate: number | null
+  reference_number: string | null
+  status: PaymentStatus
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields
+  deals?: Deal
+}

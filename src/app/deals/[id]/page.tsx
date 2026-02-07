@@ -98,6 +98,37 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <Link
+            href={`/deals/${id}/quote`}
+            style={{
+              backgroundColor: '#22c55e',
+              color: '#ffffff',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+              textDecoration: 'none',
+            }}
+          >
+            見積もり計算
+          </Link>
+          <Link
+            href={`/deals/${id}/pdf`}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#0a0a0a',
+              border: '1px solid #e8e8e6',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+              textDecoration: 'none',
+            }}
+          >
+            帳票出力
+          </Link>
+          <Link
             href={`/deals/${id}/edit`}
             style={{
               backgroundColor: '#0a0a0a',
