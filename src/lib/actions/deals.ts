@@ -144,3 +144,68 @@ export async function deleteDeal(id: string) {
   revalidatePath('/deals')
   return { success: true }
 }
+
+export async function duplicateDeal(sourceId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'ログインが必要です' }
+  }
+
+  // Get source deal
+  const { data: source, error: fetchError } = await supabase
+    .from('deals')
+    .select('*')
+    .eq('id', sourceId)
+    .single()
+
+  if (fetchError || !source) {
+    return { error: '元の案件が見つかりません' }
+  }
+
+  // Generate new deal number
+  const { data: lastDeal } = await supabase
+    .from('deals')
+    .select('deal_number')
+    .order('deal_number', { ascending: false })
+    .limit(1)
+    .single()
+
+  let nextNumber = 1
+  if (lastDeal?.deal_number) {
+    const match = lastDeal.deal_number.match(/BAO-(\d+)/)
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1
+    }
+  }
+  const dealNumber = `BAO-${String(nextNumber).padStart(4, '0')}`
+
+  // Create new deal
+  const { data: newDeal, error: createError } = await supabase
+    .from('deals')
+    .insert({
+      deal_number: dealNumber,
+      assignee_id: user.id,
+      status: 'draft' as deal_status,
+      client_id: source.client_id,
+      factory_id: source.factory_id,
+      product_name: `${source.product_name} (リピート)`,
+      material: source.material,
+      size: source.size,
+      quantity: source.quantity,
+      unit_price_cny: source.unit_price_cny,
+      exchange_rate: source.exchange_rate,
+      shipping_cost_cny: source.shipping_cost_cny,
+      notes: source.notes ? `リピート元: ${source.deal_number}\n${source.notes}` : `リピート元: ${source.deal_number}`,
+    })
+    .select()
+    .single()
+
+  if (createError) {
+    return { error: createError.message }
+  }
+
+  revalidatePath('/deals')
+  return { data: newDeal }
+}

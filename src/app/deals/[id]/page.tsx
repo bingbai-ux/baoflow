@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { StatusDot, statusLabelMap } from '@/components/deals/status-dot'
 import { StatusChanger } from './status-changer'
+import { RepeatButton } from './repeat-button'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -113,6 +114,22 @@ export default async function DealDetailPage({ params }: Props) {
             見積もり計算
           </Link>
           <Link
+            href={`/deals/${id}/excel-import`}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#0a0a0a',
+              border: '1px solid #e8e8e6',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+              textDecoration: 'none',
+            }}
+          >
+            Excel取込
+          </Link>
+          <Link
             href={`/deals/${id}/pdf`}
             style={{
               backgroundColor: '#ffffff',
@@ -128,6 +145,23 @@ export default async function DealDetailPage({ params }: Props) {
           >
             帳票出力
           </Link>
+          <Link
+            href={`/deals/${id}/designs`}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#0a0a0a',
+              border: '1px solid #e8e8e6',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+              textDecoration: 'none',
+            }}
+          >
+            デザイン
+          </Link>
+          <RepeatButton dealId={id} />
           <Link
             href={`/deals/${id}/edit`}
             style={{
