@@ -5,7 +5,7 @@ import { Header } from '@/components/layout/header'
 import { StatusDot } from '@/components/deals/status-dot'
 import { DealFilters } from '@/components/deals/deal-filters'
 import { type MasterStatus } from '@/lib/types'
-import { formatJPY, formatRelativeDate } from '@/lib/utils/format'
+import { formatJPY, formatDate } from '@/lib/utils/format'
 
 interface Props {
   searchParams: Promise<{
@@ -174,7 +174,7 @@ export default async function DealsPage({ searchParams }: Props) {
                       </td>
                       <td style={tdStyle}>
                         <span className="font-body text-[12px] text-[#888]">
-                          {formatRelativeDate(deal.last_activity_at || deal.updated_at)}
+                          {formatDate(deal.last_activity_at || deal.updated_at)}
                         </span>
                       </td>
                     </tr>
