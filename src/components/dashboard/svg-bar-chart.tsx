@@ -18,7 +18,18 @@ export function SvgBarChart({
   height = 200,
   highlightIndex,
 }: SvgBarChartProps) {
-  const max = Math.max(...data.map((d) => d.value))
+  // Handle empty data or zero values
+  if (!data || data.length === 0) {
+    return (
+      <svg width={width} height={height} style={{ display: 'block' }}>
+        <text x={width / 2} y={height / 2} textAnchor="middle" style={{ fontSize: 12, fill: '#888' }}>
+          データなし
+        </text>
+      </svg>
+    )
+  }
+
+  const max = Math.max(...data.map((d) => d.value), 1) // Ensure max is at least 1
   const barWidth = (width - (data.length + 1) * 10) / data.length
   const chartHeight = height - 30 // Leave space for labels
 

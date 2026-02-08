@@ -8,6 +8,7 @@ import { SmallVal } from '@/components/shared/small-val'
 import { SmallLabel } from '@/components/shared/small-label'
 import { SvgBarChart } from '@/components/dashboard/svg-bar-chart'
 import { SvgHorizontalBar } from '@/components/dashboard/svg-horizontal-bar'
+import { type MasterStatus } from '@/lib/types'
 
 function Icon({ d }: { d: string }) {
   return (
@@ -26,6 +27,13 @@ function Icon({ d }: { d: string }) {
   )
 }
 
+// Phase mappings for M01-M25
+const QUOTE_PHASE: MasterStatus[] = ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10']
+const ORDER_PHASE: MasterStatus[] = ['M11', 'M12', 'M13', 'M14', 'M15']
+const PRODUCTION_PHASE: MasterStatus[] = ['M16', 'M17', 'M18', 'M19']
+const SHIPPING_PHASE: MasterStatus[] = ['M20', 'M21', 'M22', 'M23', 'M24']
+const COMPLETED_PHASE: MasterStatus[] = ['M25']
+
 export default async function AnalyticsPage() {
   const supabase = await createClient()
 
@@ -40,12 +48,18 @@ export default async function AnalyticsPage() {
     .eq('id', user.id)
     .single()
 
-  // Get all deals
+  // Get all deals with quotes
   const { data: deals } = await supabase
     .from('deals')
     .select(`
-      *,
-      clients (id, company_name)
+      id,
+      deal_code,
+      deal_name,
+      master_status,
+      created_at,
+      updated_at,
+      client:clients(id, company_name),
+      quotes:deal_quotes(total_jpy_incl_tax, status)
     `)
     .order('created_at', { ascending: false })
 
@@ -63,17 +77,17 @@ export default async function AnalyticsPage() {
   const { data: factories } = await supabase
     .from('factories')
     .select('*')
-    .order('name')
+    .order('factory_name')
 
   const allFactories = factories || []
 
-  // Get payments
-  const { data: payments } = await supabase
-    .from('payments')
+  // Get transactions (replaces old payments table)
+  const { data: transactions } = await supabase
+    .from('transactions')
     .select('*')
-    .order('payment_date', { ascending: false })
+    .order('transaction_date', { ascending: false })
 
-  const allPayments = payments || []
+  const allTransactions = transactions || []
 
   const now = new Date()
   const thisYear = now.getFullYear()
@@ -87,14 +101,14 @@ export default async function AnalyticsPage() {
 
     const monthDeals = allDeals.filter(d => {
       const updated = new Date(d.updated_at)
-      return d.status === 'completed' &&
+      return COMPLETED_PHASE.includes(d.master_status as MasterStatus) &&
              updated >= monthStart &&
              updated <= monthEnd
     })
 
     const revenue = monthDeals.reduce((sum, d) => {
-      const unitPrice = (d.unit_price_cny || 0) * (d.exchange_rate || 21.5) * 1.8
-      return sum + unitPrice * (d.quantity || 0)
+      const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
+      return sum + (approvedQuote?.total_jpy_incl_tax || 0)
     }, 0)
 
     const monthLabel = monthStart.toLocaleDateString('ja-JP', { month: 'short' })
@@ -104,8 +118,11 @@ export default async function AnalyticsPage() {
   // Top clients by revenue
   const clientRevenue: Record<string, { name: string; revenue: number }> = {}
   allDeals.forEach(d => {
-    const clientName = d.clients?.company_name || '未設定'
-    const revenue = (d.unit_price_cny || 0) * (d.exchange_rate || 21.5) * (d.quantity || 0) * 1.8
+    const client = Array.isArray(d.client) ? d.client[0] : d.client
+    const clientName = client?.company_name || '未設定'
+    const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
+    const revenue = approvedQuote?.total_jpy_incl_tax || 0
+
     if (!clientRevenue[clientName]) {
       clientRevenue[clientName] = { name: clientName, revenue: 0 }
     }
@@ -118,28 +135,28 @@ export default async function AnalyticsPage() {
 
   // Calculate KPIs
   const totalRevenue = allDeals.reduce((sum, d) => {
-    if (d.status === 'completed') {
-      const unitPrice = (d.unit_price_cny || 0) * (d.exchange_rate || 21.5) * 1.8
-      return sum + unitPrice * (d.quantity || 0)
+    if (COMPLETED_PHASE.includes(d.master_status as MasterStatus)) {
+      const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
+      return sum + (approvedQuote?.total_jpy_incl_tax || 0)
     }
     return sum
   }, 0)
 
   const averageDealSize = allDeals.length > 0
     ? allDeals.reduce((sum, d) => {
-        const unitPrice = (d.unit_price_cny || 0) * (d.exchange_rate || 21.5) * 1.8
-        return sum + unitPrice * (d.quantity || 0)
+        const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
+        return sum + (approvedQuote?.total_jpy_incl_tax || 0)
       }, 0) / allDeals.length
     : 0
 
-  // Payment totals
-  const totalPaymentsIn = allPayments
-    .filter(p => p.direction === 'in')
-    .reduce((sum, p) => sum + (p.amount_jpy || 0), 0)
+  // Transaction totals
+  const totalTransactionsIn = allTransactions
+    .filter(t => t.direction === 'in')
+    .reduce((sum, t) => sum + (t.amount_jpy || 0), 0)
 
-  const totalPaymentsOut = allPayments
-    .filter(p => p.direction === 'out')
-    .reduce((sum, p) => sum + (p.amount_jpy || 0), 0)
+  const totalTransactionsOut = allTransactions
+    .filter(t => t.direction === 'out')
+    .reduce((sum, t) => sum + (t.amount_jpy || 0), 0)
 
   // Format revenue
   const revenueMillions = totalRevenue / 1000000
@@ -172,7 +189,7 @@ export default async function AnalyticsPage() {
               </div>
               <div className="flex justify-between mt-3">
                 <div>
-                  <SmallVal>{allDeals.filter(d => d.status === 'completed').length}</SmallVal>
+                  <SmallVal>{allDeals.filter(d => COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length}</SmallVal>
                   <br />
                   <SmallLabel>完了案件</SmallLabel>
                 </div>
@@ -206,44 +223,44 @@ export default async function AnalyticsPage() {
               </div>
             </div>
 
-            {/* Payments In */}
+            {/* Transactions In */}
             <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M7 17l9.2-9.2M17 17V7H7" />}>
                 入金合計
               </CardLabel>
               <div className="mt-4">
                 <BigNum
-                  integer={Math.floor(totalPaymentsIn / 1000000).toString()}
-                  decimal={((totalPaymentsIn / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
+                  integer={Math.floor(totalTransactionsIn / 1000000).toString()}
+                  decimal={((totalTransactionsIn / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
                   unit="M¥"
                   size={44}
                 />
               </div>
               <div className="flex justify-between mt-3">
                 <div>
-                  <SmallVal>{allPayments.filter(p => p.direction === 'in').length}</SmallVal>
+                  <SmallVal>{allTransactions.filter(t => t.direction === 'in').length}</SmallVal>
                   <br />
                   <SmallLabel>入金件数</SmallLabel>
                 </div>
               </div>
             </div>
 
-            {/* Payments Out */}
+            {/* Transactions Out */}
             <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M17 7l-9.2 9.2M7 7v10h10" />}>
                 出金合計
               </CardLabel>
               <div className="mt-4">
                 <BigNum
-                  integer={Math.floor(totalPaymentsOut / 1000000).toString()}
-                  decimal={((totalPaymentsOut / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
+                  integer={Math.floor(totalTransactionsOut / 1000000).toString()}
+                  decimal={((totalTransactionsOut / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
                   unit="M¥"
                   size={44}
                 />
               </div>
               <div className="flex justify-between mt-3">
                 <div>
-                  <SmallVal>{allPayments.filter(p => p.direction === 'out').length}</SmallVal>
+                  <SmallVal>{allTransactions.filter(t => t.direction === 'out').length}</SmallVal>
                   <br />
                   <SmallLabel>出金件数</SmallLabel>
                 </div>
@@ -291,13 +308,13 @@ export default async function AnalyticsPage() {
               </CardLabel>
               <div className="mt-4 flex flex-col gap-2">
                 {[
-                  { label: '見積中', status: ['draft', 'quoting', 'quoted'] },
-                  { label: '仕様確定', status: ['spec_confirmed', 'sample_requested', 'sample_approved'] },
-                  { label: '製造中', status: ['in_production', 'production_done'] },
-                  { label: '配送中', status: ['shipping', 'customs'] },
-                  { label: '完了', status: ['delivered', 'completed'] },
+                  { label: '見積中', statuses: QUOTE_PHASE },
+                  { label: '発注・支払い', statuses: ORDER_PHASE },
+                  { label: '製造中', statuses: PRODUCTION_PHASE },
+                  { label: '配送中', statuses: SHIPPING_PHASE },
+                  { label: '完了', statuses: COMPLETED_PHASE },
                 ].map(item => {
-                  const count = allDeals.filter(d => item.status.includes(d.status)).length
+                  const count = allDeals.filter(d => item.statuses.includes(d.master_status as MasterStatus)).length
                   const percentage = allDeals.length > 0 ? (count / allDeals.length) * 100 : 0
                   return (
                     <div key={item.label}>
@@ -333,25 +350,21 @@ export default async function AnalyticsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
-                  <span className="text-[12px] text-[#888] font-body">平均単価 (CNY)</span>
+                  <span className="text-[12px] text-[#888] font-body">クライアント数</span>
                   <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
-                    ¥{allDeals.length > 0
-                      ? (allDeals.reduce((sum, d) => sum + (d.unit_price_cny || 0), 0) / allDeals.length).toFixed(2)
-                      : '0.00'}
+                    {allClients.length}
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
-                  <span className="text-[12px] text-[#888] font-body">平均数量</span>
+                  <span className="text-[12px] text-[#888] font-body">工場数</span>
                   <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
-                    {allDeals.length > 0
-                      ? Math.round(allDeals.reduce((sum, d) => sum + (d.quantity || 0), 0) / allDeals.length).toLocaleString()
-                      : '0'}
+                    {allFactories.length}
                   </span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-[12px] text-[#888] font-body">キャンセル数</span>
+                  <span className="text-[12px] text-[#888] font-body">進行中案件</span>
                   <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
-                    {allDeals.filter(d => d.status === 'cancelled').length}
+                    {allDeals.filter(d => !COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length}
                   </span>
                 </div>
               </div>
@@ -365,22 +378,22 @@ export default async function AnalyticsPage() {
               <div className="mt-4">
                 <div className="text-center mb-4">
                   <div className="text-[11px] text-[#888] font-body mb-1">純利益</div>
-                  <div className={`font-display text-[32px] font-semibold tabular-nums ${totalPaymentsIn - totalPaymentsOut >= 0 ? 'text-[#22c55e]' : 'text-[#e5a32e]'}`}>
-                    {totalPaymentsIn - totalPaymentsOut >= 0 ? '+' : ''}
-                    {((totalPaymentsIn - totalPaymentsOut) / 1000000).toFixed(2)}M
+                  <div className={`font-display text-[32px] font-semibold tabular-nums ${totalTransactionsIn - totalTransactionsOut >= 0 ? 'text-[#22c55e]' : 'text-[#e5a32e]'}`}>
+                    {totalTransactionsIn - totalTransactionsOut >= 0 ? '+' : ''}
+                    {((totalTransactionsIn - totalTransactionsOut) / 1000000).toFixed(2)}M
                   </div>
                 </div>
                 <div className="flex justify-between py-2 border-t border-[rgba(0,0,0,0.06)]">
                   <div className="text-center flex-1">
                     <div className="text-[10px] text-[#888] font-body">入金</div>
                     <div className="text-[14px] text-[#22c55e] font-display">
-                      +{(totalPaymentsIn / 1000000).toFixed(1)}M
+                      +{(totalTransactionsIn / 1000000).toFixed(1)}M
                     </div>
                   </div>
                   <div className="text-center flex-1">
                     <div className="text-[10px] text-[#888] font-body">出金</div>
                     <div className="text-[14px] text-[#0a0a0a] font-display">
-                      -{(totalPaymentsOut / 1000000).toFixed(1)}M
+                      -{(totalTransactionsOut / 1000000).toFixed(1)}M
                     </div>
                   </div>
                 </div>

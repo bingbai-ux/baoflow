@@ -11,7 +11,8 @@ import { SmallLabel } from '@/components/shared/small-label'
 import { BarcodeBarsClient, GaugeClient } from './dashboard-client'
 import { PipelineBar } from '@/components/dashboard/pipeline-bar'
 import { StatusDot } from '@/components/deals/status-dot'
-import { formatCurrency } from '@/lib/utils/format'
+import { formatJPY } from '@/lib/utils/format'
+import { type MasterStatus } from '@/lib/types'
 
 function Icon({ d }: { d: string }) {
   return (
@@ -30,6 +31,13 @@ function Icon({ d }: { d: string }) {
   )
 }
 
+// Phase mappings for M01-M25
+const QUOTE_PHASE: MasterStatus[] = ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10']
+const ORDER_PHASE: MasterStatus[] = ['M11', 'M12', 'M13', 'M14', 'M15']
+const PRODUCTION_PHASE: MasterStatus[] = ['M16', 'M17', 'M18', 'M19']
+const SHIPPING_PHASE: MasterStatus[] = ['M20', 'M21', 'M22', 'M23', 'M24']
+const COMPLETED_PHASE: MasterStatus[] = ['M25']
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -44,9 +52,22 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single()
 
+  // Fetch deals with related data
   const { data: deals } = await supabase
     .from('deals')
-    .select(`*, clients (id, company_name)`)
+    .select(`
+      id,
+      deal_code,
+      deal_name,
+      master_status,
+      win_probability,
+      last_activity_at,
+      created_at,
+      updated_at,
+      client:clients(id, company_name),
+      specifications:deal_specifications(product_name),
+      quotes:deal_quotes(total_jpy_incl_tax, status)
+    `)
     .order('created_at', { ascending: false })
 
   const allDeals = deals || []
@@ -54,52 +75,72 @@ export default async function DashboardPage() {
   const now = new Date()
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
+  // Calculate monthly revenue from approved quotes
   const completedDealsThisMonth = allDeals.filter(d => {
     const updated = new Date(d.updated_at)
-    return d.status === 'completed' && updated >= thisMonthStart
+    return COMPLETED_PHASE.includes(d.master_status as MasterStatus) && updated >= thisMonthStart
   })
+
   const monthlyRevenue = completedDealsThisMonth.reduce((sum, d) => {
-    const unitPrice = (d.unit_price_cny || 0) * (d.exchange_rate || 21.5) * 1.8
-    return sum + unitPrice * (d.quantity || 0)
+    const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
+    return sum + (approvedQuote?.total_jpy_incl_tax || 0)
   }, 0)
 
-  const completedCount = allDeals.filter(d => d.status === 'completed').length
+  // Count completed and in-progress deals
+  const completedCount = allDeals.filter(d => COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length
   const totalCount = allDeals.length
   const progressRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
-  const inProgressStatuses = ['draft', 'quoting', 'quoted', 'spec_confirmed', 'sample_requested', 'sample_approved', 'payment_pending', 'deposit_paid', 'in_production', 'production_done', 'inspection', 'shipping']
-  const inProgressCount = allDeals.filter(d => inProgressStatuses.includes(d.status)).length
+  // In-progress = not M25
+  const inProgressCount = allDeals.filter(d => !COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length
 
+  // Delivered this month
   const deliveredThisMonth = allDeals.filter(d => {
     const updated = new Date(d.updated_at)
-    return (d.status === 'delivered' || d.status === 'completed') && updated >= thisMonthStart
+    return COMPLETED_PHASE.includes(d.master_status as MasterStatus) && updated >= thisMonthStart
   }).length
 
+  // Status counts by phase
   const statusCounts = {
-    draft: allDeals.filter(d => d.status === 'draft' || d.status === 'quoting').length,
-    quoting: allDeals.filter(d => d.status === 'quoted').length,
-    spec_confirmed: allDeals.filter(d => d.status === 'spec_confirmed' || d.status === 'sample_requested' || d.status === 'sample_approved').length,
-    in_production: allDeals.filter(d => d.status === 'in_production' || d.status === 'production_done').length,
-    shipping: allDeals.filter(d => d.status === 'shipping' || d.status === 'customs').length,
-    completed: allDeals.filter(d => d.status === 'completed' || d.status === 'delivered').length,
+    quote: allDeals.filter(d => QUOTE_PHASE.includes(d.master_status as MasterStatus)).length,
+    order: allDeals.filter(d => ORDER_PHASE.includes(d.master_status as MasterStatus)).length,
+    production: allDeals.filter(d => PRODUCTION_PHASE.includes(d.master_status as MasterStatus)).length,
+    shipping: allDeals.filter(d => SHIPPING_PHASE.includes(d.master_status as MasterStatus)).length,
+    completed: allDeals.filter(d => COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length,
   }
 
   const pipelineData = [
-    { stage: '見積中', count: statusCounts.draft + statusCounts.quoting },
-    { stage: '仕様確定', count: statusCounts.spec_confirmed },
-    { stage: '製造中', count: statusCounts.in_production },
+    { stage: '見積中', count: statusCounts.quote },
+    { stage: '発注', count: statusCounts.order },
+    { stage: '製造中', count: statusCounts.production },
     { stage: '配送中', count: statusCounts.shipping },
     { stage: '完了', count: statusCounts.completed },
   ]
 
   const recentDeals = allDeals.slice(0, 8)
 
+  // Stale deals (7 days without update, not completed)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const staleDeals = allDeals.filter(d => {
-    const updated = new Date(d.updated_at)
-    return updated < sevenDaysAgo && d.status !== 'completed' && d.status !== 'cancelled'
+    const updated = new Date(d.last_activity_at || d.updated_at)
+    return updated < sevenDaysAgo && !COMPLETED_PHASE.includes(d.master_status as MasterStatus)
   })
 
+  // Fetch pending payments
+  const { data: pendingPayments } = await supabase
+    .from('deal_factory_payments')
+    .select(`
+      id,
+      amount_usd,
+      payment_type,
+      status,
+      deal:deals(id, deal_code)
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  // Format revenue
   const revenueMillions = monthlyRevenue / 1000000
   const revenueInteger = Math.floor(revenueMillions).toString()
   const revenueDecimal = ((revenueMillions % 1) * 100).toFixed(0).padStart(2, '0')
@@ -161,7 +202,7 @@ export default async function DashboardPage() {
               </CardLabel>
               <BigNum integer={inProgressCount.toString()} unit="件" size={44} />
               <div className="flex justify-between mt-1">
-                <div><SmallVal>{statusCounts.in_production}</SmallVal><br /><SmallLabel>製造中</SmallLabel></div>
+                <div><SmallVal>{statusCounts.production}</SmallVal><br /><SmallLabel>製造中</SmallLabel></div>
                 <div className="text-right"><SmallVal>{statusCounts.shipping}</SmallVal><br /><SmallLabel>配送中</SmallLabel></div>
               </div>
               <div className="mt-2">
@@ -205,7 +246,7 @@ export default async function DashboardPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件番号</th>
+                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件コード</th>
                     <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
                     <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">商品名</th>
                     <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
@@ -214,26 +255,33 @@ export default async function DashboardPage() {
                 </thead>
                 <tbody>
                   {recentDeals.length > 0 ? recentDeals.map((deal, i) => {
-                    const amount = (deal.unit_price_cny || 0) * (deal.exchange_rate || 21.5) * (deal.quantity || 0) * 1.8
+                    const spec = deal.specifications?.[0]
+                    const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
+                    const amount = approvedQuote?.total_jpy_incl_tax || 0
+                    // Handle client being array or object
+                    const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+
                     return (
                       <tr
                         key={deal.id}
                         className={`${i < recentDeals.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors cursor-pointer`}
                       >
                         <td className="px-[14px] py-[12px]">
-                          <Link href={`/deals/${deal.id}`} className="text-[#bbb] no-underline font-display text-[12px] tabular-nums">
-                            {deal.deal_number}
+                          <Link href={`/deals/${deal.id}`} className="text-[#0a0a0a] no-underline font-display text-[12px] tabular-nums">
+                            {deal.deal_code}
                           </Link>
                         </td>
                         <td className="px-[14px] py-[12px] font-display font-semibold text-[13px] text-[#0a0a0a]">
-                          {deal.clients?.company_name || '-'}
+                          {client?.company_name || '-'}
                         </td>
-                        <td className="px-[14px] py-[12px] text-[12px] text-[#888] font-body">{deal.product_name}</td>
+                        <td className="px-[14px] py-[12px] text-[12px] text-[#888] font-body">
+                          {spec?.product_name || deal.deal_name || '-'}
+                        </td>
                         <td className="px-[14px] py-[12px]">
-                          <StatusDot status={deal.status} />
+                          <StatusDot status={deal.master_status || 'M01'} />
                         </td>
                         <td className="px-[14px] py-[12px] text-right font-display font-semibold text-[13px] tabular-nums">
-                          {formatCurrency(amount)}
+                          {amount > 0 ? formatJPY(amount) : '-'}
                         </td>
                       </tr>
                     )
@@ -256,26 +304,70 @@ export default async function DashboardPage() {
                 停滞アラート（7日以上更新なし）
               </CardLabel>
               <div className="mt-3 flex flex-col gap-2">
-                {staleDeals.slice(0, 5).map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
-                      <div>
-                        <div className="font-display text-[13px] font-medium">{deal.deal_number}</div>
-                        <div className="text-[11px] text-[#888]">{deal.product_name} - {deal.clients?.company_name || '未設定'}</div>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/deals/${deal.id}`}
-                      className="bg-[#0a0a0a] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
+                {staleDeals.slice(0, 5).map((deal) => {
+                  const spec = deal.specifications?.[0]
+                  const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+                  return (
+                    <div
+                      key={deal.id}
+                      className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
                     >
-                      対応する
-                    </Link>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3">
+                        <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
+                        <div>
+                          <div className="font-display text-[13px] font-medium">{deal.deal_code}</div>
+                          <div className="text-[11px] text-[#888]">
+                            {spec?.product_name || deal.deal_name || '商品名未設定'} - {client?.company_name || '未設定'}
+                          </div>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/deals/${deal.id}`}
+                        className="bg-[#0a0a0a] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
+                      >
+                        対応する
+                      </Link>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Payment Alerts */}
+          {pendingPayments && pendingPayments.length > 0 && (
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+              <CardLabel icon={<Icon d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />}>
+                支払いアラート
+              </CardLabel>
+              <div className="mt-3 flex flex-col gap-2">
+                {pendingPayments.map((payment) => {
+                  const deal = Array.isArray(payment.deal) ? payment.deal[0] : payment.deal
+                  return (
+                    <div
+                      key={payment.id}
+                      className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
+                        <div>
+                          <div className="font-display text-[13px] font-medium">
+                            {deal?.deal_code || '不明'} - {payment.payment_type === 'advance' ? '前払い' : '残金'}
+                          </div>
+                          <div className="text-[11px] text-[#888]">
+                            ${payment.amount_usd?.toLocaleString() || 0} USD
+                          </div>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/payments`}
+                        className="bg-[#22c55e] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
+                      >
+                        支払う
+                      </Link>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

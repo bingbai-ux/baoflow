@@ -16,7 +16,18 @@ export function SvgHorizontalBar({
   width = 400,
   height = 200,
 }: SvgHorizontalBarProps) {
-  const max = Math.max(...data.map((d) => d.value))
+  // Handle empty data or zero values
+  if (!data || data.length === 0) {
+    return (
+      <svg width={width} height={height} style={{ display: 'block' }}>
+        <text x={width / 2} y={height / 2} textAnchor="middle" style={{ fontSize: 12, fill: '#888' }}>
+          データなし
+        </text>
+      </svg>
+    )
+  }
+
+  const max = Math.max(...data.map((d) => d.value), 1) // Ensure max is at least 1
   const barHeight = 20
   const gap = 12
   const labelWidth = 120
