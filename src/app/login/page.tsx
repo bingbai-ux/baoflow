@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -34,51 +34,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ backgroundColor: '#f2f2f0' }}
-    >
-      <div
-        className="w-full max-w-sm p-8"
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          border: '1px solid rgba(0,0,0,0.06)',
-        }}
-      >
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[#f2f2f0]">
+      <div className="w-full max-w-[380px] bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-8">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1
-            className="text-2xl font-semibold mb-1"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              color: '#0a0a0a',
-            }}
-          >
+          <h1 className="text-[28px] font-bold font-display text-[#0a0a0a] tracking-[-0.02em] mb-1">
             (bao) flow
           </h1>
-          <p
-            className="text-sm"
-            style={{
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              color: '#888888',
-            }}
-          >
-            ログイン
+          <p className="text-[13px] text-[#888] font-body">
+            パッケージ受発注管理
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
           {/* Email */}
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                color: '#888888',
-              }}
-            >
+            <label className="block text-[12px] text-[#888] font-body mb-[6px]">
               メールアドレス
             </label>
             <input
@@ -86,31 +58,14 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full outline-none transition-all"
-              style={{
-                backgroundColor: '#f2f2f0',
-                borderRadius: '10px',
-                padding: '10px 14px',
-                fontSize: '13px',
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                color: '#0a0a0a',
-                border: '1px solid transparent',
-              }}
-              onFocus={(e) => e.target.style.border = '1px solid #e8e8e6'}
-              onBlur={(e) => e.target.style.border = '1px solid transparent'}
+              className="w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6] transition-all"
               placeholder="email@example.com"
             />
           </div>
 
           {/* Password */}
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                color: '#888888',
-              }}
-            >
+            <label className="block text-[12px] text-[#888] font-body mb-[6px]">
               パスワード
             </label>
             <input
@@ -118,32 +73,14 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full outline-none transition-all"
-              style={{
-                backgroundColor: '#f2f2f0',
-                borderRadius: '10px',
-                padding: '10px 14px',
-                fontSize: '13px',
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                color: '#0a0a0a',
-                border: '1px solid transparent',
-              }}
-              onFocus={(e) => e.target.style.border = '1px solid #e8e8e6'}
-              onBlur={(e) => e.target.style.border = '1px solid transparent'}
+              className="w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6] transition-all"
               placeholder="••••••••"
             />
           </div>
 
           {/* Error Message */}
           {error && (
-            <div
-              className="text-xs py-2 px-3 rounded-lg"
-              style={{
-                backgroundColor: 'rgba(229, 163, 46, 0.1)',
-                color: '#e5a32e',
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              }}
-            >
+            <div className="text-[12px] py-2 px-3 rounded-[8px] bg-[rgba(229,163,46,0.1)] text-[#e5a32e] font-body">
               {error}
             </div>
           )}
@@ -152,16 +89,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full transition-opacity disabled:opacity-50"
-            style={{
-              backgroundColor: '#0a0a0a',
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '10px 13px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            }}
+            className="w-full bg-[#0a0a0a] text-white rounded-[8px] px-4 py-[10px] text-[13px] font-medium font-body disabled:opacity-50 transition-opacity cursor-pointer"
           >
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>

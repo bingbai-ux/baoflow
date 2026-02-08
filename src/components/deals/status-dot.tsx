@@ -1,6 +1,7 @@
-import type { deal_status } from '@/lib/types'
+import { MasterStatus, MASTER_STATUS_CONFIG } from '@/lib/types'
 
-const statusColorMap: Record<string, string> = {
+// Legacy status color map (for backward compatibility)
+const legacyStatusColorMap: Record<string, string> = {
   draft: '#bbbbbb',
   quoting: '#bbbbbb',
   quoted: '#bbbbbb',
@@ -22,7 +23,8 @@ const statusColorMap: Record<string, string> = {
   on_hold: '#e5a32e',
 }
 
-const statusLabelMap: Record<string, string> = {
+// Legacy status label map (for backward compatibility)
+const legacyStatusLabelMap: Record<string, string> = {
   draft: '下書き',
   quoting: '見積中',
   quoted: '見積済',
@@ -44,34 +46,44 @@ const statusLabelMap: Record<string, string> = {
   on_hold: '保留',
 }
 
+// Check if status is a MasterStatus (M01-M25 format)
+function isMasterStatus(status: string): status is MasterStatus {
+  return /^M\d{2}$/.test(status)
+}
+
 interface StatusDotProps {
   status: string
   showLabel?: boolean
+  size?: number
 }
 
-export function StatusDot({ status, showLabel = true }: StatusDotProps) {
-  const color = statusColorMap[status] || '#bbbbbb'
-  const label = statusLabelMap[status] || status
+export function StatusDot({ status, showLabel = true, size = 5 }: StatusDotProps) {
+  let color: string
+  let label: string
+
+  if (isMasterStatus(status)) {
+    // New MasterStatus format
+    const config = MASTER_STATUS_CONFIG[status]
+    color = config?.color || '#bbbbbb'
+    label = config?.label || status
+  } else {
+    // Legacy status format
+    color = legacyStatusColorMap[status] || '#bbbbbb'
+    label = legacyStatusLabelMap[status] || status
+  }
 
   return (
     <div className="flex items-center gap-2">
       <div
+        className="rounded-full flex-shrink-0"
         style={{
-          width: '5px',
-          height: '5px',
-          borderRadius: '50%',
+          width: size,
+          height: size,
           backgroundColor: color,
-          flexShrink: 0,
         }}
       />
       {showLabel && (
-        <span
-          style={{
-            fontSize: '12px',
-            color: '#555555',
-            fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-          }}
-        >
+        <span className="text-[12px] text-[#555] font-body">
           {label}
         </span>
       )}
@@ -79,4 +91,4 @@ export function StatusDot({ status, showLabel = true }: StatusDotProps) {
   )
 }
 
-export { statusColorMap, statusLabelMap }
+export { legacyStatusColorMap as statusColorMap, legacyStatusLabelMap as statusLabelMap }

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 
 const paymentTypeLabels: Record<string, string> = {
@@ -37,6 +39,12 @@ export default async function PaymentsPage() {
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
   const { data: payments } = await supabase
     .from('payments')
     .select(`
@@ -47,177 +55,96 @@ export default async function PaymentsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div style={{ padding: '24px 26px' }}>
-      {/* Page Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "'Fraunces', serif",
-            fontSize: '24px',
-            fontWeight: 600,
-            color: '#0a0a0a',
-          }}
-        >
-          Payments
-        </h1>
-        <Link
-          href="/payments/new"
-          style={{
-            backgroundColor: '#0a0a0a',
-            color: '#ffffff',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '13px',
-            fontWeight: 500,
-            fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            textDecoration: 'none',
-          }}
-        >
-          + 新規支払い
-        </Link>
-      </div>
+    <div className="min-h-screen bg-[#f2f2f0]">
+      <Header userName={profile?.display_name || user.email || undefined} />
 
-      {/* Payments Table */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          border: '1px solid rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr
-              style={{
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <th style={headerCellStyle}>案件番号</th>
-              <th style={headerCellStyle}>クライアント</th>
-              <th style={headerCellStyle}>種別</th>
-              <th style={headerCellStyle}>方法</th>
-              <th style={{ ...headerCellStyle, textAlign: 'right' }}>金額 (JPY)</th>
-              <th style={headerCellStyle}>ステータス</th>
-              <th style={headerCellStyle}>日付</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payments && payments.length > 0 ? (
-              payments.map((payment) => (
-                <tr
-                  key={payment.id}
-                  style={{
-                    borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                >
-                  <td style={cellStyle}>
-                    {payment.deals ? (
-                      <Link
-                        href={`/deals/${payment.deals.id}`}
-                        style={{
-                          color: '#0a0a0a',
-                          textDecoration: 'none',
-                          fontFamily: "'Fraunces', serif",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {payment.deals.deal_number}
-                      </Link>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td style={cellStyle}>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {(payment.clients as any)?.clients?.company_name || '-'}
-                  </td>
-                  <td style={cellStyle}>
-                    {paymentTypeLabels[payment.payment_type] || payment.payment_type}
-                  </td>
-                  <td style={cellStyle}>
-                    {paymentMethodLabels[payment.payment_method] || payment.payment_method}
-                  </td>
-                  <td
-                    style={{
-                      ...cellStyle,
-                      textAlign: 'right',
-                      fontFamily: "'Fraunces', serif",
-                      fontVariantNumeric: 'tabular-nums',
-                      fontWeight: 500,
-                    }}
+      <main className="px-[26px] pb-10">
+        <div className="flex justify-between items-center py-[18px]">
+          <PageHeader title="Payments" />
+          <Link
+            href="/payments/new"
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            + 新規支払い
+          </Link>
+        </div>
+
+        {/* Payments Table */}
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件番号</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">種別</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">方法</th>
+                <th className="px-[14px] py-[10px] text-right text-[11px] font-medium text-[#bbb] font-body">金額 (JPY)</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">日付</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments && payments.length > 0 ? (
+                payments.map((payment, index) => (
+                  <tr
+                    key={payment.id}
+                    className={`${index < payments.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
                   >
-                    {payment.amount_jpy ? formatCurrency(payment.amount_jpy) : '-'}
-                  </td>
-                  <td style={cellStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span
-                        style={{
-                          width: '5px',
-                          height: '5px',
-                          borderRadius: '50%',
-                          backgroundColor: statusColors[payment.status] || '#bbbbbb',
-                        }}
-                      />
-                      <span style={{ fontSize: '12px' }}>
-                        {statusLabels[payment.status] || payment.status}
-                      </span>
-                    </div>
-                  </td>
+                    <td className="px-[14px] py-[12px]">
+                      {payment.deals ? (
+                        <Link
+                          href={`/deals/${payment.deals.id}`}
+                          className="text-[#0a0a0a] no-underline font-display font-medium text-[13px]"
+                        >
+                          {payment.deals.deal_number}
+                        </Link>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {(payment.clients as any)?.clients?.company_name || '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {paymentTypeLabels[payment.payment_type] || payment.payment_type}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {paymentMethodLabels[payment.payment_method] || payment.payment_method}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-right font-display tabular-nums font-medium text-[13px]">
+                      {payment.amount_jpy ? formatCurrency(payment.amount_jpy) : '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px]">
+                      <div className="flex items-center gap-[6px]">
+                        <span
+                          className="w-[5px] h-[5px] rounded-full"
+                          style={{ backgroundColor: statusColors[payment.status] || '#bbbbbb' }}
+                        />
+                        <span className="text-[12px] text-[#555] font-body">
+                          {statusLabels[payment.status] || payment.status}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-[14px] py-[12px] font-display tabular-nums text-[13px] text-[#0a0a0a]">
+                      {formatDate(payment.created_at)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
                   <td
-                    style={{
-                      ...cellStyle,
-                      fontFamily: "'Fraunces', serif",
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
+                    colSpan={7}
+                    className="px-[14px] py-[40px] text-center text-[13px] text-[#888] font-body"
                   >
-                    {formatDate(payment.created_at)}
+                    支払いがありません
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={7}
-                  style={{
-                    padding: '40px 14px',
-                    textAlign: 'center',
-                    color: '#888888',
-                    fontSize: '13px',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
-                  支払いがありません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
   )
-}
-
-const headerCellStyle: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 500,
-  color: '#bbbbbb',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const cellStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: '13px',
-  color: '#0a0a0a',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
 }

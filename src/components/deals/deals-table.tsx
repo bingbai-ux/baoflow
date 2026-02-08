@@ -35,29 +35,17 @@ export function DealsTable({ deals }: DealsTableProps) {
     router.push(`/deals/${id}`)
   }
 
+  const headers = ['案件番号', 'クライアント', '商品名', '数量', '工場', 'ステータス', '担当者', '更新日']
+
   return (
-    <div
-      style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '20px',
-        border: '1px solid rgba(0,0,0,0.06)',
-        overflow: 'hidden',
-      }}
-    >
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+      <table className="w-full border-collapse">
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-            {['案件番号', 'クライアント', '商品名', '数量', '工場', 'ステータス', '担当者', '更新日'].map((header) => (
+          <tr className="border-b border-[rgba(0,0,0,0.06)]">
+            {headers.map((header) => (
               <th
                 key={header}
-                style={{
-                  padding: '10px 14px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  color: '#bbbbbb',
-                  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                }}
+                className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body"
               >
                 {header}
               </th>
@@ -66,89 +54,34 @@ export function DealsTable({ deals }: DealsTableProps) {
         </thead>
         <tbody>
           {deals && deals.length > 0 ? (
-            deals.map((deal) => (
+            deals.map((deal, index) => (
               <tr
                 key={deal.id}
-                style={{
-                  borderBottom: '1px solid rgba(0,0,0,0.06)',
-                  cursor: 'pointer',
-                }}
+                className={`${index < deals.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors cursor-pointer`}
                 onClick={() => handleRowClick(deal.id)}
               >
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontFamily: "'Fraunces', serif",
-                    fontSize: '13px',
-                    color: '#0a0a0a',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
+                <td className="px-[14px] py-[12px] font-display text-[13px] text-[#0a0a0a] tabular-nums">
                   {deal.deal_number}
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '12px',
-                    color: '#555555',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
+                <td className="px-[14px] py-[12px] text-[12px] text-[#555] font-body">
                   {deal.clients?.company_name || '-'}
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '12px',
-                    color: '#555555',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
+                <td className="px-[14px] py-[12px] text-[12px] text-[#555] font-body">
                   {deal.product_name}
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '13px',
-                    color: '#0a0a0a',
-                    fontFamily: "'Fraunces', serif",
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
+                <td className="px-[14px] py-[12px] font-display text-[13px] text-[#0a0a0a] tabular-nums">
                   {deal.quantity?.toLocaleString() || '-'}
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '12px',
-                    color: '#555555',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
+                <td className="px-[14px] py-[12px] text-[12px] text-[#555] font-body">
                   {deal.factories?.name || '-'}
                 </td>
-                <td style={{ padding: '12px 14px' }}>
+                <td className="px-[14px] py-[12px]">
                   <StatusDot status={deal.status} />
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '12px',
-                    color: '#555555',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
+                <td className="px-[14px] py-[12px] text-[12px] text-[#555] font-body">
                   {deal.profiles?.display_name || '-'}
                 </td>
-                <td
-                  style={{
-                    padding: '12px 14px',
-                    fontSize: '12px',
-                    color: '#888888',
-                    fontFamily: "'Fraunces', serif",
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
+                <td className="px-[14px] py-[12px] font-display text-[12px] text-[#888] tabular-nums">
                   {formatDate(deal.updated_at)}
                 </td>
               </tr>
@@ -157,13 +90,7 @@ export function DealsTable({ deals }: DealsTableProps) {
             <tr>
               <td
                 colSpan={8}
-                style={{
-                  padding: '40px 14px',
-                  textAlign: 'center',
-                  fontSize: '13px',
-                  color: '#888888',
-                  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                }}
+                className="px-[14px] py-[40px] text-center text-[13px] text-[#888] font-body"
               >
                 案件がありません
               </td>

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 import { InsightBanner } from '@/components/dashboard/insight-banner'
 import { BigNum } from '@/components/shared/big-num'
 import { CardLabel } from '@/components/shared/card-label'
@@ -12,7 +13,6 @@ import { PipelineBar } from '@/components/dashboard/pipeline-bar'
 import { StatusDot } from '@/components/deals/status-dot'
 import { formatCurrency } from '@/lib/utils/format'
 
-// Icon helper
 function Icon({ d }: { d: string }) {
   return (
     <svg
@@ -20,7 +20,7 @@ function Icon({ d }: { d: string }) {
       height="15"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#888888"
+      stroke="#888"
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -44,22 +44,16 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single()
 
-  // Get all deals
   const { data: deals } = await supabase
     .from('deals')
-    .select(`
-      *,
-      clients (id, company_name)
-    `)
+    .select(`*, clients (id, company_name)`)
     .order('created_at', { ascending: false })
 
   const allDeals = deals || []
 
-  // Calculate KPIs
   const now = new Date()
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  // Monthly revenue (completed deals this month)
   const completedDealsThisMonth = allDeals.filter(d => {
     const updated = new Date(d.updated_at)
     return d.status === 'completed' && updated >= thisMonthStart
@@ -69,22 +63,18 @@ export default async function DashboardPage() {
     return sum + unitPrice * (d.quantity || 0)
   }, 0)
 
-  // Progress rate
   const completedCount = allDeals.filter(d => d.status === 'completed').length
   const totalCount = allDeals.length
   const progressRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
-  // In-progress deals (draft to shipping)
   const inProgressStatuses = ['draft', 'quoting', 'quoted', 'spec_confirmed', 'sample_requested', 'sample_approved', 'payment_pending', 'deposit_paid', 'in_production', 'production_done', 'inspection', 'shipping']
   const inProgressCount = allDeals.filter(d => inProgressStatuses.includes(d.status)).length
 
-  // Delivered this month
   const deliveredThisMonth = allDeals.filter(d => {
     const updated = new Date(d.updated_at)
     return (d.status === 'delivered' || d.status === 'completed') && updated >= thisMonthStart
   }).length
 
-  // Pipeline data
   const statusCounts = {
     draft: allDeals.filter(d => d.status === 'draft' || d.status === 'quoting').length,
     quoting: allDeals.filter(d => d.status === 'quoted').length,
@@ -102,219 +92,124 @@ export default async function DashboardPage() {
     { stage: '完了', count: statusCounts.completed },
   ]
 
-  // Recent deals (top 10)
-  const recentDeals = allDeals.slice(0, 10)
+  const recentDeals = allDeals.slice(0, 8)
 
-  // Stale deals (updated_at > 7 days, not completed/cancelled)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const staleDeals = allDeals.filter(d => {
     const updated = new Date(d.updated_at)
     return updated < sevenDaysAgo && d.status !== 'completed' && d.status !== 'cancelled'
   })
 
-  // Format revenue
   const revenueMillions = monthlyRevenue / 1000000
   const revenueInteger = Math.floor(revenueMillions).toString()
   const revenueDecimal = ((revenueMillions % 1) * 100).toFixed(0).padStart(2, '0')
 
-  // Format progress rate
   const progressInteger = Math.floor(progressRate).toString()
   const progressDecimal = ((progressRate % 1) * 100).toFixed(0).padStart(2, '0')
 
-  // Sample bar data
   const barData = [3, 5, 2, 4, 6, 3, 5, 7, 4, 6, 8, 5, 7, 4, 6, 5, 7, 3, 8, 6, 4, 7, 5, 8, 6, 4, 7, 9, 5, 8]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f2f2f0' }}>
+    <div className="min-h-screen bg-[#f2f2f0]">
       <Header userName={profile?.display_name || user.email || undefined} />
 
-      {/* Page content */}
-      <div style={{ padding: '24px 26px' }}>
-        {/* Page Header */}
-        <div style={{ marginBottom: 14 }}>
-          <div
-            style={{
-              fontSize: 11,
-              color: '#bbbbbb',
-              fontFamily: "'Fraunces', serif",
-              marginBottom: 2,
-            }}
-          >
-            Data Based on All Clients
-          </div>
-          <h1
-            style={{
-              fontSize: 36,
-              fontWeight: 900,
-              margin: 0,
-              letterSpacing: '-0.02em',
-              fontFamily: "'Fraunces', serif",
-              lineHeight: 1.05,
-              color: '#0a0a0a',
-            }}
-          >
-            Overview Panel
-            <span
-              style={{
-                display: 'inline-block',
-                width: 80,
-                height: 2,
-                background: '#e8e8e6',
-                marginLeft: 12,
-                verticalAlign: 'middle',
-              }}
-            />
-          </h1>
-        </div>
+      <main className="px-[26px] pb-10">
+        <PageHeader title="Overview Panel" subtitle="Data Based on All Clients" />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Insight Banner */}
+        <div className="flex flex-col gap-2">
           <InsightBanner />
 
-          {/* KPI Cards Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-4 gap-2">
             {/* Monthly Revenue */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
               <CardLabel icon={<Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />}>
                 月間売上
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
-                <BigNum integer={revenueInteger} decimal={revenueDecimal} unit="M¥" size={44} />
+              <BigNum integer={revenueInteger} decimal={revenueDecimal} unit="M¥" size={44} />
+              <div className="flex justify-between mt-1">
+                <div><SmallVal>{completedDealsThisMonth.length}</SmallVal><br /><SmallLabel>完了案件</SmallLabel></div>
+                <div className="text-right"><SmallVal>+12%</SmallVal><br /><SmallLabel>増減率</SmallLabel></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-                <div>
-                  <SmallVal>{completedDealsThisMonth.length}</SmallVal>
-                  <br />
-                  <SmallLabel>完了案件</SmallLabel>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <SmallVal>+12%</SmallVal>
-                  <br />
-                  <SmallLabel>増減率</SmallLabel>
-                </div>
-              </div>
-              <div style={{ marginTop: 12 }}>
+              <div className="mt-2">
                 <BarcodeBarsClient data={barData} width={200} height={22} />
               </div>
             </div>
 
             {/* Progress */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
               <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
                 案件進捗
               </CardLabel>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-                <div>
-                  <SmallVal>{completedCount}</SmallVal>
-                  <br />
-                  <SmallLabel>完了</SmallLabel>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <SmallVal>{totalCount - completedCount}</SmallVal>
-                  <br />
-                  <SmallLabel>進行中</SmallLabel>
-                </div>
+              <div className="flex justify-between">
+                <div><SmallVal>{completedCount}</SmallVal><br /><SmallLabel>完了</SmallLabel></div>
+                <div className="text-right"><SmallVal>{totalCount - completedCount}</SmallVal><br /><SmallLabel>進行中</SmallLabel></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', margin: '8px 0' }}>
+              <div className="flex justify-center items-center flex-col my-1">
                 <GaugeClient value={progressRate} size={130} />
-                <div
-                  style={{
-                    fontFamily: "'Fraunces', serif",
-                    fontSize: 26,
-                    fontWeight: 500,
-                    letterSpacing: '-0.03em',
-                    color: '#0a0a0a',
-                    marginTop: -4,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {progressInteger}
-                  <span style={{ fontSize: 14 }}>,{progressDecimal}</span>
-                  <span style={{ fontSize: 10, color: '#888888', marginTop: 2, marginLeft: 1 }}>%</span>
+                <div className="font-display text-[26px] font-medium tracking-[-0.03em] text-[#0a0a0a] -mt-1 flex items-start tabular-nums">
+                  {progressInteger}<span className="text-[14px]">,{progressDecimal}</span>
+                  <span className="text-[10px] text-[#888] mt-[2px] ml-[1px]">%</span>
                 </div>
               </div>
             </div>
 
             {/* In Progress */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
               <CardLabel icon={<Icon d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}>
                 進行中案件
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
-                <BigNum integer={inProgressCount.toString()} unit="件" size={44} />
+              <BigNum integer={inProgressCount.toString()} unit="件" size={44} />
+              <div className="flex justify-between mt-1">
+                <div><SmallVal>{statusCounts.in_production}</SmallVal><br /><SmallLabel>製造中</SmallLabel></div>
+                <div className="text-right"><SmallVal>{statusCounts.shipping}</SmallVal><br /><SmallLabel>配送中</SmallLabel></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-                <div>
-                  <SmallVal>{statusCounts.in_production}</SmallVal>
-                  <br />
-                  <SmallLabel>製造中</SmallLabel>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <SmallVal>{statusCounts.shipping}</SmallVal>
-                  <br />
-                  <SmallLabel>配送中</SmallLabel>
-                </div>
-              </div>
-              <div style={{ marginTop: 12 }}>
+              <div className="mt-2">
                 <BarcodeBarsClient data={barData} width={200} height={22} />
               </div>
             </div>
 
-            {/* Delivered this month */}
-            <div style={cardStyle}>
+            {/* Delivered */}
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
               <CardLabel icon={<Icon d="M5 13l4 4L19 7" />}>
                 今月納品
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
-                <BigNum integer={deliveredThisMonth.toString()} unit="件" size={44} />
+              <BigNum integer={deliveredThisMonth.toString()} unit="件" size={44} />
+              <div className="flex justify-between mt-1">
+                <div><SmallVal>{statusCounts.completed}</SmallVal><br /><SmallLabel>累計完了</SmallLabel></div>
+                <div className="text-right"><SmallVal>{totalCount > 0 ? Math.round((deliveredThisMonth / totalCount) * 100) : 0}%</SmallVal><br /><SmallLabel>今月率</SmallLabel></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-                <div>
-                  <SmallVal>{statusCounts.completed}</SmallVal>
-                  <br />
-                  <SmallLabel>累計完了</SmallLabel>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <SmallVal>{totalCount > 0 ? Math.round((deliveredThisMonth / totalCount) * 100) : 0}%</SmallVal>
-                  <br />
-                  <SmallLabel>今月率</SmallLabel>
-                </div>
-              </div>
-              <div style={{ marginTop: 12 }}>
+              <div className="mt-2">
                 <BarcodeBarsClient data={barData} width={200} height={22} />
               </div>
             </div>
           </div>
 
           {/* Pipeline and Recent Deals */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8 }}>
+          <div className="grid grid-cols-3 gap-2">
             {/* Pipeline */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />}>
                 パイプライン
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 <PipelineBar data={pipelineData} />
               </div>
             </div>
 
             {/* Recent Deals */}
-            <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a', fontFamily: "'Fraunces', serif" }}>
-                  最近の案件
-                </span>
+            <div className="col-span-2 bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+              <div className="px-[22px] py-[14px] border-b border-[rgba(0,0,0,0.06)]">
+                <span className="text-[14px] font-semibold text-[#0a0a0a] font-display">最近の案件</span>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                    <th style={thStyle}>案件番号</th>
-                    <th style={thStyle}>クライアント</th>
-                    <th style={thStyle}>商品名</th>
-                    <th style={thStyle}>ステータス</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>金額</th>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件番号</th>
+                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
+                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">商品名</th>
+                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
+                    <th className="px-[14px] py-[10px] text-right text-[11px] font-medium text-[#bbb] font-body">金額</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,31 +218,28 @@ export default async function DashboardPage() {
                     return (
                       <tr
                         key={deal.id}
-                        style={{
-                          borderBottom: i < recentDeals.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                          cursor: 'pointer',
-                        }}
+                        className={`${i < recentDeals.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors cursor-pointer`}
                       >
-                        <td style={tdStyle}>
-                          <Link href={`/deals/${deal.id}`} style={{ color: '#bbbbbb', textDecoration: 'none', fontFamily: "'Fraunces', serif", fontVariantNumeric: 'tabular-nums' }}>
+                        <td className="px-[14px] py-[12px]">
+                          <Link href={`/deals/${deal.id}`} className="text-[#bbb] no-underline font-display text-[12px] tabular-nums">
                             {deal.deal_number}
                           </Link>
                         </td>
-                        <td style={{ ...tdStyle, fontFamily: "'Fraunces', serif", fontWeight: 600, color: '#0a0a0a' }}>
+                        <td className="px-[14px] py-[12px] font-display font-semibold text-[13px] text-[#0a0a0a]">
                           {deal.clients?.company_name || '-'}
                         </td>
-                        <td style={tdStyle}>{deal.product_name}</td>
-                        <td style={tdStyle}>
+                        <td className="px-[14px] py-[12px] text-[12px] text-[#888] font-body">{deal.product_name}</td>
+                        <td className="px-[14px] py-[12px]">
                           <StatusDot status={deal.status} />
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontFamily: "'Fraunces', serif", fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        <td className="px-[14px] py-[12px] text-right font-display font-semibold text-[13px] tabular-nums">
                           {formatCurrency(amount)}
                         </td>
                       </tr>
                     )
                   }) : (
                     <tr>
-                      <td colSpan={5} style={{ ...tdStyle, textAlign: 'center', padding: '24px' }}>
+                      <td colSpan={5} className="px-[14px] py-[24px] text-center text-[#888] text-[13px]">
                         案件がありません
                       </td>
                     </tr>
@@ -359,52 +251,26 @@ export default async function DashboardPage() {
 
           {/* Stale Deals Alert */}
           {staleDeals.length > 0 && (
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />}>
                 停滞アラート（7日以上更新なし）
               </CardLabel>
-              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="mt-3 flex flex-col gap-2">
                 {staleDeals.slice(0, 5).map((deal) => (
                   <div
                     key={deal.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '10px 14px',
-                      backgroundColor: '#f2f2f0',
-                      borderRadius: 10,
-                    }}
+                    className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: '50%',
-                          backgroundColor: '#e5a32e',
-                        }}
-                      />
+                    <div className="flex items-center gap-3">
+                      <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
                       <div>
-                        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 500 }}>
-                          {deal.deal_number}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#888888' }}>
-                          {deal.product_name} - {deal.clients?.company_name || '未設定'}
-                        </div>
+                        <div className="font-display text-[13px] font-medium">{deal.deal_number}</div>
+                        <div className="text-[11px] text-[#888]">{deal.product_name} - {deal.clients?.company_name || '未設定'}</div>
                       </div>
                     </div>
                     <Link
                       href={`/deals/${deal.id}`}
-                      style={{
-                        backgroundColor: '#0a0a0a',
-                        color: '#ffffff',
-                        borderRadius: 8,
-                        padding: '6px 12px',
-                        fontSize: 12,
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                      }}
+                      className="bg-[#0a0a0a] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
                     >
                       対応する
                     </Link>
@@ -414,30 +280,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   )
-}
-
-const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
-  borderRadius: 20,
-  border: '1px solid rgba(0,0,0,0.06)',
-  padding: '20px 22px',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontSize: 11,
-  fontWeight: 500,
-  color: '#bbbbbb',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: 12,
-  color: '#888888',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
 }

@@ -169,32 +169,22 @@ export default function EditFactoryPage({ params }: Props) {
             </label>
             <input
               type="text"
-              name="name"
+              name="factory_name"
               required
-              defaultValue={factory.name}
+              defaultValue={factory.factory_name}
               style={inputStyle}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-            <div>
-              <label style={labelStyle}>国</label>
-              <input
-                type="text"
-                name="country"
-                defaultValue={factory.country}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>都市</label>
-              <input
-                type="text"
-                name="city"
-                defaultValue={factory.city || ''}
-                style={inputStyle}
-              />
-            </div>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={labelStyle}>住所</label>
+            <input
+              type="text"
+              name="address"
+              defaultValue={factory.address || ''}
+              style={inputStyle}
+              placeholder="例: 中国広東省深圳市"
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
@@ -224,13 +214,28 @@ export default function EditFactoryPage({ params }: Props) {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>支払い条件</label>
+            <label style={labelStyle}>デフォルト支払い条件</label>
             <input
               type="text"
-              name="payment_terms"
-              defaultValue={factory.payment_terms || ''}
+              name="default_payment_terms"
+              defaultValue={factory.default_payment_terms || ''}
               style={inputStyle}
+              placeholder="例: 前払い30%、出荷時70%"
             />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={labelStyle}>デフォルト支払い方法</label>
+            <select
+              name="default_payment_method"
+              defaultValue={factory.default_payment_method || ''}
+              style={inputStyle}
+            >
+              <option value="">選択してください</option>
+              <option value="wise">Wise</option>
+              <option value="alibaba_cc">Alibaba CC</option>
+              <option value="bank_transfer">銀行振込</option>
+            </select>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
@@ -243,38 +248,73 @@ export default function EditFactoryPage({ params }: Props) {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={labelStyle}>連絡方法</label>
+            <input
+              type="text"
+              name="contact_method"
+              defaultValue={factory.contact_method || ''}
+              style={inputStyle}
+              placeholder="例: WeChat: xxx, メール: xxx@example.com"
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <label style={labelStyle}>メール</label>
+              <label style={labelStyle}>評価 (1-5)</label>
               <input
-                type="email"
-                name="contact_email"
-                defaultValue={factory.contact_email || ''}
+                type="number"
+                name="rating"
+                min="1"
+                max="5"
+                step="0.1"
+                defaultValue={factory.rating || ''}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>WeChat</label>
+              <label style={labelStyle}>品質</label>
               <input
                 type="text"
-                name="contact_wechat"
-                defaultValue={factory.contact_wechat || ''}
+                name="quality"
+                defaultValue={factory.quality || ''}
                 style={inputStyle}
+                placeholder="A/B/C"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>価格帯</label>
+              <input
+                type="text"
+                name="price_level"
+                defaultValue={factory.price_level || ''}
+                style={inputStyle}
+                placeholder="高/中/低"
               />
             </div>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>評価 (1-5)</label>
-            <input
-              type="number"
-              name="rating"
-              min="1"
-              max="5"
-              step="0.1"
-              defaultValue={factory.rating || ''}
-              style={inputStyle}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            <div>
+              <label style={labelStyle}>レスポンス速度</label>
+              <input
+                type="text"
+                name="response_speed"
+                defaultValue={factory.response_speed || ''}
+                style={inputStyle}
+                placeholder="速い/普通/遅い"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>丁寧さ</label>
+              <input
+                type="text"
+                name="politeness"
+                defaultValue={factory.politeness || ''}
+                style={inputStyle}
+                placeholder="良い/普通/悪い"
+              />
+            </div>
           </div>
 
           <div style={{ marginBottom: '24px' }}>

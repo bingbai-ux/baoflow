@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/format'
-import type { Deal, Client } from '@/lib/types'
+import type { Deal, Client, DealSpecification, DealQuote } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -12,9 +12,15 @@ interface Props {
 
 type PdfType = 'quote' | 'invoice'
 
+interface DealWithRelations extends Deal {
+  clients?: Client
+  deal_specifications?: DealSpecification[]
+  deal_quotes?: DealQuote[]
+}
+
 export default function PdfPage({ params }: Props) {
   const [id, setId] = useState<string | null>(null)
-  const [deal, setDeal] = useState<Deal | null>(null)
+  const [deal, setDeal] = useState<DealWithRelations | null>(null)
   const [client, setClient] = useState<Client | null>(null)
   const [activeTab, setActiveTab] = useState<PdfType>('quote')
 
@@ -29,7 +35,7 @@ export default function PdfPage({ params }: Props) {
     const supabase = createClient()
     const { data: dealData } = await supabase
       .from('deals')
-      .select('*, clients(*)')
+      .select('*, clients(*), deal_specifications(*), deal_quotes(*)')
       .eq('id', dealId)
       .single()
 
@@ -58,16 +64,27 @@ export default function PdfPage({ params }: Props) {
 
   const settings = getSettings()
 
+  // Get product info from specifications
+  const spec = deal.deal_specifications?.[0]
+  const quote = deal.deal_quotes?.find(q => q.status === 'approved') || deal.deal_quotes?.[0]
+
+  const productName = spec?.product_name || deal.deal_name || '商品名未設定'
+  const specification = spec
+    ? [spec.material_category, `${spec.height_mm}×${spec.width_mm}×${spec.depth_mm}mm`].filter(Boolean).join(' ')
+    : '-'
+  const quantity = quote?.quantity || 1
+  const unitPrice = quote?.selling_price_jpy || 0
+
   const today = new Date()
   const validUntil = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
   const dueDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
 
   const quoteItems = [
     {
-      name: deal.product_name,
-      specification: `${deal.material || ''} ${deal.size || ''}`.trim() || '-',
-      quantity: deal.quantity || 1,
-      unitPrice: Math.round((deal.unit_price_cny || 0) * (deal.exchange_rate || 21.5) * 1.8),
+      name: productName,
+      specification: specification,
+      quantity: quantity,
+      unitPrice: unitPrice,
     },
   ]
 
@@ -82,7 +99,7 @@ export default function PdfPage({ params }: Props) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>見積書 - ${deal.deal_number}</title>
+  <title>見積書 - ${deal.deal_code}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
     body { font-family: 'Noto Sans JP', sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
@@ -115,7 +132,7 @@ export default function PdfPage({ params }: Props) {
     <div class="logo">(bao) flow</div>
     <div>
       <div class="label">見積番号</div>
-      <div style="font-weight: 700;">Q-${deal.deal_number}</div>
+      <div style="font-weight: 700;">Q-${deal.deal_code}</div>
     </div>
   </div>
   <div class="title">御 見 積 書</div>
@@ -196,7 +213,7 @@ export default function PdfPage({ params }: Props) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>請求書 - ${deal.deal_number}</title>
+  <title>請求書 - ${deal.deal_code}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
     body { font-family: 'Noto Sans JP', sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
@@ -231,7 +248,7 @@ export default function PdfPage({ params }: Props) {
     <div class="logo">(bao) flow</div>
     <div>
       <div class="label">請求書番号</div>
-      <div style="font-weight: 700;">INV-${deal.deal_number}</div>
+      <div style="font-weight: 700;">INV-${deal.deal_code}</div>
     </div>
   </div>
   <div class="title">請 求 書</div>
@@ -344,7 +361,7 @@ export default function PdfPage({ params }: Props) {
             帳票出力
           </h1>
           <div style={{ fontSize: '13px', color: '#888888' }}>
-            {deal.deal_number} - {deal.product_name}
+            {deal.deal_code} - {productName}
           </div>
         </div>
         <Link
@@ -474,7 +491,7 @@ export default function PdfPage({ params }: Props) {
                   {activeTab === 'quote' ? '見積番号' : '請求書番号'}
                 </div>
                 <div style={{ fontSize: '13px', fontWeight: 500 }}>
-                  {activeTab === 'quote' ? `Q-${deal.deal_number}` : `INV-${deal.deal_number}`}
+                  {activeTab === 'quote' ? `Q-${deal.deal_code}` : `INV-${deal.deal_code}`}
                 </div>
               </div>
             </div>
@@ -512,13 +529,13 @@ export default function PdfPage({ params }: Props) {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px' }}>{deal.product_name}</span>
+                <span style={{ fontSize: '13px' }}>{productName}</span>
                 <span style={{ fontSize: '13px', fontFamily: "'Fraunces', serif" }}>
-                  ¥{((deal.quantity || 1) * quoteItems[0].unitPrice).toLocaleString()}
+                  ¥{(quantity * unitPrice).toLocaleString()}
                 </span>
               </div>
               <div style={{ fontSize: '11px', color: '#888888' }}>
-                {quoteItems[0].specification} × {(deal.quantity || 1).toLocaleString()}個
+                {specification} × {quantity.toLocaleString()}個
               </div>
             </div>
 
@@ -532,7 +549,7 @@ export default function PdfPage({ params }: Props) {
                   fontFamily: "'Fraunces', serif",
                 }}
               >
-                ¥{Math.round((deal.quantity || 1) * quoteItems[0].unitPrice * 1.1).toLocaleString()}
+                ¥{Math.round(quantity * unitPrice * 1.1).toLocaleString()}
               </div>
             </div>
           </div>

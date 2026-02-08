@@ -10,10 +10,10 @@ interface HeaderProps {
 
 const navItems = [
   { href: '/', label: 'Overview' },
-  { href: '/deals', label: 'Orders' },
+  { href: '/deals', label: 'Deals' },
   { href: '/clients', label: 'Clients' },
   { href: '/factories', label: 'Factories' },
-  { href: '/analytics', label: 'Analytics' },
+  { href: '/payments', label: 'Payments' },
   { href: '/settings', label: 'Settings' },
 ]
 
@@ -36,89 +36,42 @@ export function Header({ userName }: HeaderProps) {
   }
 
   return (
-    <header
-      style={{
-        height: '52px',
-        backgroundColor: '#ffffff',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 26px',
-      }}
-    >
-      {/* Logo */}
-      <Link
-        href="/"
-        style={{
-          fontFamily: "'Fraunces', serif",
-          fontSize: '18px',
-          fontWeight: 600,
-          color: '#0a0a0a',
-          textDecoration: 'none',
-        }}
-      >
-        (bao) flow
-      </Link>
-
-      {/* Navigation */}
-      <nav style={{ display: 'flex', gap: '4px' }}>
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              padding: '7px 18px',
-              borderRadius: '9999px',
-              fontSize: '13px',
-              textDecoration: 'none',
-              transition: 'all 0.15s ease',
-              ...(isActive(item.href)
-                ? {
-                    backgroundColor: '#0a0a0a',
-                    color: '#ffffff',
-                    fontFamily: "'Fraunces', serif",
-                    fontWeight: 600,
-                  }
-                : {
-                    backgroundColor: 'transparent',
-                    color: '#888888',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                    fontWeight: 400,
-                  }),
-            }}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+    <header className="sticky top-0 z-50 flex items-center justify-between h-[52px] bg-white border-b border-[rgba(0,0,0,0.06)] px-[26px]">
+      {/* Logo + Nav */}
+      <div className="flex items-center gap-5">
+        <Link
+          href="/"
+          className="font-display text-[17px] font-semibold text-[#0a0a0a] tracking-[-0.04em] no-underline"
+        >
+          (bao)
+        </Link>
+        <nav className="flex gap-[2px]">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`px-[18px] py-[7px] rounded-full text-[13px] no-underline transition-all duration-150 ${
+                isActive(item.href)
+                  ? 'bg-[#0a0a0a] text-white font-display font-semibold'
+                  : 'bg-transparent text-[#888] font-body font-normal hover:text-[#0a0a0a]'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
       {/* User */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="flex items-center gap-3">
         {userName && (
-          <span
-            style={{
-              fontSize: '13px',
-              color: '#555555',
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            }}
-          >
+          <span className="text-[13px] text-[#555] font-body">
             {userName}
           </span>
         )}
         <button
           onClick={handleLogout}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#888888',
-            border: '1px solid #e8e8e6',
-            borderRadius: '8px',
-            padding: '5px 13px',
-            fontSize: '12px',
-            fontWeight: 500,
-            fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            cursor: 'pointer',
-          }}
+          className="bg-white text-[#888] border border-[#e8e8e6] rounded-[8px] px-[13px] py-[5px] text-[12px] font-medium font-body cursor-pointer hover:border-[#0a0a0a] hover:text-[#0a0a0a] transition-all"
         >
           ログアウト
         </button>

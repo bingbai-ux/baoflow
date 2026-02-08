@@ -1,5 +1,19 @@
 import type { Metadata } from 'next'
+import { Fraunces, Zen_Kaku_Gothic_New } from 'next/font/google'
 import '@/styles/globals.css'
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+  display: 'swap',
+})
+
+const zenKaku = Zen_Kaku_Gothic_New({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-zen-kaku',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'BAO Flow',
@@ -12,14 +26,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Zen+Kaku+Gothic+New:wght@300;400;500;700;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body style={{ backgroundColor: '#f2f2f0', margin: 0 }}>{children}</body>
+    <html lang="ja" className={`${fraunces.variable} ${zenKaku.variable}`}>
+      <body className="bg-[#f2f2f0] text-[#0a0a0a] font-body">
+        {children}
+      </body>
     </html>
   )
 }

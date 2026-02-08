@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 import { BigNum } from '@/components/shared/big-num'
 import { CardLabel } from '@/components/shared/card-label'
 import { SmallVal } from '@/components/shared/small-val'
@@ -15,7 +16,7 @@ function Icon({ d }: { d: string }) {
       height="15"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#888888"
+      stroke="#888"
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -150,65 +151,32 @@ export default async function AnalyticsPage() {
   const avgDealInteger = Math.floor(avgDealThousands).toString()
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f2f2f0' }}>
+    <div className="min-h-screen bg-[#f2f2f0]">
       <Header userName={profile?.display_name || user.email || undefined} />
 
-      <div style={{ padding: '24px 26px' }}>
-        {/* Page Header */}
-        <div style={{ marginBottom: 14 }}>
-          <div
-            style={{
-              fontSize: 11,
-              color: '#bbbbbb',
-              fontFamily: "'Fraunces', serif",
-              marginBottom: 2,
-            }}
-          >
-            Business Intelligence
-          </div>
-          <h1
-            style={{
-              fontSize: 36,
-              fontWeight: 900,
-              margin: 0,
-              letterSpacing: '-0.02em',
-              fontFamily: "'Fraunces', serif",
-              lineHeight: 1.05,
-              color: '#0a0a0a',
-            }}
-          >
-            Analytics
-            <span
-              style={{
-                display: 'inline-block',
-                width: 80,
-                height: 2,
-                background: '#e8e8e6',
-                marginLeft: 12,
-                verticalAlign: 'middle',
-              }}
-            />
-          </h1>
+      <main className="px-[26px] pb-10">
+        <div className="py-[18px]">
+          <PageHeader title="Analytics" subtitle="Business Intelligence" />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {/* KPI Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          <div className="grid grid-cols-4 gap-2">
             {/* Total Revenue */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />}>
                 累計売上
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 <BigNum integer={revenueInteger} decimal={revenueDecimal} unit="M¥" size={44} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <div className="flex justify-between mt-3">
                 <div>
                   <SmallVal>{allDeals.filter(d => d.status === 'completed').length}</SmallVal>
                   <br />
                   <SmallLabel>完了案件</SmallLabel>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className="text-right">
                   <SmallVal>{allDeals.length}</SmallVal>
                   <br />
                   <SmallLabel>総案件数</SmallLabel>
@@ -217,20 +185,20 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Average Deal Size */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
                 平均案件単価
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 <BigNum integer={avgDealInteger} unit="K¥" size={44} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <div className="flex justify-between mt-3">
                 <div>
                   <SmallVal>{allClients.length}</SmallVal>
                   <br />
                   <SmallLabel>取引先数</SmallLabel>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className="text-right">
                   <SmallVal>{allFactories.length}</SmallVal>
                   <br />
                   <SmallLabel>工場数</SmallLabel>
@@ -239,11 +207,11 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Payments In */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M7 17l9.2-9.2M17 17V7H7" />}>
                 入金合計
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 <BigNum
                   integer={Math.floor(totalPaymentsIn / 1000000).toString()}
                   decimal={((totalPaymentsIn / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
@@ -251,7 +219,7 @@ export default async function AnalyticsPage() {
                   size={44}
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <div className="flex justify-between mt-3">
                 <div>
                   <SmallVal>{allPayments.filter(p => p.direction === 'in').length}</SmallVal>
                   <br />
@@ -261,11 +229,11 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Payments Out */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M17 7l-9.2 9.2M7 7v10h10" />}>
                 出金合計
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 <BigNum
                   integer={Math.floor(totalPaymentsOut / 1000000).toString()}
                   decimal={((totalPaymentsOut / 1000000 % 1) * 100).toFixed(0).padStart(2, '0')}
@@ -273,7 +241,7 @@ export default async function AnalyticsPage() {
                   size={44}
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <div className="flex justify-between mt-3">
                 <div>
                   <SmallVal>{allPayments.filter(p => p.direction === 'out').length}</SmallVal>
                   <br />
@@ -284,13 +252,13 @@ export default async function AnalyticsPage() {
           </div>
 
           {/* Charts Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="grid grid-cols-2 gap-2">
             {/* Monthly Revenue Chart */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M3 3v18h18M7 16l4-4 4 4 5-5" />}>
                 月別売上推移
               </CardLabel>
-              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
+              <div className="mt-5 flex justify-center">
                 <SvgBarChart
                   data={monthlyData}
                   width={380}
@@ -300,11 +268,11 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Top Clients */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8" />}>
                 売上TOP5クライアント
               </CardLabel>
-              <div style={{ marginTop: 20 }}>
+              <div className="mt-5">
                 <SvgHorizontalBar
                   data={topClients}
                   width={380}
@@ -315,13 +283,13 @@ export default async function AnalyticsPage() {
           </div>
 
           {/* Summary Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div className="grid grid-cols-3 gap-2">
             {/* Status Distribution */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
                 ステータス分布
               </CardLabel>
-              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="mt-4 flex flex-col gap-2">
                 {[
                   { label: '見積中', status: ['draft', 'quoting', 'quoted'] },
                   { label: '仕様確定', status: ['spec_confirmed', 'sample_requested', 'sample_approved'] },
@@ -333,21 +301,14 @@ export default async function AnalyticsPage() {
                   const percentage = allDeals.length > 0 ? (count / allDeals.length) * 100 : 0
                   return (
                     <div key={item.label}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: '#888888' }}>{item.label}</span>
-                        <span style={{ fontSize: 11, color: '#0a0a0a', fontFamily: "'Fraunces', serif" }}>
-                          {count}
-                        </span>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[11px] text-[#888] font-body">{item.label}</span>
+                        <span className="text-[11px] text-[#0a0a0a] font-display">{count}</span>
                       </div>
-                      <div style={{ height: 4, backgroundColor: '#f2f2f0', borderRadius: 2 }}>
+                      <div className="h-1 bg-[#f2f2f0] rounded-[2px]">
                         <div
-                          style={{
-                            height: 4,
-                            backgroundColor: item.label === '完了' ? '#22c55e' : '#0a0a0a',
-                            opacity: item.label === '完了' ? 0.7 : 0.15,
-                            borderRadius: 2,
-                            width: `${percentage}%`,
-                          }}
+                          className={`h-1 rounded-[2px] ${item.label === '完了' ? 'bg-[#22c55e] opacity-70' : 'bg-[#0a0a0a] opacity-15'}`}
+                          style={{ width: `${percentage}%` }}
                         />
                       </div>
                     </div>
@@ -357,39 +318,39 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Quick Stats */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M13 10V3L4 14h7v7l9-11h-7z" />}>
                 クイック統計
               </CardLabel>
-              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                  <span style={{ fontSize: 12, color: '#888888' }}>今月新規案件</span>
-                  <span style={{ fontSize: 13, color: '#0a0a0a', fontFamily: "'Fraunces', serif", fontWeight: 500 }}>
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
+                  <span className="text-[12px] text-[#888] font-body">今月新規案件</span>
+                  <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
                     {allDeals.filter(d => {
                       const created = new Date(d.created_at)
                       return created.getMonth() === thisMonth && created.getFullYear() === thisYear
                     }).length}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                  <span style={{ fontSize: 12, color: '#888888' }}>平均単価 (CNY)</span>
-                  <span style={{ fontSize: 13, color: '#0a0a0a', fontFamily: "'Fraunces', serif", fontWeight: 500 }}>
+                <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
+                  <span className="text-[12px] text-[#888] font-body">平均単価 (CNY)</span>
+                  <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
                     ¥{allDeals.length > 0
                       ? (allDeals.reduce((sum, d) => sum + (d.unit_price_cny || 0), 0) / allDeals.length).toFixed(2)
                       : '0.00'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                  <span style={{ fontSize: 12, color: '#888888' }}>平均数量</span>
-                  <span style={{ fontSize: 13, color: '#0a0a0a', fontFamily: "'Fraunces', serif", fontWeight: 500 }}>
+                <div className="flex justify-between py-2 border-b border-[rgba(0,0,0,0.06)]">
+                  <span className="text-[12px] text-[#888] font-body">平均数量</span>
+                  <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
                     {allDeals.length > 0
                       ? Math.round(allDeals.reduce((sum, d) => sum + (d.quantity || 0), 0) / allDeals.length).toLocaleString()
                       : '0'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                  <span style={{ fontSize: 12, color: '#888888' }}>キャンセル数</span>
-                  <span style={{ fontSize: 13, color: '#0a0a0a', fontFamily: "'Fraunces', serif", fontWeight: 500 }}>
+                <div className="flex justify-between py-2">
+                  <span className="text-[12px] text-[#888] font-body">キャンセル数</span>
+                  <span className="text-[13px] text-[#0a0a0a] font-display font-medium">
                     {allDeals.filter(d => d.status === 'cancelled').length}
                   </span>
                 </div>
@@ -397,34 +358,28 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Net Cashflow */}
-            <div style={cardStyle}>
+            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}>
                 キャッシュフロー
               </CardLabel>
-              <div style={{ marginTop: 16 }}>
-                <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#888888', marginBottom: 4 }}>純利益</div>
-                  <div style={{
-                    fontFamily: "'Fraunces', serif",
-                    fontSize: 32,
-                    fontWeight: 600,
-                    color: totalPaymentsIn - totalPaymentsOut >= 0 ? '#22c55e' : '#e5a32e',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>
+              <div className="mt-4">
+                <div className="text-center mb-4">
+                  <div className="text-[11px] text-[#888] font-body mb-1">純利益</div>
+                  <div className={`font-display text-[32px] font-semibold tabular-nums ${totalPaymentsIn - totalPaymentsOut >= 0 ? 'text-[#22c55e]' : 'text-[#e5a32e]'}`}>
                     {totalPaymentsIn - totalPaymentsOut >= 0 ? '+' : ''}
                     {((totalPaymentsIn - totalPaymentsOut) / 1000000).toFixed(2)}M
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#888888' }}>入金</div>
-                    <div style={{ fontSize: 14, color: '#22c55e', fontFamily: "'Fraunces', serif" }}>
+                <div className="flex justify-between py-2 border-t border-[rgba(0,0,0,0.06)]">
+                  <div className="text-center flex-1">
+                    <div className="text-[10px] text-[#888] font-body">入金</div>
+                    <div className="text-[14px] text-[#22c55e] font-display">
                       +{(totalPaymentsIn / 1000000).toFixed(1)}M
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#888888' }}>出金</div>
-                    <div style={{ fontSize: 14, color: '#0a0a0a', fontFamily: "'Fraunces', serif" }}>
+                  <div className="text-center flex-1">
+                    <div className="text-[10px] text-[#888] font-body">出金</div>
+                    <div className="text-[14px] text-[#0a0a0a] font-display">
                       -{(totalPaymentsOut / 1000000).toFixed(1)}M
                     </div>
                   </div>
@@ -433,14 +388,7 @@ export default async function AnalyticsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
-}
-
-const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
-  borderRadius: 20,
-  border: '1px solid rgba(0,0,0,0.06)',
-  padding: '20px 22px',
 }

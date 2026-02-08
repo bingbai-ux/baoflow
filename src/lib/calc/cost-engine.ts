@@ -1,182 +1,176 @@
 /**
- * 原価計算エンジン
+ * 原価計算エンジン (USD基準)
  * BAO Flow - Cost Calculation Engine
  */
 
-export type ShippingMethod = 'sea_d2d' | 'air_ocs'
-export type PaymentMethod = 'wise' | 'alibaba'
+export type PaymentMethod = 'wise' | 'alibaba_cc' | 'bank_transfer'
 
-export interface CostParams {
-  unitPriceCny: number        // 工場単価 CNY
-  quantity: number            // 数量
-  exchangeRate: number        // CNY→JPY レート (例: 21.5)
-  shippingMethod: ShippingMethod
-  productWeightKg: number     // 1個あたり重量 kg
-  productVolumeCbm?: number   // 1個あたり体積 cbm（オプション）
-  tariffRate?: number         // 関税率 % (デフォルト 0)
-  paymentMethod: PaymentMethod
-  markupRate: number          // 掛率 (例: 1.8)
+export interface WiseFeeConfig {
+  conversion_fee_rate: number  // 例: 0.0045 (0.45%)
+  swift_fee_usd: number        // 例: 5.0
 }
 
-export interface CostResult {
-  // 入力パラメータ（参照用）
-  params: CostParams
-
-  // 商品代金
-  productCostCny: number      // 商品代金 CNY
-  productCostJpy: number      // 商品代金 JPY
-
-  // 送料
-  shippingCostJpy: number     // 送料 JPY
-  shippingUnitCost: number    // 送料単価（/kg or /cbm）
-  shippingWeight: number      // 総重量 kg
-  shippingVolume: number      // 総体積 cbm
-
-  // CIF価格
-  cifJpy: number              // CIF価格 JPY (商品代金 + 送料)
-
-  // 関税・消費税
-  tariffJpy: number           // 関税 JPY
-  consumptionTaxJpy: number   // 消費税 JPY (10%)
-
-  // 決済手数料
-  paymentFeeJpy: number       // 決済手数料 JPY
-  paymentFeeRate: number      // 手数料率 %
-
-  // 原価
-  totalCostJpy: number        // 原価合計 JPY
-  unitCostJpy: number         // 1個あたり原価 JPY
-
-  // 販売価格
-  unitSellingPrice: number    // 1個あたり販売価格 JPY
-  totalSellingPrice: number   // 販売合計 JPY
-
-  // 粗利
-  grossProfit: number         // 粗利 JPY
-  grossProfitRate: number     // 粗利率 %
+export interface QuoteCalculationParams {
+  factoryUnitPriceUsd: number    // 工場単価 USD
+  quantity: number               // 数量
+  shippingCostUsd: number        // 配送コスト USD
+  plateFeeUsd: number            // 版代 USD
+  otherFeesUsd: number           // その他費用 USD
+  exchangeRate: number           // USD→JPY レート (例: 155)
+  costRatio: number              // 掛率 (例: 0.55 → 原価率55%)
+  taxRate: number                // 消費税率 (例: 10)
+  paymentMethod?: PaymentMethod
+  wiseFeeConfig?: WiseFeeConfig
+  alibabaCcFeeRate?: number      // 例: 0.03 (3%)
 }
 
-// 配送料金テーブル
-const SHIPPING_RATES = {
-  sea_d2d: {
-    unit: 'cbm',
-    minRate: 30000,  // 円/CBM
-    maxRate: 50000,
-    defaultRate: 40000,
-  },
-  air_ocs: {
-    unit: 'kg',
-    minRate: 1500,   // 円/kg
-    maxRate: 2500,
-    defaultRate: 2000,
-  },
-}
+export interface QuoteCalculationResult {
+  // 入力パラメータ
+  params: QuoteCalculationParams
 
-// 決済手数料テーブル
-const PAYMENT_FEES = {
-  wise: {
-    rate: 0.006,      // 0.6%
-    fixedFee: 150,    // 固定手数料 150円
-  },
-  alibaba: {
-    rate: 0.03,       // 3.0%
-    fixedFee: 0,
-  },
+  // コスト内訳 (USD)
+  productCostUsd: number         // 商品代金 USD (単価 × 数量)
+  shippingCostUsd: number        // 配送コスト USD
+  plateFeeUsd: number            // 版代 USD
+  otherFeesUsd: number           // その他費用 USD
+  totalCostUsd: number           // 原価合計 USD
+  unitCostUsd: number            // 1個あたり原価 USD
+
+  // 販売価格 (USD / JPY)
+  sellingPriceUsd: number        // 販売単価 USD (unitCost / costRatio)
+  sellingPriceJpy: number        // 販売単価 JPY (ceil)
+  totalBillingJpy: number        // 請求合計 JPY (税抜)
+  totalBillingTaxJpy: number     // 請求合計 JPY (税込)
+
+  // 利益
+  grossProfitUsd: number         // 粗利 USD
+  grossProfitMargin: number      // 粗利率 %
+
+  // 決済手数料 (オプション)
+  paymentFeeUsd?: number         // 決済手数料 USD
+  netProfitUsd?: number          // 純利益 USD (粗利 - 決済手数料)
 }
 
 /**
- * 原価計算メイン関数
+ * 見積計算メイン関数
+ *
+ * 計算ロジック:
+ * a) 商品代金 USD = 工場単価 × 数量
+ * b) 原価合計 USD = 商品代金 + 配送 + 版代 + その他
+ * c) 1個あたり原価 USD = 原価合計 / 数量
+ * d) 販売単価 USD = 1個あたり原価 / 掛率
+ * e) 販売単価 JPY = ceil(販売単価USD × 為替レート)
+ * f) 請求合計 JPY (税抜) = 販売単価JPY × 数量
+ * g) 請求合計 JPY (税込) = 請求合計 × (1 + 消費税率/100)
+ * h) 粗利 USD = 請求合計JPY / 為替レート - 原価合計USD
+ * i) 粗利率 = 粗利 / (請求合計 / 為替レート) × 100
  */
-export function calculateCost(params: CostParams): CostResult {
+export function calculateQuote(params: QuoteCalculationParams): QuoteCalculationResult {
   const {
-    unitPriceCny,
+    factoryUnitPriceUsd,
     quantity,
+    shippingCostUsd,
+    plateFeeUsd,
+    otherFeesUsd,
     exchangeRate,
-    shippingMethod,
-    productWeightKg,
-    productVolumeCbm = 0,
-    tariffRate = 0,
+    costRatio,
+    taxRate,
     paymentMethod,
-    markupRate,
+    wiseFeeConfig,
+    alibabaCcFeeRate,
   } = params
 
-  // (a) 商品代金
-  const productCostCny = unitPriceCny * quantity
-  const productCostJpy = productCostCny * exchangeRate
+  // (a) 商品代金 USD
+  const productCostUsd = factoryUnitPriceUsd * quantity
 
-  // (b) 送料計算
-  const totalWeightKg = productWeightKg * quantity
-  const totalVolumeCbm = (productVolumeCbm || 0) * quantity
+  // (b) 原価合計 USD
+  const totalCostUsd = productCostUsd + shippingCostUsd + plateFeeUsd + otherFeesUsd
 
-  let shippingCostJpy: number
-  let shippingUnitCost: number
+  // (c) 1個あたり原価 USD
+  const unitCostUsd = totalCostUsd / quantity
 
-  if (shippingMethod === 'sea_d2d') {
-    // 海上輸送 (D2D): CBM単位
-    shippingUnitCost = SHIPPING_RATES.sea_d2d.defaultRate
-    // 最小0.1 CBM
-    const effectiveCbm = Math.max(totalVolumeCbm, 0.1)
-    shippingCostJpy = effectiveCbm * shippingUnitCost
-  } else {
-    // 航空輸送 (OCS): kg単位
-    shippingUnitCost = SHIPPING_RATES.air_ocs.defaultRate
-    // 容積重量と実重量の大きい方
-    const volumetricWeight = totalVolumeCbm * 167 // 航空の容積重量換算
-    const chargeableWeight = Math.max(totalWeightKg, volumetricWeight)
-    shippingCostJpy = chargeableWeight * shippingUnitCost
+  // (d) 販売単価 USD (掛率で逆算)
+  // costRatio = 原価 / 販売価格 → 販売価格 = 原価 / costRatio
+  const sellingPriceUsd = unitCostUsd / costRatio
+
+  // (e) 販売単価 JPY (切り上げ)
+  const sellingPriceJpy = Math.ceil(sellingPriceUsd * exchangeRate)
+
+  // (f) 請求合計 JPY (税抜)
+  const totalBillingJpy = sellingPriceJpy * quantity
+
+  // (g) 請求合計 JPY (税込)
+  const totalBillingTaxJpy = Math.ceil(totalBillingJpy * (1 + taxRate / 100))
+
+  // (h) 粗利 USD
+  const revenueUsd = totalBillingJpy / exchangeRate
+  const grossProfitUsd = revenueUsd - totalCostUsd
+
+  // (i) 粗利率
+  const grossProfitMargin = revenueUsd > 0 ? (grossProfitUsd / revenueUsd) * 100 : 0
+
+  // 決済手数料計算 (オプション)
+  let paymentFeeUsd: number | undefined
+  let netProfitUsd: number | undefined
+
+  if (paymentMethod) {
+    paymentFeeUsd = calculatePaymentFee(
+      productCostUsd,
+      paymentMethod,
+      wiseFeeConfig,
+      alibabaCcFeeRate
+    )
+    netProfitUsd = grossProfitUsd - paymentFeeUsd
   }
-
-  // CIF価格
-  const cifJpy = productCostJpy + shippingCostJpy
-
-  // (c) 関税
-  const tariffJpy = cifJpy * (tariffRate / 100)
-
-  // (d) 消費税 (10%)
-  const consumptionTaxJpy = (cifJpy + tariffJpy) * 0.1
-
-  // (e) 決済手数料
-  const feeConfig = PAYMENT_FEES[paymentMethod]
-  const paymentFeeJpy = productCostJpy * feeConfig.rate + feeConfig.fixedFee
-  const paymentFeeRate = feeConfig.rate * 100
-
-  // (f) 原価合計
-  const totalCostJpy = productCostJpy + shippingCostJpy + tariffJpy + consumptionTaxJpy + paymentFeeJpy
-
-  // (g) 1個あたり原価
-  const unitCostJpy = totalCostJpy / quantity
-
-  // (h) 販売単価
-  const unitSellingPrice = unitCostJpy * markupRate
-
-  // 販売合計
-  const totalSellingPrice = unitSellingPrice * quantity
-
-  // (i) 粗利
-  const grossProfit = totalSellingPrice - totalCostJpy
-
-  // (j) 粗利率
-  const grossProfitRate = (grossProfit / totalSellingPrice) * 100
 
   return {
     params,
-    productCostCny,
-    productCostJpy,
-    shippingCostJpy,
-    shippingUnitCost,
-    shippingWeight: totalWeightKg,
-    shippingVolume: totalVolumeCbm,
-    cifJpy,
-    tariffJpy,
-    consumptionTaxJpy,
-    paymentFeeJpy,
-    paymentFeeRate,
-    totalCostJpy,
-    unitCostJpy,
-    unitSellingPrice,
-    totalSellingPrice,
-    grossProfit,
-    grossProfitRate,
+    productCostUsd,
+    shippingCostUsd,
+    plateFeeUsd,
+    otherFeesUsd,
+    totalCostUsd,
+    unitCostUsd,
+    sellingPriceUsd,
+    sellingPriceJpy,
+    totalBillingJpy,
+    totalBillingTaxJpy,
+    grossProfitUsd,
+    grossProfitMargin,
+    paymentFeeUsd,
+    netProfitUsd,
+  }
+}
+
+/**
+ * 決済手数料計算
+ */
+function calculatePaymentFee(
+  amountUsd: number,
+  method: PaymentMethod,
+  wiseFeeConfig?: WiseFeeConfig,
+  alibabaCcFeeRate?: number
+): number {
+  switch (method) {
+    case 'wise':
+      if (wiseFeeConfig) {
+        // Wise: 為替手数料 + SWIFT手数料
+        return amountUsd * wiseFeeConfig.conversion_fee_rate + wiseFeeConfig.swift_fee_usd
+      }
+      // デフォルト: 0.45% + $5
+      return amountUsd * 0.0045 + 5
+
+    case 'alibaba_cc':
+      // Alibaba クレジットカード: 通常3%
+      const rate = alibabaCcFeeRate ?? 0.03
+      return amountUsd * rate
+
+    case 'bank_transfer':
+      // 銀行振込: 固定手数料 (概算)
+      return 25 // $25 程度
+
+    default:
+      return 0
   }
 }
 
@@ -184,11 +178,11 @@ export function calculateCost(params: CostParams): CostResult {
  * 複数数量での比較計算
  */
 export function calculateMultipleQuantities(
-  baseParams: Omit<CostParams, 'quantity'>,
+  baseParams: Omit<QuoteCalculationParams, 'quantity'>,
   quantities: number[]
-): CostResult[] {
+): QuoteCalculationResult[] {
   return quantities.map(quantity =>
-    calculateCost({ ...baseParams, quantity })
+    calculateQuote({ ...baseParams, quantity })
   )
 }
 
@@ -196,61 +190,107 @@ export function calculateMultipleQuantities(
  * 支払い方法比較
  */
 export interface PaymentComparison {
-  wise: CostResult
-  alibaba: CostResult
+  wise: QuoteCalculationResult
+  alibabaCc: QuoteCalculationResult
+  bankTransfer: QuoteCalculationResult
   recommendation: PaymentMethod
-  savingsJpy: number
+  savingsUsd: number
 }
 
 export function comparePaymentMethods(
-  params: Omit<CostParams, 'paymentMethod'>
+  params: Omit<QuoteCalculationParams, 'paymentMethod'>
 ): PaymentComparison {
-  const wiseResult = calculateCost({ ...params, paymentMethod: 'wise' })
-  const alibabaResult = calculateCost({ ...params, paymentMethod: 'alibaba' })
+  const wiseResult = calculateQuote({ ...params, paymentMethod: 'wise' })
+  const alibabaResult = calculateQuote({ ...params, paymentMethod: 'alibaba_cc' })
+  const bankResult = calculateQuote({ ...params, paymentMethod: 'bank_transfer' })
 
-  const recommendation: PaymentMethod =
-    wiseResult.totalCostJpy < alibabaResult.totalCostJpy ? 'wise' : 'alibaba'
+  // 決済手数料が最も安い方法を推奨
+  const fees = [
+    { method: 'wise' as PaymentMethod, fee: wiseResult.paymentFeeUsd ?? 0, result: wiseResult },
+    { method: 'alibaba_cc' as PaymentMethod, fee: alibabaResult.paymentFeeUsd ?? 0, result: alibabaResult },
+    { method: 'bank_transfer' as PaymentMethod, fee: bankResult.paymentFeeUsd ?? 0, result: bankResult },
+  ]
 
-  const savingsJpy = Math.abs(wiseResult.totalCostJpy - alibabaResult.totalCostJpy)
+  fees.sort((a, b) => a.fee - b.fee)
+  const recommendation = fees[0].method
+  const savingsUsd = fees[fees.length - 1].fee - fees[0].fee
 
   return {
     wise: wiseResult,
-    alibaba: alibabaResult,
+    alibabaCc: alibabaResult,
+    bankTransfer: bankResult,
     recommendation,
-    savingsJpy,
+    savingsUsd,
   }
 }
 
 /**
- * 配送方法比較
+ * 配送オプション付き見積計算
  */
-export interface ShippingComparison {
-  sea_d2d: CostResult
-  air_ocs: CostResult
-  recommendation: ShippingMethod
-  savingsJpy: number
-  deliveryDaysDiff: number
+export interface ShippingOption {
+  method: string
+  costUsd: number
+  deliveryDays: number
 }
 
-export function compareShippingMethods(
-  params: Omit<CostParams, 'shippingMethod'>
-): ShippingComparison {
-  const seaResult = calculateCost({ ...params, shippingMethod: 'sea_d2d' })
-  const airResult = calculateCost({ ...params, shippingMethod: 'air_ocs' })
+export interface QuoteWithShippingOptions {
+  baseQuote: QuoteCalculationResult
+  shippingOptions: Array<{
+    option: ShippingOption
+    quote: QuoteCalculationResult
+  }>
+  cheapestOption: ShippingOption
+  fastestOption: ShippingOption
+}
 
-  const recommendation: ShippingMethod =
-    seaResult.totalCostJpy < airResult.totalCostJpy ? 'sea_d2d' : 'air_ocs'
+export function calculateQuoteWithShippingOptions(
+  baseParams: Omit<QuoteCalculationParams, 'shippingCostUsd'>,
+  shippingOptions: ShippingOption[]
+): QuoteWithShippingOptions {
+  const results = shippingOptions.map(option => ({
+    option,
+    quote: calculateQuote({
+      ...baseParams,
+      shippingCostUsd: option.costUsd,
+    }),
+  }))
 
-  const savingsJpy = Math.abs(seaResult.totalCostJpy - airResult.totalCostJpy)
+  // 最安オプション
+  const cheapestOption = [...shippingOptions].sort((a, b) => a.costUsd - b.costUsd)[0]
 
-  // 海上は約30日、航空は約5日
-  const deliveryDaysDiff = 25
+  // 最速オプション
+  const fastestOption = [...shippingOptions].sort((a, b) => a.deliveryDays - b.deliveryDays)[0]
+
+  // ベース見積は最安オプションで計算
+  const baseQuote = calculateQuote({
+    ...baseParams,
+    shippingCostUsd: cheapestOption.costUsd,
+  })
 
   return {
-    sea_d2d: seaResult,
-    air_ocs: airResult,
-    recommendation,
-    savingsJpy,
-    deliveryDaysDiff,
+    baseQuote,
+    shippingOptions: results,
+    cheapestOption,
+    fastestOption,
+  }
+}
+
+/**
+ * 簡易見積計算 (最小パラメータ)
+ */
+export function calculateSimpleQuote(
+  factoryUnitPriceUsd: number,
+  quantity: number,
+  exchangeRate: number = 155,
+  costRatio: number = 0.55
+): { sellingPriceJpy: number; totalBillingJpy: number } {
+  const unitCostUsd = factoryUnitPriceUsd
+  const sellingPriceUsd = unitCostUsd / costRatio
+  const sellingPriceJpy = Math.ceil(sellingPriceUsd * exchangeRate)
+  const totalBillingJpy = sellingPriceJpy * quantity
+
+  return {
+    sellingPriceJpy,
+    totalBillingJpy,
   }
 }

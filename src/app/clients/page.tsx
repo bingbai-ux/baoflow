@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 import { formatDate } from '@/lib/utils/format'
 
 export default async function ClientsPage() {
@@ -11,150 +13,96 @@ export default async function ClientsPage() {
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
   const { data: clients } = await supabase
     .from('clients')
     .select('*')
     .order('created_at', { ascending: false })
 
   return (
-    <div style={{ padding: '24px 26px' }}>
-      {/* Page Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "'Fraunces', serif",
-            fontSize: '24px',
-            fontWeight: 600,
-            color: '#0a0a0a',
-          }}
-        >
-          Clients
-        </h1>
-        <Link
-          href="/clients/new"
-          style={{
-            backgroundColor: '#0a0a0a',
-            color: '#ffffff',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '13px',
-            fontWeight: 500,
-            fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            textDecoration: 'none',
-          }}
-        >
-          + 新規顧客
-        </Link>
-      </div>
+    <div className="min-h-screen bg-[#f2f2f0]">
+      <Header userName={profile?.display_name || user.email || undefined} />
 
-      {/* Clients Table */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          border: '1px solid rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr
-              style={{
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <th style={headerCellStyle}>会社名</th>
-              <th style={headerCellStyle}>担当者</th>
-              <th style={headerCellStyle}>メール</th>
-              <th style={headerCellStyle}>電話</th>
-              <th style={headerCellStyle}>登録日</th>
-              <th style={{ ...headerCellStyle, width: '80px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients && clients.length > 0 ? (
-              clients.map((client) => (
-                <tr
-                  key={client.id}
-                  style={{
-                    borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                >
-                  <td style={cellStyle}>
-                    <Link
-                      href={`/clients/${client.id}`}
-                      style={{
-                        color: '#0a0a0a',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {client.company_name}
-                    </Link>
-                  </td>
-                  <td style={cellStyle}>{client.contact_name || '-'}</td>
-                  <td style={cellStyle}>{client.email || '-'}</td>
-                  <td style={cellStyle}>{client.phone || '-'}</td>
-                  <td style={{ ...cellStyle, fontFamily: "'Fraunces', serif", fontVariantNumeric: 'tabular-nums' }}>
-                    {formatDate(client.created_at)}
-                  </td>
-                  <td style={cellStyle}>
-                    <Link
-                      href={`/clients/${client.id}/edit`}
-                      style={{
-                        color: '#888888',
-                        fontSize: '12px',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      編集
-                    </Link>
+      <main className="px-[26px] pb-10">
+        <div className="flex justify-between items-center py-[18px]">
+          <PageHeader title="Clients" />
+          <Link
+            href="/clients/new"
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            + 新規顧客
+          </Link>
+        </div>
+
+        {/* Clients Table */}
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">会社名</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">担当者</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">メール</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">電話</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">登録日</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body w-[80px]"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients && clients.length > 0 ? (
+                clients.map((client, index) => (
+                  <tr
+                    key={client.id}
+                    className={`${index < clients.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
+                  >
+                    <td className="px-[14px] py-[12px]">
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="text-[#0a0a0a] no-underline font-medium text-[13px] font-body"
+                      >
+                        {client.company_name}
+                      </Link>
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {client.contact_name || '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {client.email || '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {client.phone || '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px] font-display text-[13px] text-[#0a0a0a] tabular-nums">
+                      {formatDate(client.created_at)}
+                    </td>
+                    <td className="px-[14px] py-[12px]">
+                      <Link
+                        href={`/clients/${client.id}/edit`}
+                        className="text-[#888] text-[12px] no-underline font-body"
+                      >
+                        編集
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-[14px] py-[40px] text-center text-[13px] text-[#888] font-body"
+                  >
+                    顧客がありません
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={6}
-                  style={{
-                    padding: '40px 14px',
-                    textAlign: 'center',
-                    color: '#888888',
-                    fontSize: '13px',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
-                  顧客がありません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
   )
-}
-
-const headerCellStyle: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 500,
-  color: '#bbbbbb',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const cellStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: '13px',
-  color: '#0a0a0a',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
 }

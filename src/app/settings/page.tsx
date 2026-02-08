@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 
 interface Settings {
   company: {
@@ -99,322 +101,249 @@ export default function SettingsPage() {
     { id: 'markup', label: '掛率設定' },
   ]
 
-  return (
-    <div style={{ padding: '24px 26px' }}>
-      <h1
-        style={{
-          fontFamily: "'Fraunces', serif",
-          fontSize: '24px',
-          fontWeight: 600,
-          color: '#0a0a0a',
-          marginBottom: '24px',
-        }}
-      >
-        Settings
-      </h1>
+  const inputClassName = "w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6] transition-all"
+  const inputDisabledClassName = "w-full bg-[#e8e8e6] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border-none outline-none"
 
-      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: '16px' }}>
-        {/* Sidebar */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            border: '1px solid rgba(0,0,0,0.06)',
-            padding: '12px',
-          }}
-        >
-          {sidebarItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: activeSection === item.id ? 600 : 400,
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                textAlign: 'left',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeSection === item.id ? '#0a0a0a' : 'transparent',
-                color: activeSection === item.id ? '#ffffff' : '#555555',
-                marginBottom: '4px',
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+  return (
+    <div className="min-h-screen bg-[#f2f2f0]">
+      <Header />
+
+      <main className="px-[26px] pb-10">
+        <div className="py-[18px]">
+          <PageHeader title="Settings" />
         </div>
 
-        {/* Content */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            border: '1px solid rgba(0,0,0,0.06)',
-            padding: '20px 22px',
-          }}
-        >
-          {activeSection === 'company' && (
-            <>
-              <h2 style={sectionTitleStyle}>会社情報</h2>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={labelStyle}>会社名</label>
-                <input
-                  type="text"
-                  value={settings.company.name}
-                  onChange={(e) => updateSettings('company', 'name', e.target.value)}
-                  style={inputStyle}
-                  placeholder="株式会社バオフロー"
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={labelStyle}>住所</label>
-                <input
-                  type="text"
-                  value={settings.company.address}
-                  onChange={(e) => updateSettings('company', 'address', e.target.value)}
-                  style={inputStyle}
-                  placeholder="東京都渋谷区..."
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={labelStyle}>電話番号</label>
-                  <input
-                    type="text"
-                    value={settings.company.phone}
-                    onChange={(e) => updateSettings('company', 'phone', e.target.value)}
-                    style={inputStyle}
-                    placeholder="03-1234-5678"
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>メールアドレス</label>
-                  <input
-                    type="email"
-                    value={settings.company.email}
-                    onChange={(e) => updateSettings('company', 'email', e.target.value)}
-                    style={inputStyle}
-                    placeholder="info@baoflow.jp"
-                  />
-                </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={labelStyle}>適格請求書発行事業者番号</label>
-                <input
-                  type="text"
-                  value={settings.company.invoiceNumber}
-                  onChange={(e) => updateSettings('company', 'invoiceNumber', e.target.value)}
-                  style={inputStyle}
-                  placeholder="T1234567890123"
-                />
-              </div>
-            </>
-          )}
+        <div className="grid grid-cols-[200px_1fr] gap-4">
+          {/* Sidebar */}
+          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-3">
+            {sidebarItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`block w-full px-[14px] py-[10px] rounded-[10px] text-[13px] text-left mb-1 font-body transition-colors cursor-pointer border-none ${
+                  activeSection === item.id
+                    ? 'bg-[#0a0a0a] text-white font-semibold'
+                    : 'bg-transparent text-[#555] hover:bg-[#f2f2f0]'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-          {activeSection === 'exchange' && (
-            <>
-              <h2 style={sectionTitleStyle}>為替設定</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={labelStyle}>基準通貨</label>
+          {/* Content */}
+          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            {activeSection === 'company' && (
+              <>
+                <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">会社情報</h2>
+                <div className="mb-4">
+                  <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">会社名</label>
                   <input
                     type="text"
-                    value={settings.exchange.baseCurrency}
-                    disabled
-                    style={{ ...inputStyle, backgroundColor: '#e8e8e6' }}
+                    value={settings.company.name}
+                    onChange={(e) => updateSettings('company', 'name', e.target.value)}
+                    className={inputClassName}
+                    placeholder="株式会社バオフロー"
                   />
                 </div>
-                <div>
-                  <label style={labelStyle}>仕入通貨</label>
+                <div className="mb-4">
+                  <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">住所</label>
                   <input
                     type="text"
-                    value={settings.exchange.sourceCurrency}
-                    disabled
-                    style={{ ...inputStyle, backgroundColor: '#e8e8e6' }}
+                    value={settings.company.address}
+                    onChange={(e) => updateSettings('company', 'address', e.target.value)}
+                    className={inputClassName}
+                    placeholder="東京都渋谷区..."
                   />
                 </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={labelStyle}>デフォルトレート (CNY→JPY)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={settings.exchange.defaultRate}
-                    onChange={(e) => updateSettings('exchange', 'defaultRate', parseFloat(e.target.value))}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>バッファ率 (%)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={settings.exchange.bufferRate}
-                    onChange={(e) => updateSettings('exchange', 'bufferRate', parseFloat(e.target.value))}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeSection === 'fees' && (
-            <>
-              <h2 style={sectionTitleStyle}>手数料設定</h2>
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={subTitleStyle}>Wise</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
-                    <label style={labelStyle}>手数料率 (%)</label>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">電話番号</label>
+                    <input
+                      type="text"
+                      value={settings.company.phone}
+                      onChange={(e) => updateSettings('company', 'phone', e.target.value)}
+                      className={inputClassName}
+                      placeholder="03-1234-5678"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">メールアドレス</label>
+                    <input
+                      type="email"
+                      value={settings.company.email}
+                      onChange={(e) => updateSettings('company', 'email', e.target.value)}
+                      className={inputClassName}
+                      placeholder="info@baoflow.jp"
+                    />
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">適格請求書発行事業者番号</label>
+                  <input
+                    type="text"
+                    value={settings.company.invoiceNumber}
+                    onChange={(e) => updateSettings('company', 'invoiceNumber', e.target.value)}
+                    className={inputClassName}
+                    placeholder="T1234567890123"
+                  />
+                </div>
+              </>
+            )}
+
+            {activeSection === 'exchange' && (
+              <>
+                <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">為替設定</h2>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">基準通貨</label>
+                    <input
+                      type="text"
+                      value={settings.exchange.baseCurrency}
+                      disabled
+                      className={inputDisabledClassName}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">仕入通貨</label>
+                    <input
+                      type="text"
+                      value={settings.exchange.sourceCurrency}
+                      disabled
+                      className={inputDisabledClassName}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">デフォルトレート (CNY→JPY)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={settings.exchange.defaultRate}
+                      onChange={(e) => updateSettings('exchange', 'defaultRate', parseFloat(e.target.value))}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">バッファ率 (%)</label>
                     <input
                       type="number"
                       step="0.1"
-                      value={settings.fees.wiseRate}
-                      onChange={(e) => updateSettings('fees', 'wiseRate', parseFloat(e.target.value))}
-                      style={inputStyle}
+                      value={settings.exchange.bufferRate}
+                      onChange={(e) => updateSettings('exchange', 'bufferRate', parseFloat(e.target.value))}
+                      className={inputClassName}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === 'fees' && (
+              <>
+                <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">手数料設定</h2>
+                <div className="mb-5">
+                  <h3 className="text-[13px] font-medium text-[#555] mb-3 font-body">Wise</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">手数料率 (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={settings.fees.wiseRate}
+                        onChange={(e) => updateSettings('fees', 'wiseRate', parseFloat(e.target.value))}
+                        className={inputClassName}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">固定手数料 (円)</label>
+                      <input
+                        type="number"
+                        value={settings.fees.wiseFixed}
+                        onChange={(e) => updateSettings('fees', 'wiseFixed', parseInt(e.target.value))}
+                        className={inputClassName}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-[13px] font-medium text-[#555] mb-3 font-body">Alibaba</h3>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">手数料率 (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={settings.fees.alibabaRate}
+                      onChange={(e) => updateSettings('fees', 'alibabaRate', parseFloat(e.target.value))}
+                      className={inputClassName}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === 'shipping' && (
+              <>
+                <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">配送設定</h2>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">D2D海上輸送単価 (円/CBM)</label>
+                    <input
+                      type="number"
+                      value={settings.shipping.seaD2dRate}
+                      onChange={(e) => updateSettings('shipping', 'seaD2dRate', parseInt(e.target.value))}
+                      className={inputClassName}
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>固定手数料 (円)</label>
+                    <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">OCS航空輸送単価 (円/kg)</label>
                     <input
                       type="number"
-                      value={settings.fees.wiseFixed}
-                      onChange={(e) => updateSettings('fees', 'wiseFixed', parseInt(e.target.value))}
-                      style={inputStyle}
+                      value={settings.shipping.airOcsRate}
+                      onChange={(e) => updateSettings('shipping', 'airOcsRate', parseInt(e.target.value))}
+                      className={inputClassName}
                     />
                   </div>
                 </div>
-              </div>
-              <div>
-                <h3 style={subTitleStyle}>Alibaba</h3>
-                <div>
-                  <label style={labelStyle}>手数料率 (%)</label>
+              </>
+            )}
+
+            {activeSection === 'markup' && (
+              <>
+                <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">掛率設定</h2>
+                <div className="mb-4">
+                  <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">デフォルト掛率</label>
                   <input
                     type="number"
                     step="0.1"
-                    value={settings.fees.alibabaRate}
-                    onChange={(e) => updateSettings('fees', 'alibabaRate', parseFloat(e.target.value))}
-                    style={inputStyle}
+                    value={settings.markupRate}
+                    onChange={(e) => setSettings(prev => ({ ...prev, markupRate: parseFloat(e.target.value) }))}
+                    className={inputClassName}
                   />
+                  <p className="text-[11px] text-[#888] mt-[6px] font-body">
+                    原価に対する販売価格の倍率（例: 1.8 = 80%の粗利）
+                  </p>
                 </div>
-              </div>
-            </>
-          )}
-
-          {activeSection === 'shipping' && (
-            <>
-              <h2 style={sectionTitleStyle}>配送設定</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={labelStyle}>D2D海上輸送単価 (円/CBM)</label>
-                  <input
-                    type="number"
-                    value={settings.shipping.seaD2dRate}
-                    onChange={(e) => updateSettings('shipping', 'seaD2dRate', parseInt(e.target.value))}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>OCS航空輸送単価 (円/kg)</label>
-                  <input
-                    type="number"
-                    value={settings.shipping.airOcsRate}
-                    onChange={(e) => updateSettings('shipping', 'airOcsRate', parseInt(e.target.value))}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeSection === 'markup' && (
-            <>
-              <h2 style={sectionTitleStyle}>掛率設定</h2>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={labelStyle}>デフォルト掛率</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={settings.markupRate}
-                  onChange={(e) => setSettings(prev => ({ ...prev, markupRate: parseFloat(e.target.value) }))}
-                  style={inputStyle}
-                />
-                <p style={{ fontSize: '11px', color: '#888888', marginTop: '6px' }}>
-                  原価に対する販売価格の倍率（例: 1.8 = 80%の粗利）
-                </p>
-              </div>
-            </>
-          )}
-
-          <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              style={{
-                backgroundColor: '#0a0a0a',
-                color: '#ffffff',
-                borderRadius: '8px',
-                padding: '10px 20px',
-                fontSize: '13px',
-                fontWeight: 500,
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                border: 'none',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                opacity: isSaving ? 0.7 : 1,
-              }}
-            >
-              {isSaving ? '保存中...' : '設定を保存'}
-            </button>
-            {saved && (
-              <span style={{ fontSize: '13px', color: '#22c55e' }}>
-                保存しました
-              </span>
+              </>
             )}
+
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-[#0a0a0a] text-white rounded-[8px] px-5 py-[10px] text-[13px] font-medium font-body disabled:opacity-70 transition-opacity cursor-pointer border-none"
+              >
+                {isSaving ? '保存中...' : '設定を保存'}
+              </button>
+              {saved && (
+                <span className="text-[13px] text-[#22c55e] font-body">
+                  保存しました
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
-}
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: '16px',
-  fontWeight: 600,
-  color: '#0a0a0a',
-  marginBottom: '20px',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const subTitleStyle: React.CSSProperties = {
-  fontSize: '13px',
-  fontWeight: 500,
-  color: '#555555',
-  marginBottom: '12px',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '12px',
-  fontWeight: 500,
-  color: '#555555',
-  marginBottom: '6px',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  backgroundColor: '#f2f2f0',
-  borderRadius: '10px',
-  padding: '10px 14px',
-  fontSize: '13px',
-  border: 'none',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-  outline: 'none',
-  boxSizing: 'border-box',
 }

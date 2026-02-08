@@ -2,76 +2,141 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type {
+  DealFactoryPayment,
+  CreatePaymentInput,
+  UpdatePaymentInput,
+  PaymentStatus,
+} from '@/lib/types'
 
-export type PaymentType = 'deposit' | 'balance' | 'full'
-export type PaymentMethodType = 'wise' | 'alibaba' | 'bank_transfer'
-export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed'
-
-export async function createPaymentAction(formData: FormData) {
+export async function createPayment(
+  input: CreatePaymentInput
+): Promise<{ data: DealFactoryPayment | null; error: string | null }> {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'ログインが必要です' }
-  }
-
-  const amountCny = formData.get('amount_cny') as string
-  const amountJpy = formData.get('amount_jpy') as string
-  const exchangeRate = formData.get('exchange_rate') as string
-
   const { data, error } = await supabase
-    .from('payments')
+    .from('deal_factory_payments')
     .insert({
-      deal_id: formData.get('deal_id') as string,
-      payment_type: formData.get('payment_type') as PaymentType,
-      payment_method: formData.get('payment_method') as PaymentMethodType,
-      amount_cny: amountCny ? parseFloat(amountCny) : null,
-      amount_jpy: amountJpy ? parseFloat(amountJpy) : null,
-      exchange_rate: exchangeRate ? parseFloat(exchangeRate) : null,
-      reference_number: formData.get('reference_number') as string || null,
-      status: 'pending' as PaymentStatus,
-      notes: formData.get('notes') as string || null,
-      created_by: user.id,
+      deal_id: input.deal_id,
+      factory_id: input.factory_id,
+      payment_type: input.payment_type,
+      payment_method: input.payment_method || null,
+      amount_usd: input.amount_usd || null,
+      amount_jpy: input.amount_jpy || null,
+      due_date: input.due_date || null,
+      trigger_condition: input.trigger_condition || null,
+      status: 'unpaid',
     })
     .select()
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { data: null, error: error.message }
   }
 
   revalidatePath('/payments')
-  return { data }
+  revalidatePath(`/deals/${input.deal_id}`)
+  return { data, error: null }
 }
 
-export async function updatePaymentStatus(id: string, status: PaymentStatus) {
+export async function updatePayment(
+  id: string,
+  input: UpdatePaymentInput
+): Promise<{ data: DealFactoryPayment | null; error: string | null }> {
   const supabase = await createClient()
 
-  const { error } = await supabase
-    .from('payments')
-    .update({ status })
+  const updateData: Record<string, unknown> = { ...input }
+
+  // If marking as paid, set paid_at timestamp
+  if (input.status === 'paid' && !input.paid_at) {
+    updateData.paid_at = new Date().toISOString()
+  }
+
+  const { data, error } = await supabase
+    .from('deal_factory_payments')
+    .update(updateData)
     .eq('id', id)
+    .select()
+    .single()
 
   if (error) {
-    return { error: error.message }
+    return { data: null, error: error.message }
   }
 
   revalidatePath('/payments')
-  return { success: true }
+  if (data.deal_id) {
+    revalidatePath(`/deals/${data.deal_id}`)
+  }
+  return { data, error: null }
 }
 
-export async function deletePaymentAction(id: string) {
+export async function markPaymentAsPaid(
+  id: string
+): Promise<{ data: DealFactoryPayment | null; error: string | null }> {
+  return updatePayment(id, {
+    status: 'paid' as PaymentStatus,
+    paid_at: new Date().toISOString(),
+  })
+}
+
+export async function getPaymentsForDeal(dealId: string): Promise<DealFactoryPayment[]> {
   const supabase = await createClient()
 
-  const { error } = await supabase
-    .from('payments')
-    .delete()
-    .eq('id', id)
+  const { data } = await supabase
+    .from('deal_factory_payments')
+    .select('*, factory:factories(factory_name)')
+    .eq('deal_id', dealId)
+    .order('created_at', { ascending: true })
 
-  if (error) {
-    return { error: error.message }
+  return data || []
+}
+
+export async function getAllPayments(filters?: {
+  status?: PaymentStatus
+  upcomingDays?: number
+}): Promise<DealFactoryPayment[]> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('deal_factory_payments')
+    .select('*, deal:deals(deal_code, deal_name), factory:factories(factory_name)')
+    .order('due_date', { ascending: true })
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
   }
 
-  revalidatePath('/payments')
-  return { success: true }
+  if (filters?.upcomingDays) {
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + filters.upcomingDays)
+    query = query
+      .eq('status', 'unpaid')
+      .lte('due_date', futureDate.toISOString().split('T')[0])
+  }
+
+  const { data } = await query
+
+  return data || []
+}
+
+export async function getUpcomingPayments(days: number = 14): Promise<DealFactoryPayment[]> {
+  return getAllPayments({ upcomingDays: days })
+}
+
+// FormData wrapper for legacy page compatibility
+export async function createPaymentAction(
+  formData: FormData
+): Promise<{ data: DealFactoryPayment | null; error: string | null }> {
+  const input: CreatePaymentInput = {
+    deal_id: formData.get('deal_id') as string,
+    factory_id: (formData.get('factory_id') as string) || undefined,
+    payment_type: formData.get('payment_type') as 'advance' | 'balance' | 'full',
+    payment_method: (formData.get('payment_method') as 'wise' | 'alibaba_cc' | 'bank_transfer') || undefined,
+    amount_usd: formData.get('amount_usd') ? parseFloat(formData.get('amount_usd') as string) : undefined,
+    amount_jpy: formData.get('amount_jpy') ? parseInt(formData.get('amount_jpy') as string) : undefined,
+    due_date: (formData.get('due_date') as string) || undefined,
+    trigger_condition: (formData.get('trigger_condition') as string) || undefined,
+  }
+
+  return createPayment(input)
 }

@@ -8,8 +8,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["'Fraunces'", "serif"],
-        body: ["'Zen Kaku Gothic New'", "system-ui", "sans-serif"],
+        display: ["var(--font-fraunces)", "'Fraunces'", "serif"],
+        body: ["var(--font-zen-kaku)", "'Zen Kaku Gothic New'", "system-ui", "sans-serif"],
       },
       colors: {
         bg: {
@@ -60,13 +60,10 @@ const config: Config = {
         "header": "52px",
       },
       fontSize: {
-        // KPI sizes
         "kpi-xl": ["44px", { lineHeight: "1", letterSpacing: "-0.03em" }],
         "kpi-lg": ["36px", { lineHeight: "1", letterSpacing: "-0.03em" }],
         "kpi-md": ["26px", { lineHeight: "1", letterSpacing: "-0.03em" }],
-        // Page title
         "page-title": ["36px", { lineHeight: "1.05", letterSpacing: "-0.025em" }],
-        // Body
         "card-label": ["12.5px", { lineHeight: "1" }],
         "small-val": ["13px", { lineHeight: "1" }],
         "small-label": ["11px", { lineHeight: "1" }],

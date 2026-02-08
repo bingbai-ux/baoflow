@@ -1,3 +1,12 @@
+-- Create update_updated_at_column function if not exists
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Product registry for tracking product items and price history
 CREATE TABLE product_registry (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

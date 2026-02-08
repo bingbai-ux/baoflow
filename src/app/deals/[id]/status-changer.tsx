@@ -3,51 +3,50 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateDealStatus } from '@/lib/actions/deals'
+import { MasterStatus, MASTER_STATUS_CONFIG } from '@/lib/types'
 import { statusLabelMap } from '@/components/deals/status-dot'
-import type { deal_status } from '@/lib/types'
 
-const statusOrder: deal_status[] = [
-  'draft',
-  'quoting',
-  'quoted',
-  'spec_confirmed',
-  'sample_requested',
-  'sample_approved',
-  'payment_pending',
-  'deposit_paid',
-  'in_production',
-  'production_done',
-  'inspection',
-  'shipping',
-  'customs',
-  'delivered',
-  'invoice_sent',
-  'payment_received',
-  'completed',
+// Master Status order (M01-M25)
+const statusOrder: MasterStatus[] = [
+  'M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10',
+  'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20',
+  'M21', 'M22', 'M23', 'M24', 'M25',
 ]
 
 interface StatusChangerProps {
   dealId: string
   currentStatus: string
-  userId: string
 }
 
-export function StatusChanger({ dealId, currentStatus, userId }: StatusChangerProps) {
+export function StatusChanger({ dealId, currentStatus }: StatusChangerProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleStatusChange = async (newStatus: deal_status) => {
+  const handleStatusChange = async (newStatus: MasterStatus) => {
     setLoading(true)
-    await updateDealStatus(dealId, newStatus, userId)
+    await updateDealStatus(dealId, newStatus, 'ステータス変更')
     setLoading(false)
     router.refresh()
+  }
+
+  // Check if current status is MasterStatus format
+  const isMasterStatus = (status: string): status is MasterStatus => {
+    return /^M\d{2}$/.test(status)
+  }
+
+  // Get label for status (supports both old and new formats)
+  const getStatusLabel = (status: string) => {
+    if (isMasterStatus(status)) {
+      return MASTER_STATUS_CONFIG[status]?.label || status
+    }
+    return statusLabelMap[status] || status
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <select
         value={currentStatus}
-        onChange={(e) => handleStatusChange(e.target.value as deal_status)}
+        onChange={(e) => handleStatusChange(e.target.value as MasterStatus)}
         disabled={loading}
         style={{
           width: '100%',
@@ -65,11 +64,9 @@ export function StatusChanger({ dealId, currentStatus, userId }: StatusChangerPr
       >
         {statusOrder.map((status) => (
           <option key={status} value={status}>
-            {statusLabelMap[status] || status}
+            {getStatusLabel(status)}
           </option>
         ))}
-        <option value="cancelled">キャンセル</option>
-        <option value="on_hold">保留</option>
       </select>
       {loading && (
         <div

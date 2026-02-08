@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { StatusDot, statusLabelMap } from '@/components/deals/status-dot'
+import { Header } from '@/components/layout/header'
+import { StatusDot } from '@/components/deals/status-dot'
 import { StatusChanger } from './status-changer'
 import { RepeatButton } from './repeat-button'
+import { DealDetailTabs } from './deal-detail-tabs'
+import { MASTER_STATUS_CONFIG, type MasterStatus } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,13 +21,26 @@ export default async function DealDetailPage({ params }: Props) {
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
+  // Fetch deal with all relations
   const { data: deal } = await supabase
     .from('deals')
     .select(`
       *,
-      clients (id, company_name, contact_name, email, phone),
-      factories (id, name, city, country),
-      profiles (id, display_name)
+      client:clients(id, company_name, contact_name, email, phone),
+      sales_user:profiles!deals_sales_user_id_fkey(id, display_name),
+      specifications:deal_specifications(*),
+      factory_assignments:deal_factory_assignments(*, factory:factories(*)),
+      quotes:deal_quotes(*, factory:factories(*), shipping_options:deal_shipping_options(*)),
+      samples:deal_samples(*),
+      payments:deal_factory_payments(*),
+      design_files:deal_design_files(*),
+      shipping:deal_shipping(*)
     `)
     .eq('id', id)
     .single()
@@ -37,303 +53,100 @@ export default async function DealDetailPage({ params }: Props) {
     .from('deal_status_history')
     .select(`
       *,
-      profiles (id, display_name)
+      changer:profiles!deal_status_history_changed_by_fkey(id, display_name)
     `)
     .eq('deal_id', id)
     .order('changed_at', { ascending: false })
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  const infoRowStyle = {
-    display: 'flex',
-    borderBottom: '1px solid rgba(0,0,0,0.06)',
-    padding: '12px 0',
-  }
-
-  const labelCellStyle = {
-    width: '120px',
-    fontSize: '12px',
-    color: '#888888',
-    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-    flexShrink: 0,
-  }
-
-  const valueCellStyle = {
-    fontSize: '13px',
-    color: '#0a0a0a',
-    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-  }
+  const currentStatus = (deal.master_status || 'M01') as MasterStatus
+  const statusConfig = MASTER_STATUS_CONFIG[currentStatus]
+  const spec = deal.specifications?.[0]
 
   return (
-    <div style={{ padding: '24px 26px' }}>
-      {/* Page Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h1
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontSize: '24px',
-              fontWeight: 600,
-              color: '#0a0a0a',
-            }}
-          >
-            {deal.deal_number}
-          </h1>
-          <StatusDot status={deal.status} />
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link
-            href={`/deals/${id}/quote`}
-            style={{
-              backgroundColor: '#22c55e',
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            見積もり計算
-          </Link>
-          <Link
-            href={`/deals/${id}/excel-import`}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#0a0a0a',
-              border: '1px solid #e8e8e6',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            Excel取込
-          </Link>
-          <Link
-            href={`/deals/${id}/pdf`}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#0a0a0a',
-              border: '1px solid #e8e8e6',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            帳票出力
-          </Link>
-          <Link
-            href={`/deals/${id}/designs`}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#0a0a0a',
-              border: '1px solid #e8e8e6',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            デザイン
-          </Link>
-          <RepeatButton dealId={id} />
-          <Link
-            href={`/deals/${id}/edit`}
-            style={{
-              backgroundColor: '#0a0a0a',
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            編集
-          </Link>
-          <Link
-            href="/deals"
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#888888',
-              border: '1px solid #e8e8e6',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              textDecoration: 'none',
-            }}
-          >
-            一覧に戻る
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#f2f2f0]">
+      <Header userName={profile?.display_name || user.email || undefined} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        {/* Deal Info Card */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            border: '1px solid rgba(0,0,0,0.06)',
-            padding: '20px 22px',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#0a0a0a',
-              marginBottom: '16px',
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            }}
-          >
-            案件情報
-          </h2>
-
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>クライアント</div>
-            <div style={valueCellStyle}>{deal.clients?.company_name || '-'}</div>
-          </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>工場</div>
-            <div style={valueCellStyle}>
-              {deal.factories ? `${deal.factories.name} (${deal.factories.city || deal.factories.country})` : '-'}
+      <main className="px-[26px] pb-10">
+        {/* Page Header */}
+        <div className="flex justify-between items-center py-[18px]">
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
+                  {deal.deal_code}
+                </h1>
+                <StatusDot status={currentStatus} />
+              </div>
+              {deal.deal_name && (
+                <p className="text-[13px] text-[#888] font-body mt-1">{deal.deal_name}</p>
+              )}
             </div>
           </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>商品名</div>
-            <div style={valueCellStyle}>{deal.product_name}</div>
-          </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>材質</div>
-            <div style={valueCellStyle}>{deal.material || '-'}</div>
-          </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>サイズ</div>
-            <div style={valueCellStyle}>{deal.size || '-'}</div>
-          </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>数量</div>
-            <div style={{ ...valueCellStyle, fontFamily: "'Fraunces', serif", fontVariantNumeric: 'tabular-nums' }}>
-              {deal.quantity?.toLocaleString() || '-'}
-            </div>
-          </div>
-          <div style={infoRowStyle}>
-            <div style={labelCellStyle}>担当者</div>
-            <div style={valueCellStyle}>{deal.profiles?.display_name || '-'}</div>
-          </div>
-          <div style={{ ...infoRowStyle, borderBottom: 'none' }}>
-            <div style={labelCellStyle}>備考</div>
-            <div style={valueCellStyle}>{deal.notes || '-'}</div>
-          </div>
-        </div>
-
-        {/* Status Card */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            border: '1px solid rgba(0,0,0,0.06)',
-            padding: '20px 22px',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#0a0a0a',
-              marginBottom: '16px',
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            }}
-          >
-            ステータス変更
-          </h2>
-
-          <StatusChanger dealId={id} currentStatus={deal.status} userId={user.id} />
-
-          {/* Status History */}
-          <h3
-            style={{
-              fontSize: '12px',
-              fontWeight: 500,
-              color: '#888888',
-              marginTop: '24px',
-              marginBottom: '12px',
-              fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            }}
-          >
-            変更履歴
-          </h3>
-
-          {statusHistory && statusHistory.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {statusHistory.map((history) => (
-                <div
-                  key={history.id}
-                  style={{
-                    padding: '10px 12px',
-                    backgroundColor: '#f2f2f0',
-                    borderRadius: '8px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <StatusDot status={history.from_status || 'draft'} showLabel={false} />
-                    <span style={{ color: '#888888', fontSize: '11px' }}>→</span>
-                    <StatusDot status={history.to_status} />
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      color: '#888888',
-                      fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                    }}
-                  >
-                    {history.profiles?.display_name || '不明'} · {formatDateTime(history.changed_at)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                fontSize: '12px',
-                color: '#888888',
-                fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-              }}
+          <div className="flex gap-2">
+            <Link
+              href={`/deals/${id}/quotes/new`}
+              className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
             >
-              履歴がありません
-            </div>
-          )}
+              見積もり作成
+            </Link>
+            <Link
+              href={`/deals/${id}/excel-import`}
+              className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+            >
+              Excel取込
+            </Link>
+            <Link
+              href={`/deals/${id}/documents`}
+              className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+            >
+              帳票出力
+            </Link>
+            <RepeatButton dealId={id} />
+            <Link
+              href={`/deals/${id}/edit`}
+              className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+            >
+              編集
+            </Link>
+            <Link
+              href="/deals"
+              className="bg-white text-[#888] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+            >
+              戻る
+            </Link>
+          </div>
         </div>
-      </div>
+
+        {/* Info Bar */}
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-4 mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="text-[11px] text-[#888] font-body">クライアント</span>
+              <p className="text-[13px] text-[#0a0a0a] font-body">{deal.client?.company_name || '-'}</p>
+            </div>
+            <div>
+              <span className="text-[11px] text-[#888] font-body">担当営業</span>
+              <p className="text-[13px] text-[#0a0a0a] font-body">{deal.sales_user?.display_name || '-'}</p>
+            </div>
+            {statusConfig?.nextAction && (
+              <div>
+                <span className="text-[11px] text-[#888] font-body">次のアクション</span>
+                <p className="text-[13px] text-[#22c55e] font-body">{statusConfig.nextAction}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusChanger dealId={id} currentStatus={currentStatus} />
+          </div>
+        </div>
+
+        {/* Tabbed Content */}
+        <DealDetailTabs
+          deal={deal}
+          spec={spec}
+          statusHistory={statusHistory || []}
+        />
+      </main>
     </div>
   )
 }

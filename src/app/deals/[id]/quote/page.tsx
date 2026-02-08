@@ -1,40 +1,41 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
-  calculateCost,
+  calculateQuote,
   calculateMultipleQuantities,
   comparePaymentMethods,
-  type CostParams,
-  type CostResult,
+  type QuoteCalculationParams,
+  type QuoteCalculationResult,
   type PaymentMethod,
-  type ShippingMethod,
 } from '@/lib/calc/cost-engine'
-import { formatCurrency, formatPercent } from '@/lib/utils/format'
-import type { Deal } from '@/lib/types'
+import { formatJPY, formatUSD, formatPercent } from '@/lib/utils/format'
+import type { Deal, DealSpecification } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export default function QuoteCalculationPage({ params }: Props) {
-  const router = useRouter()
-  const [id, setId] = useState<string | null>(null)
-  const [deal, setDeal] = useState<Deal | null>(null)
+interface DealWithSpec extends Deal {
+  deal_specifications?: DealSpecification[]
+}
 
-  // Form state
-  const [unitPriceCny, setUnitPriceCny] = useState('10')
-  const [exchangeRate, setExchangeRate] = useState('21.5')
+export default function QuoteCalculationPage({ params }: Props) {
+  const [id, setId] = useState<string | null>(null)
+  const [deal, setDeal] = useState<DealWithSpec | null>(null)
+
+  // Form state (USD-based)
+  const [factoryUnitPriceUsd, setFactoryUnitPriceUsd] = useState('0.50')
+  const [exchangeRate, setExchangeRate] = useState('155')
   const [quantities, setQuantities] = useState<string[]>(['1000', '3000', '5000'])
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('sea_d2d')
-  const [productWeightKg, setProductWeightKg] = useState('0.05')
-  const [productVolumeCbm, setProductVolumeCbm] = useState('0.0005')
-  const [tariffRate, setTariffRate] = useState('0')
+  const [shippingCostUsd, setShippingCostUsd] = useState('200')
+  const [plateFeeUsd, setPlateFeeUsd] = useState('100')
+  const [otherFeesUsd, setOtherFeesUsd] = useState('0')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wise')
-  const [markupRate, setMarkupRate] = useState('1.8')
+  const [costRatio, setCostRatio] = useState('0.55')
+  const [taxRate, setTaxRate] = useState('10')
 
   useEffect(() => {
     params.then(p => {
@@ -47,29 +48,26 @@ export default function QuoteCalculationPage({ params }: Props) {
     const supabase = createClient()
     const { data } = await supabase
       .from('deals')
-      .select('*')
+      .select('*, deal_specifications(*)')
       .eq('id', dealId)
       .single()
     if (data) {
       setDeal(data)
-      if (data.unit_price_cny) setUnitPriceCny(data.unit_price_cny.toString())
-      if (data.exchange_rate) setExchangeRate(data.exchange_rate.toString())
-      if (data.quantity) setQuantities([data.quantity.toString()])
     }
   }
 
-  const baseParams: Omit<CostParams, 'quantity' | 'paymentMethod'> = useMemo(() => ({
-    unitPriceCny: parseFloat(unitPriceCny) || 0,
-    exchangeRate: parseFloat(exchangeRate) || 21.5,
-    shippingMethod,
-    productWeightKg: parseFloat(productWeightKg) || 0,
-    productVolumeCbm: parseFloat(productVolumeCbm) || 0,
-    tariffRate: parseFloat(tariffRate) || 0,
-    markupRate: parseFloat(markupRate) || 1.8,
-  }), [unitPriceCny, exchangeRate, shippingMethod, productWeightKg, productVolumeCbm, tariffRate, markupRate])
+  const baseParams: Omit<QuoteCalculationParams, 'quantity' | 'paymentMethod'> = useMemo(() => ({
+    factoryUnitPriceUsd: parseFloat(factoryUnitPriceUsd) || 0,
+    shippingCostUsd: parseFloat(shippingCostUsd) || 0,
+    plateFeeUsd: parseFloat(plateFeeUsd) || 0,
+    otherFeesUsd: parseFloat(otherFeesUsd) || 0,
+    exchangeRate: parseFloat(exchangeRate) || 155,
+    costRatio: parseFloat(costRatio) || 0.55,
+    taxRate: parseFloat(taxRate) || 10,
+  }), [factoryUnitPriceUsd, shippingCostUsd, plateFeeUsd, otherFeesUsd, exchangeRate, costRatio, taxRate])
 
   // Calculate results for all quantities
-  const quantityResults: CostResult[] = useMemo(() => {
+  const quantityResults: QuoteCalculationResult[] = useMemo(() => {
     const validQuantities = quantities
       .map(q => parseInt(q))
       .filter(q => q > 0)
@@ -101,6 +99,9 @@ export default function QuoteCalculationPage({ params }: Props) {
     newQuantities[index] = value
     setQuantities(newQuantities)
   }
+
+  const spec = deal?.deal_specifications?.[0]
+  const productName = spec?.product_name || deal?.deal_name || '商品名未設定'
 
   if (!deal) {
     return (
@@ -134,7 +135,7 @@ export default function QuoteCalculationPage({ params }: Props) {
             見積もり計算
           </h1>
           <div style={{ fontSize: '13px', color: '#888888' }}>
-            {deal.deal_number} - {deal.product_name}
+            {deal.deal_code} - {productName}
           </div>
         </div>
         <Link
@@ -168,18 +169,18 @@ export default function QuoteCalculationPage({ params }: Props) {
           <h2 style={sectionTitleStyle}>入力パラメータ</h2>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>工場単価 (CNY)</label>
+            <label style={labelStyle}>工場単価 (USD)</label>
             <input
               type="number"
               step="0.01"
-              value={unitPriceCny}
-              onChange={(e) => setUnitPriceCny(e.target.value)}
+              value={factoryUnitPriceUsd}
+              onChange={(e) => setFactoryUnitPriceUsd(e.target.value)}
               style={inputStyle}
             />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>為替レート (CNY→JPY)</label>
+            <label style={labelStyle}>為替レート (USD→JPY)</label>
             <input
               type="number"
               step="0.01"
@@ -235,74 +236,36 @@ export default function QuoteCalculationPage({ params }: Props) {
             </button>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>配送方法</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShippingMethod('sea_d2d')}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: shippingMethod === 'sea_d2d' ? '#0a0a0a' : '#f2f2f0',
-                  color: shippingMethod === 'sea_d2d' ? '#ffffff' : '#555555',
-                }}
-              >
-                海上 (D2D)
-              </button>
-              <button
-                type="button"
-                onClick={() => setShippingMethod('air_ocs')}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: shippingMethod === 'air_ocs' ? '#0a0a0a' : '#f2f2f0',
-                  color: shippingMethod === 'air_ocs' ? '#ffffff' : '#555555',
-                }}
-              >
-                航空 (OCS)
-              </button>
-            </div>
-          </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <label style={labelStyle}>1個あたり重量 (kg)</label>
+              <label style={labelStyle}>配送費 (USD)</label>
               <input
                 type="number"
-                step="0.001"
-                value={productWeightKg}
-                onChange={(e) => setProductWeightKg(e.target.value)}
+                step="1"
+                value={shippingCostUsd}
+                onChange={(e) => setShippingCostUsd(e.target.value)}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>1個あたり体積 (CBM)</label>
+              <label style={labelStyle}>版代 (USD)</label>
               <input
                 type="number"
-                step="0.0001"
-                value={productVolumeCbm}
-                onChange={(e) => setProductVolumeCbm(e.target.value)}
+                step="1"
+                value={plateFeeUsd}
+                onChange={(e) => setPlateFeeUsd(e.target.value)}
                 style={inputStyle}
               />
             </div>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>関税率 (%)</label>
+            <label style={labelStyle}>その他費用 (USD)</label>
             <input
               type="number"
-              step="0.1"
-              value={tariffRate}
-              onChange={(e) => setTariffRate(e.target.value)}
+              step="1"
+              value={otherFeesUsd}
+              onChange={(e) => setOtherFeesUsd(e.target.value)}
               style={inputStyle}
             />
           </div>
@@ -328,7 +291,7 @@ export default function QuoteCalculationPage({ params }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setPaymentMethod('alibaba')}
+                onClick={() => setPaymentMethod('alibaba_cc')}
                 style={{
                   flex: 1,
                   padding: '8px',
@@ -336,24 +299,36 @@ export default function QuoteCalculationPage({ params }: Props) {
                   fontSize: '12px',
                   border: 'none',
                   cursor: 'pointer',
-                  backgroundColor: paymentMethod === 'alibaba' ? '#0a0a0a' : '#f2f2f0',
-                  color: paymentMethod === 'alibaba' ? '#ffffff' : '#555555',
+                  backgroundColor: paymentMethod === 'alibaba_cc' ? '#0a0a0a' : '#f2f2f0',
+                  color: paymentMethod === 'alibaba_cc' ? '#ffffff' : '#555555',
                 }}
               >
-                Alibaba
+                Alibaba CC
               </button>
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>掛率</label>
-            <input
-              type="number"
-              step="0.1"
-              value={markupRate}
-              onChange={(e) => setMarkupRate(e.target.value)}
-              style={inputStyle}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>掛率 (原価率)</label>
+              <input
+                type="number"
+                step="0.05"
+                value={costRatio}
+                onChange={(e) => setCostRatio(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>消費税率 (%)</label>
+              <input
+                type="number"
+                step="1"
+                value={taxRate}
+                onChange={(e) => setTaxRate(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
           </div>
         </div>
 
@@ -375,14 +350,10 @@ export default function QuoteCalculationPage({ params }: Props) {
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                     <th style={thStyle}>数量</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>商品代金</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>送料</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>関税</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>消費税</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>手数料</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>原価合計</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>1個原価</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>1個販売</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>販売単価</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>請求合計</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>粗利</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>粗利率</th>
                   </tr>
@@ -396,34 +367,22 @@ export default function QuoteCalculationPage({ params }: Props) {
                         </span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.productCostJpy)}
+                        {formatUSD(result.totalCostUsd)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.shippingCostJpy)}
+                        {formatUSD(result.unitCostUsd)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.tariffJpy)}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.consumptionTaxJpy)}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.paymentFeeJpy)}
+                        {formatJPY(result.sellingPriceJpy)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>
-                        {formatCurrency(result.totalCostJpy)}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.unitCostJpy)}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {formatCurrency(result.unitSellingPrice)}
+                        {formatJPY(result.totalBillingTaxJpy)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right', color: '#22c55e' }}>
-                        {formatCurrency(result.grossProfit)}
+                        {formatUSD(result.grossProfitUsd)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right', color: '#22c55e', fontWeight: 500 }}>
-                        {formatPercent(result.grossProfitRate)}
+                        {formatPercent(result.grossProfitMargin)}
                       </td>
                     </tr>
                   ))}
@@ -443,7 +402,7 @@ export default function QuoteCalculationPage({ params }: Props) {
           >
             <h2 style={sectionTitleStyle}>支払い方法比較</h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
               {/* Wise */}
               <div
                 style={{
@@ -462,54 +421,71 @@ export default function QuoteCalculationPage({ params }: Props) {
                 <div style={{ marginBottom: '8px' }}>
                   <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>手数料</div>
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px' }}>
-                    {formatCurrency(paymentComparison.wise.paymentFeeJpy)}
-                  </div>
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>原価合計</div>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px', fontWeight: 500 }}>
-                    {formatCurrency(paymentComparison.wise.totalCostJpy)}
+                    {formatUSD(paymentComparison.wise.paymentFeeUsd)}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>粗利率</div>
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px', color: '#22c55e' }}>
-                    {formatPercent(paymentComparison.wise.grossProfitRate)}
+                    {formatPercent(paymentComparison.wise.grossProfitMargin)}
                   </div>
                 </div>
               </div>
 
-              {/* Alibaba */}
+              {/* Alibaba CC */}
               <div
                 style={{
                   padding: '16px',
                   borderRadius: '12px',
-                  border: paymentComparison.recommendation === 'alibaba' ? '2px solid #22c55e' : '1px solid rgba(0,0,0,0.06)',
-                  backgroundColor: paymentComparison.recommendation === 'alibaba' ? 'rgba(34,197,94,0.05)' : '#f2f2f0',
+                  border: paymentComparison.recommendation === 'alibaba_cc' ? '2px solid #22c55e' : '1px solid rgba(0,0,0,0.06)',
+                  backgroundColor: paymentComparison.recommendation === 'alibaba_cc' ? 'rgba(34,197,94,0.05)' : '#f2f2f0',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0a0a0a' }}>Alibaba</h3>
-                  {paymentComparison.recommendation === 'alibaba' && (
+                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0a0a0a' }}>Alibaba CC</h3>
+                  {paymentComparison.recommendation === 'alibaba_cc' && (
                     <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>推奨</span>
                   )}
                 </div>
                 <div style={{ marginBottom: '8px' }}>
                   <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>手数料</div>
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px' }}>
-                    {formatCurrency(paymentComparison.alibaba.paymentFeeJpy)}
-                  </div>
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>原価合計</div>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px', fontWeight: 500 }}>
-                    {formatCurrency(paymentComparison.alibaba.totalCostJpy)}
+                    {formatUSD(paymentComparison.alibabaCc.paymentFeeUsd)}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>粗利率</div>
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px', color: '#22c55e' }}>
-                    {formatPercent(paymentComparison.alibaba.grossProfitRate)}
+                    {formatPercent(paymentComparison.alibabaCc.grossProfitMargin)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Transfer */}
+              <div
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: paymentComparison.recommendation === 'bank_transfer' ? '2px solid #22c55e' : '1px solid rgba(0,0,0,0.06)',
+                  backgroundColor: paymentComparison.recommendation === 'bank_transfer' ? 'rgba(34,197,94,0.05)' : '#f2f2f0',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0a0a0a' }}>銀行振込</h3>
+                  {paymentComparison.recommendation === 'bank_transfer' && (
+                    <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 500 }}>推奨</span>
+                  )}
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>手数料</div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px' }}>
+                    {formatUSD(paymentComparison.bankTransfer.paymentFeeUsd)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#888888', marginBottom: '2px' }}>粗利率</div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '14px', color: '#22c55e' }}>
+                    {formatPercent(paymentComparison.bankTransfer.grossProfitMargin)}
                   </div>
                 </div>
               </div>
@@ -525,9 +501,9 @@ export default function QuoteCalculationPage({ params }: Props) {
                 color: '#15803d',
               }}
             >
-              {paymentComparison.recommendation === 'wise' ? 'Wise' : 'Alibaba'}を使うと
+              {paymentComparison.recommendation === 'wise' ? 'Wise' : paymentComparison.recommendation === 'alibaba_cc' ? 'Alibaba CC' : '銀行振込'}を使うと最大
               <strong style={{ fontFamily: "'Fraunces', serif", margin: '0 4px' }}>
-                {formatCurrency(paymentComparison.savingsJpy)}
+                {formatUSD(paymentComparison.savingsUsd)}
               </strong>
               節約できます
             </div>

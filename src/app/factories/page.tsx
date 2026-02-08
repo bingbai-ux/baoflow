@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 
 export default async function FactoriesPage() {
   const supabase = await createClient()
@@ -10,180 +12,114 @@ export default async function FactoriesPage() {
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
   const { data: factories } = await supabase
     .from('factories')
     .select('*')
     .order('created_at', { ascending: false })
 
   return (
-    <div style={{ padding: '24px 26px' }}>
-      {/* Page Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "'Fraunces', serif",
-            fontSize: '24px',
-            fontWeight: 600,
-            color: '#0a0a0a',
-          }}
-        >
-          Factories
-        </h1>
-        <Link
-          href="/factories/new"
-          style={{
-            backgroundColor: '#0a0a0a',
-            color: '#ffffff',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '13px',
-            fontWeight: 500,
-            fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-            textDecoration: 'none',
-          }}
-        >
-          + 新規工場
-        </Link>
-      </div>
+    <div className="min-h-screen bg-[#f2f2f0]">
+      <Header userName={profile?.display_name || user.email || undefined} />
 
-      {/* Factories Table */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          border: '1px solid rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr
-              style={{
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <th style={headerCellStyle}>工場名</th>
-              <th style={headerCellStyle}>都市</th>
-              <th style={headerCellStyle}>専門分野</th>
-              <th style={headerCellStyle}>評価</th>
-              <th style={headerCellStyle}>連絡先</th>
-              <th style={{ ...headerCellStyle, width: '80px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {factories && factories.length > 0 ? (
-              factories.map((factory) => (
-                <tr
-                  key={factory.id}
-                  style={{
-                    borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                >
-                  <td style={cellStyle}>
-                    <Link
-                      href={`/factories/${factory.id}`}
-                      style={{
-                        color: '#0a0a0a',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {factory.name}
-                    </Link>
-                  </td>
-                  <td style={cellStyle}>
-                    {factory.city ? `${factory.city}, ${factory.country}` : factory.country}
-                  </td>
-                  <td style={cellStyle}>
-                    {factory.specialties && factory.specialties.length > 0 ? (
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {factory.specialties.slice(0, 3).map((s: string, i: number) => (
-                          <span
-                            key={i}
-                            style={{
-                              backgroundColor: '#f2f2f0',
-                              padding: '2px 8px',
-                              borderRadius: '9999px',
-                              fontSize: '11px',
-                              color: '#555555',
-                            }}
-                          >
-                            {s}
-                          </span>
-                        ))}
-                        {factory.specialties.length > 3 && (
-                          <span style={{ fontSize: '11px', color: '#888888' }}>
-                            +{factory.specialties.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td style={{ ...cellStyle, fontFamily: "'Fraunces', serif" }}>
-                    {factory.rating ? `${factory.rating.toFixed(1)}` : '-'}
-                  </td>
-                  <td style={cellStyle}>
-                    {factory.contact_email || factory.contact_wechat || '-'}
-                  </td>
-                  <td style={cellStyle}>
-                    <Link
-                      href={`/factories/${factory.id}/edit`}
-                      style={{
-                        color: '#888888',
-                        fontSize: '12px',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      編集
-                    </Link>
+      <main className="px-[26px] pb-10">
+        <div className="flex justify-between items-center py-[18px]">
+          <PageHeader title="Factories" />
+          <Link
+            href="/factories/new"
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            + 新規工場
+          </Link>
+        </div>
+
+        {/* Factories Table */}
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">工場名</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">都市</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">専門分野</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">評価</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">連絡先</th>
+                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body w-[80px]"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {factories && factories.length > 0 ? (
+                factories.map((factory, index) => (
+                  <tr
+                    key={factory.id}
+                    className={`${index < factories.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
+                  >
+                    <td className="px-[14px] py-[12px]">
+                      <Link
+                        href={`/factories/${factory.id}`}
+                        className="text-[#0a0a0a] no-underline font-medium text-[13px] font-body"
+                      >
+                        {factory.name}
+                      </Link>
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {factory.city ? `${factory.city}, ${factory.country}` : factory.country}
+                    </td>
+                    <td className="px-[14px] py-[12px]">
+                      {factory.specialties && factory.specialties.length > 0 ? (
+                        <div className="flex gap-1 flex-wrap">
+                          {factory.specialties.slice(0, 3).map((s: string, i: number) => (
+                            <span
+                              key={i}
+                              className="bg-[#f2f2f0] px-2 py-[2px] rounded-full text-[11px] text-[#555] font-body"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                          {factory.specialties.length > 3 && (
+                            <span className="text-[11px] text-[#888]">
+                              +{factory.specialties.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-[14px] py-[12px] font-display text-[13px] text-[#0a0a0a]">
+                      {factory.rating ? `${factory.rating.toFixed(1)}` : '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
+                      {factory.contact_email || factory.contact_wechat || '-'}
+                    </td>
+                    <td className="px-[14px] py-[12px]">
+                      <Link
+                        href={`/factories/${factory.id}/edit`}
+                        className="text-[#888] text-[12px] no-underline font-body"
+                      >
+                        編集
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-[14px] py-[40px] text-center text-[13px] text-[#888] font-body"
+                  >
+                    工場がありません
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={6}
-                  style={{
-                    padding: '40px 14px',
-                    textAlign: 'center',
-                    color: '#888888',
-                    fontSize: '13px',
-                    fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                  }}
-                >
-                  工場がありません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
   )
-}
-
-const headerCellStyle: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 500,
-  color: '#bbbbbb',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const cellStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  fontSize: '13px',
-  color: '#0a0a0a',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
 }

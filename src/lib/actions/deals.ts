@@ -2,210 +2,398 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { deal_status } from '@/lib/types'
+import type {
+  Deal,
+  DealWithRelations,
+  MasterStatus,
+  CreateDealInput,
+  UpdateDealInput,
+} from '@/lib/types'
 
-export async function createDeal(formData: FormData) {
+// Generate deal code: PF-YYYYMM-NNN
+async function generateDealCode(): Promise<string> {
   const supabase = await createClient()
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const prefix = `PF-${year}${month}-`
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'ログインが必要です' }
-  }
-
-  // Generate deal number
-  const { data: lastDeal } = await supabase
+  const { data } = await supabase
     .from('deals')
-    .select('deal_number')
-    .order('deal_number', { ascending: false })
+    .select('deal_code')
+    .like('deal_code', `${prefix}%`)
+    .order('deal_code', { ascending: false })
     .limit(1)
-    .single()
 
   let nextNumber = 1
-  if (lastDeal?.deal_number) {
-    const match = lastDeal.deal_number.match(/BAO-(\d+)/)
-    if (match) {
-      nextNumber = parseInt(match[1], 10) + 1
+  if (data && data.length > 0) {
+    const lastCode = data[0].deal_code
+    const lastNumber = parseInt(lastCode.split('-')[2], 10)
+    nextNumber = lastNumber + 1
+  }
+
+  return `${prefix}${String(nextNumber).padStart(3, '0')}`
+}
+
+export async function createDeal(input: CreateDealInput | FormData): Promise<{ data: Deal | null; error: string | null }> {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: 'Unauthorized' }
+  }
+
+  // Handle FormData input
+  let dealData: {
+    deal_name?: string | null
+    client_id: string
+    delivery_type?: 'direct' | 'logistics_center'
+    ai_mode?: 'auto' | 'assist' | 'manual'
+  }
+
+  if (input instanceof FormData) {
+    const clientId = input.get('client_id') as string
+    if (!clientId) {
+      return { data: null, error: 'クライアントは必須です' }
+    }
+    dealData = {
+      deal_name: (input.get('deal_name') as string) || null,
+      client_id: clientId,
+      delivery_type: (input.get('delivery_type') as 'direct' | 'logistics_center') || 'direct',
+      ai_mode: (input.get('ai_mode') as 'auto' | 'assist' | 'manual') || 'assist',
+    }
+  } else {
+    dealData = {
+      deal_name: input.deal_name || null,
+      client_id: input.client_id,
+      delivery_type: input.delivery_type || 'direct',
+      ai_mode: input.ai_mode || 'assist',
     }
   }
-  const dealNumber = `BAO-${String(nextNumber).padStart(4, '0')}`
 
-  const clientId = formData.get('client_id') as string
-  const factoryId = formData.get('factory_id') as string
+  const dealCode = await generateDealCode()
 
   const { data, error } = await supabase
     .from('deals')
     .insert({
-      deal_number: dealNumber,
-      client_id: clientId || null,
-      factory_id: factoryId || null,
-      assignee_id: user.id,
-      status: 'draft' as deal_status,
-      product_name: formData.get('product_name') as string,
-      material: formData.get('material') as string || null,
-      size: formData.get('size') as string || null,
-      quantity: formData.get('quantity') ? parseInt(formData.get('quantity') as string, 10) : null,
-      notes: formData.get('notes') as string || null,
+      deal_code: dealCode,
+      deal_name: dealData.deal_name,
+      client_id: dealData.client_id,
+      sales_user_id: user.id,
+      master_status: 'M01',
+      win_probability: 'medium',
+      delivery_type: dealData.delivery_type,
+      ai_mode: dealData.ai_mode,
+      last_activity_at: new Date().toISOString(),
     })
     .select()
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { data: null, error: error.message }
   }
 
+  await supabase.from('deal_status_history').insert({
+    deal_id: data.id,
+    from_status: null,
+    to_status: 'M01',
+    changed_by: user.id,
+    note: '案件作成',
+  })
+
   revalidatePath('/deals')
-  return { data }
+  revalidatePath('/')
+  return { data, error: null }
 }
 
-export async function updateDeal(id: string, formData: FormData) {
+export async function updateDeal(
+  id: string,
+  input: UpdateDealInput | FormData
+): Promise<{ data: Deal | null; error: string | null }> {
   const supabase = await createClient()
 
-  const clientId = formData.get('client_id') as string
-  const factoryId = formData.get('factory_id') as string
+  // Handle FormData input
+  let updateData: UpdateDealInput
+  if (input instanceof FormData) {
+    updateData = {}
+    const deal_name = input.get('deal_name') as string
+    const client_id = input.get('client_id') as string
+    const delivery_type = input.get('delivery_type') as string
+    const ai_mode = input.get('ai_mode') as string
+    const win_probability = input.get('win_probability') as string
+    const expected_delivery = input.get('expected_delivery') as string
 
-  const { error } = await supabase
+    if (deal_name) updateData.deal_name = deal_name
+    if (client_id) updateData.client_id = client_id
+    if (delivery_type) updateData.delivery_type = delivery_type as 'direct' | 'logistics_center'
+    if (ai_mode) updateData.ai_mode = ai_mode as 'auto' | 'assist' | 'manual'
+    if (win_probability) updateData.win_probability = win_probability as 'high' | 'medium' | 'low' | 'won' | 'lost'
+    if (expected_delivery) updateData.expected_delivery = expected_delivery
+  } else {
+    updateData = input
+  }
+
+  const { data, error } = await supabase
     .from('deals')
     .update({
-      client_id: clientId || null,
-      factory_id: factoryId || null,
-      product_name: formData.get('product_name') as string,
-      material: formData.get('material') as string || null,
-      size: formData.get('size') as string || null,
-      quantity: formData.get('quantity') ? parseInt(formData.get('quantity') as string, 10) : null,
-      notes: formData.get('notes') as string || null,
+      ...updateData,
+      last_activity_at: new Date().toISOString(),
     })
     .eq('id', id)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/deals')
-  revalidatePath(`/deals/${id}`)
-  return { success: true }
-}
-
-export async function updateDealStatus(id: string, newStatus: deal_status, userId: string) {
-  const supabase = await createClient()
-
-  // Get current status
-  const { data: deal } = await supabase
-    .from('deals')
-    .select('status')
-    .eq('id', id)
+    .select()
     .single()
 
-  if (!deal) {
-    return { error: '案件が見つかりません' }
-  }
-
-  // Update deal status
-  const { error: updateError } = await supabase
-    .from('deals')
-    .update({ status: newStatus })
-    .eq('id', id)
-
-  if (updateError) {
-    return { error: updateError.message }
-  }
-
-  // Insert status history
-  const { error: historyError } = await supabase
-    .from('deal_status_history')
-    .insert({
-      deal_id: id,
-      from_status: deal.status,
-      to_status: newStatus,
-      changed_by: userId,
-    })
-
-  if (historyError) {
-    return { error: historyError.message }
+  if (error) {
+    return { data: null, error: error.message }
   }
 
   revalidatePath('/deals')
   revalidatePath(`/deals/${id}`)
-  return { success: true }
+  revalidatePath('/')
+  return { data, error: null }
 }
 
-export async function deleteDeal(id: string) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('deals')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/deals')
-  return { success: true }
-}
-
-export async function duplicateDeal(sourceId: string) {
+export async function updateDealStatus(
+  id: string,
+  newStatus: MasterStatus,
+  note?: string
+): Promise<{ data: Deal | null; error: string | null }> {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return { error: 'ログインが必要です' }
+    return { data: null, error: 'Unauthorized' }
   }
 
-  // Get source deal
-  const { data: source, error: fetchError } = await supabase
+  const { data: currentDeal } = await supabase
     .from('deals')
-    .select('*')
-    .eq('id', sourceId)
+    .select('master_status')
+    .eq('id', id)
     .single()
 
-  if (fetchError || !source) {
-    return { error: '元の案件が見つかりません' }
+  if (!currentDeal) {
+    return { data: null, error: 'Deal not found' }
   }
 
-  // Generate new deal number
-  const { data: lastDeal } = await supabase
+  const updateData: Record<string, unknown> = {
+    master_status: newStatus,
+    last_activity_at: new Date().toISOString(),
+  }
+
+  if (newStatus === 'M11' || newStatus >= 'M14') {
+    updateData.win_probability = 'won'
+  }
+
+  const { data, error } = await supabase
     .from('deals')
-    .select('deal_number')
-    .order('deal_number', { ascending: false })
-    .limit(1)
+    .update(updateData)
+    .eq('id', id)
+    .select()
     .single()
 
-  let nextNumber = 1
-  if (lastDeal?.deal_number) {
-    const match = lastDeal.deal_number.match(/BAO-(\d+)/)
-    if (match) {
-      nextNumber = parseInt(match[1], 10) + 1
-    }
+  if (error) {
+    return { data: null, error: error.message }
   }
-  const dealNumber = `BAO-${String(nextNumber).padStart(4, '0')}`
 
-  // Create new deal
-  const { data: newDeal, error: createError } = await supabase
+  await supabase.from('deal_status_history').insert({
+    deal_id: id,
+    from_status: currentDeal.master_status,
+    to_status: newStatus,
+    changed_by: user.id,
+    note: note || null,
+  })
+
+  revalidatePath('/deals')
+  revalidatePath(`/deals/${id}`)
+  revalidatePath('/')
+  return { data, error: null }
+}
+
+export async function deleteDeal(id: string): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('deals').delete().eq('id', id)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/deals')
+  revalidatePath('/')
+  return { error: null }
+}
+
+export async function duplicateDeal(
+  id: string
+): Promise<{ data: Deal | null; error: string | null }> {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: 'Unauthorized' }
+  }
+
+  const { data: original } = await supabase
+    .from('deals')
+    .select('*, deal_specifications(*)')
+    .eq('id', id)
+    .single()
+
+  if (!original) {
+    return { data: null, error: 'Deal not found' }
+  }
+
+  const dealCode = await generateDealCode()
+
+  const { data: newDeal, error } = await supabase
     .from('deals')
     .insert({
-      deal_number: dealNumber,
-      assignee_id: user.id,
-      status: 'draft' as deal_status,
-      client_id: source.client_id,
-      factory_id: source.factory_id,
-      product_name: `${source.product_name} (リピート)`,
-      material: source.material,
-      size: source.size,
-      quantity: source.quantity,
-      unit_price_cny: source.unit_price_cny,
-      exchange_rate: source.exchange_rate,
-      shipping_cost_cny: source.shipping_cost_cny,
-      notes: source.notes ? `リピート元: ${source.deal_number}\n${source.notes}` : `リピート元: ${source.deal_number}`,
+      deal_code: dealCode,
+      deal_name: original.deal_name ? `${original.deal_name} (リピート)` : null,
+      client_id: original.client_id,
+      sales_user_id: user.id,
+      master_status: 'M01',
+      win_probability: 'high',
+      parent_deal_id: id,
+      delivery_type: original.delivery_type,
+      ai_mode: original.ai_mode,
+      last_activity_at: new Date().toISOString(),
     })
     .select()
     .single()
 
-  if (createError) {
-    return { error: createError.message }
+  if (error) {
+    return { data: null, error: error.message }
   }
 
+  if (original.deal_specifications && original.deal_specifications.length > 0) {
+    const spec = original.deal_specifications[0]
+    await supabase.from('deal_specifications').insert({
+      deal_id: newDeal.id,
+      product_category: spec.product_category,
+      product_name: spec.product_name,
+      height_mm: spec.height_mm,
+      width_mm: spec.width_mm,
+      depth_mm: spec.depth_mm,
+      material_category: spec.material_category,
+      material_thickness: spec.material_thickness,
+      printing_method: spec.printing_method,
+      print_colors: spec.print_colors,
+      processing_list: spec.processing_list,
+      attachments_list: spec.attachments_list,
+      specification_memo: spec.specification_memo,
+    })
+  }
+
+  await supabase.from('deal_status_history').insert({
+    deal_id: newDeal.id,
+    from_status: null,
+    to_status: 'M01',
+    changed_by: user.id,
+    note: `リピート注文 (元案件: ${original.deal_code})`,
+  })
+
   revalidatePath('/deals')
-  return { data: newDeal }
+  revalidatePath('/')
+  return { data: newDeal, error: null }
+}
+
+export async function getDeal(id: string): Promise<DealWithRelations | null> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('deals')
+    .select(`
+      *,
+      client:clients(*),
+      factory_assignments:deal_factory_assignments(
+        *,
+        factory:factories(*)
+      ),
+      specifications:deal_specifications(*),
+      quotes:deal_quotes(
+        *,
+        factory:factories(*),
+        shipping_options:deal_shipping_options(*)
+      ),
+      samples:deal_samples(*),
+      payments:deal_factory_payments(*),
+      design_files:deal_design_files(*),
+      status_history:deal_status_history(*),
+      shipping:deal_shipping(*)
+    `)
+    .eq('id', id)
+    .single()
+
+  return data as DealWithRelations | null
+}
+
+export interface GetDealsFilters {
+  status?: MasterStatus | MasterStatus[]
+  clientId?: string
+  search?: string
+  limit?: number
+  offset?: number
+}
+
+export async function getDeals(filters?: GetDealsFilters): Promise<Deal[]> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('deals')
+    .select('*, client:clients(company_name)')
+    .order('created_at', { ascending: false })
+
+  if (filters?.status) {
+    if (Array.isArray(filters.status)) {
+      query = query.in('master_status', filters.status)
+    } else {
+      query = query.eq('master_status', filters.status)
+    }
+  }
+
+  if (filters?.clientId) {
+    query = query.eq('client_id', filters.clientId)
+  }
+
+  if (filters?.search) {
+    query = query.or(`deal_code.ilike.%${filters.search}%,deal_name.ilike.%${filters.search}%`)
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit)
+  }
+
+  if (filters?.offset) {
+    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1)
+  }
+
+  const { data } = await query
+
+  return (data || []) as Deal[]
+}
+
+export async function getActiveDeals(): Promise<Deal[]> {
+  const activeStatuses: MasterStatus[] = [
+    'M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10',
+    'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20',
+    'M21', 'M22', 'M23', 'M24',
+  ]
+  return getDeals({ status: activeStatuses })
+}
+
+export async function getStaleDeals(thresholdDays: number = 7): Promise<Deal[]> {
+  const supabase = await createClient()
+
+  const threshold = new Date()
+  threshold.setDate(threshold.getDate() - thresholdDays)
+
+  const { data } = await supabase
+    .from('deals')
+    .select('*, client:clients(company_name)')
+    .lt('last_activity_at', threshold.toISOString())
+    .neq('master_status', 'M25')
+    .order('last_activity_at', { ascending: true })
+
+  return (data || []) as Deal[]
 }

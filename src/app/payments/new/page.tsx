@@ -12,8 +12,8 @@ export default function NewPaymentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deals, setDeals] = useState<Deal[]>([])
-  const [exchangeRate, setExchangeRate] = useState('21.5')
-  const [amountCny, setAmountCny] = useState('')
+  const [exchangeRate, setExchangeRate] = useState('150')
+  const [amountUsd, setAmountUsd] = useState('')
   const [amountJpy, setAmountJpy] = useState('')
 
   useEffect(() => {
@@ -31,8 +31,8 @@ export default function NewPaymentPage() {
     }
   }
 
-  const handleCnyChange = (value: string) => {
-    setAmountCny(value)
+  const handleUsdChange = (value: string) => {
+    setAmountUsd(value)
     if (value && exchangeRate) {
       const jpy = parseFloat(value) * parseFloat(exchangeRate)
       setAmountJpy(jpy.toFixed(0))
@@ -42,8 +42,8 @@ export default function NewPaymentPage() {
   const handleJpyChange = (value: string) => {
     setAmountJpy(value)
     if (value && exchangeRate) {
-      const cny = parseFloat(value) / parseFloat(exchangeRate)
-      setAmountCny(cny.toFixed(2))
+      const usd = parseFloat(value) / parseFloat(exchangeRate)
+      setAmountUsd(usd.toFixed(2))
     }
   }
 
@@ -53,7 +53,7 @@ export default function NewPaymentPage() {
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    formData.set('amount_cny', amountCny)
+    formData.set('amount_usd', amountUsd)
     formData.set('amount_jpy', amountJpy)
     formData.set('exchange_rate', exchangeRate)
 
@@ -140,7 +140,7 @@ export default function NewPaymentPage() {
               <option value="">選択してください</option>
               {deals.map(deal => (
                 <option key={deal.id} value={deal.id}>
-                  {deal.deal_number} - {deal.product_name}
+                  {deal.deal_code} - {deal.deal_name || '案件名なし'}
                 </option>
               ))}
             </select>
@@ -156,7 +156,7 @@ export default function NewPaymentPage() {
                 required
                 style={inputStyle}
               >
-                <option value="deposit">前払い</option>
+                <option value="advance">前払い</option>
                 <option value="balance">残金</option>
                 <option value="full">一括</option>
               </select>
@@ -171,14 +171,14 @@ export default function NewPaymentPage() {
                 style={inputStyle}
               >
                 <option value="wise">Wise</option>
-                <option value="alibaba">Alibaba</option>
+                <option value="alibaba_cc">Alibaba CC</option>
                 <option value="bank_transfer">銀行振込</option>
               </select>
             </div>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>為替レート (CNY→JPY)</label>
+            <label style={labelStyle}>為替レート (USD→JPY)</label>
             <input
               type="number"
               step="0.01"
@@ -190,12 +190,12 @@ export default function NewPaymentPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <label style={labelStyle}>金額 (CNY)</label>
+              <label style={labelStyle}>金額 (USD)</label>
               <input
                 type="number"
                 step="0.01"
-                value={amountCny}
-                onChange={(e) => handleCnyChange(e.target.value)}
+                value={amountUsd}
+                onChange={(e) => handleUsdChange(e.target.value)}
                 style={inputStyle}
                 placeholder="0.00"
               />
