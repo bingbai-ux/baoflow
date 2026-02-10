@@ -1,11 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Header } from '@/components/layout/header'
-import { StatusDot } from '@/components/deals/status-dot'
 import { DealFilters } from '@/components/deals/deal-filters'
+import { DealRow } from '@/components/deals/deal-row'
 import { type MasterStatus } from '@/lib/types'
-import { formatJPY, formatDate } from '@/lib/utils/format'
 
 interface Props {
   searchParams: Promise<{
@@ -35,17 +32,6 @@ export default async function DealsPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single()
-
   // Get clients for filter
   const { data: clients } = await supabase
     .from('clients')
@@ -59,7 +45,7 @@ export default async function DealsPage({ searchParams }: Props) {
       *,
       client:clients(id, company_name),
       specifications:deal_specifications(product_name, product_category),
-      quotes:deal_quotes(total_jpy_incl_tax, status)
+      quotes:deal_quotes(total_billing_tax_jpy, status)
     `)
     .order('created_at', { ascending: false })
 
@@ -93,10 +79,7 @@ export default async function DealsPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
+    <main className="px-[26px] pb-10 bg-[#f2f2f0]">
         {/* Page Header */}
         <div className="flex justify-between items-center py-[18px]">
           <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
@@ -131,58 +114,16 @@ export default async function DealsPage({ searchParams }: Props) {
             </thead>
             <tbody>
               {deals && deals.length > 0 ? (
-                deals.map((deal) => {
-                  const spec = deal.specifications?.[0]
-                  const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
-                  const amount = approvedQuote?.total_jpy_incl_tax
-
-                  return (
-                    <tr
-                      key={deal.id}
-                      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', cursor: 'pointer' }}
-                      onClick={() => window.location.href = `/deals/${deal.id}`}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fcfcfb'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <td style={tdStyle}>
-                        <span className="font-display tabular-nums text-[13px] text-[#0a0a0a]">
-                          {deal.deal_code}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <span className="font-body text-[13px] text-[#0a0a0a]">
-                          {deal.client?.company_name || '-'}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <span className="font-body text-[13px] text-[#0a0a0a]">
-                          {spec?.product_name || deal.deal_name || '-'}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <StatusDot status={deal.master_status || 'M01'} />
-                      </td>
-                      <td style={tdStyle}>
-                        <span className="font-body text-[12px] text-[#888]">
-                          {winProbabilityLabels[deal.win_probability] || deal.win_probability}
-                        </span>
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <span className="font-display tabular-nums text-[13px] text-[#0a0a0a]">
-                          {amount ? formatJPY(amount) : '-'}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <span className="font-body text-[12px] text-[#888]">
-                          {formatDate(deal.last_activity_at || deal.updated_at)}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })
+                deals.map((deal) => (
+                  <DealRow
+                    key={deal.id}
+                    deal={deal}
+                    winProbabilityLabels={winProbabilityLabels}
+                  />
+                ))
               ) : (
                 <tr>
-                  <td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: '#888' }}>
+                  <td colSpan={7} style={{ padding: '12px 14px', textAlign: 'center', color: '#888' }}>
                     案件がありません
                   </td>
                 </tr>
@@ -190,8 +131,7 @@ export default async function DealsPage({ searchParams }: Props) {
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+    </main>
   )
 }
 
@@ -202,8 +142,4 @@ const thStyle: React.CSSProperties = {
   fontWeight: 500,
   color: '#bbbbbb',
   fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 14px',
 }
