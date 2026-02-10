@@ -137,6 +137,9 @@ const tabs = [
   { id: 'design', label: 'デザイン' },
   { id: 'payments', label: '支払い' },
   { id: 'shipping', label: '配送' },
+  { id: 'chat', label: 'チャット', href: true },
+  { id: 'customs', label: '通関', href: true },
+  { id: 'food-import', label: '輸入届出', href: true },
   { id: 'history', label: '履歴' },
 ]
 
@@ -528,29 +531,57 @@ export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProp
   return (
     <div>
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '9999px',
-              fontSize: '13px',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: activeTab === tab.id
-                ? "'Fraunces', serif"
-                : "'Zen Kaku Gothic New', system-ui, sans-serif",
-              fontWeight: activeTab === tab.id ? 600 : 400,
-              backgroundColor: activeTab === tab.id ? '#0a0a0a' : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : '#888888',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {tabs.map(tab => {
+          if (tab.href) {
+            const href = tab.id === 'chat'
+              ? `/deals/${deal.id}/chat`
+              : tab.id === 'customs'
+              ? `/deals/${deal.id}/customs-invoice`
+              : `/deals/${deal.id}/food-import`
+            return (
+              <Link
+                key={tab.id}
+                href={href}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '9999px',
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
+                  fontWeight: 400,
+                  backgroundColor: 'transparent',
+                  color: '#888888',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {tab.label}
+              </Link>
+            )
+          }
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '9999px',
+                fontSize: '13px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: activeTab === tab.id
+                  ? "'Fraunces', serif"
+                  : "'Zen Kaku Gothic New', system-ui, sans-serif",
+                fontWeight: activeTab === tab.id ? 600 : 400,
+                backgroundColor: activeTab === tab.id ? '#0a0a0a' : 'transparent',
+                color: activeTab === tab.id ? '#ffffff' : '#888888',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab Content */}

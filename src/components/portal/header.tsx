@@ -4,35 +4,31 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-interface HeaderProps {
-  userName?: string
+interface PortalHeaderProps {
+  clientName?: string
 }
 
 const navItems = [
-  { href: '/', label: 'Overview' },
-  { href: '/deals', label: 'Deals' },
-  { href: '/clients', label: 'Clients' },
-  { href: '/factories', label: 'Factories' },
-  { href: '/analytics', label: 'Analytics' },
-  { href: '/payments', label: 'Payments' },
-  { href: '/logistics', label: 'Logistics' },
-  { href: '/settings', label: 'Settings' },
+  { href: '/portal', label: 'Dashboard' },
+  { href: '/portal/orders', label: 'Orders' },
+  { href: '/portal/catalog', label: 'Catalog' },
+  { href: '/portal/chat', label: 'Chat' },
 ]
 
-export function Header({ userName }: HeaderProps) {
+export function PortalHeader({ clientName }: PortalHeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
 
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/portal/login')
     router.refresh()
   }
 
   const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/'
+    if (href === '/portal') {
+      return pathname === '/portal'
     }
     return pathname.startsWith(href)
   }
@@ -42,7 +38,7 @@ export function Header({ userName }: HeaderProps) {
       {/* Logo + Nav */}
       <div className="flex items-center gap-5">
         <Link
-          href="/"
+          href="/portal"
           className="font-display text-[17px] font-semibold text-[#0a0a0a] tracking-[-0.04em] no-underline"
         >
           (bao)
@@ -64,11 +60,11 @@ export function Header({ userName }: HeaderProps) {
         </nav>
       </div>
 
-      {/* User */}
+      {/* Client Name + Logout */}
       <div className="flex items-center gap-3">
-        {userName && (
+        {clientName && (
           <span className="text-[13px] text-[#555] font-body">
-            {userName}
+            {clientName}
           </span>
         )}
         <button

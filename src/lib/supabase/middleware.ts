@@ -36,30 +36,73 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
-    // no user, redirect to login page
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  const pathname = request.nextUrl.pathname
+
+  // Public paths - no auth required
+  if (pathname === '/login' || pathname === '/portal/login') {
+    if (user) {
+      // Already logged in - redirect based on role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role === 'client') {
+        if (pathname === '/login') {
+          return NextResponse.redirect(new URL('/portal', request.url))
+        }
+      } else {
+        if (pathname === '/portal/login') {
+          return NextResponse.redirect(new URL('/', request.url))
+        }
+      }
+    }
+    return supabaseResponse
   }
 
-  if (user && request.nextUrl.pathname === '/login') {
-    // user is logged in and trying to access login page, redirect to home
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+  // No user - redirect to login
+  if (!user) {
+    if (pathname.startsWith('/portal')) {
+      return NextResponse.redirect(new URL('/portal/login', request.url))
+    }
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Get user role
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const role = profile?.role || 'sales'
+
+  // Portal routes - only for clients
+  if (pathname.startsWith('/portal')) {
+    if (role !== 'client') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return supabaseResponse
+  }
+
+  // Sales/Admin routes - not for clients
+  const salesRoutes = ['/', '/deals', '/clients', '/factories', '/analytics', '/payments', '/settings', '/registry', '/logistics']
+  const isSalesRoute = salesRoutes.some(route =>
+    pathname === route || pathname.startsWith(`${route}/`)
+  )
+
+  if (isSalesRoute) {
+    if (role === 'client') {
+      return NextResponse.redirect(new URL('/portal', request.url))
+    }
+    if (role !== 'admin' && role !== 'sales') {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
   }
 
   return supabaseResponse

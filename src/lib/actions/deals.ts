@@ -101,6 +101,12 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
     note: '案件作成',
   })
 
+  // Create chat room for client-sales communication
+  await supabase.from('chat_rooms').insert({
+    deal_id: data.id,
+    room_type: 'client_sales',
+  })
+
   revalidatePath('/deals')
   revalidatePath('/')
   return { data, error: null }
