@@ -63,11 +63,11 @@ export default async function FactoriesPage() {
                         href={`/factories/${factory.id}`}
                         className="text-[#0a0a0a] no-underline font-medium text-[13px] font-body"
                       >
-                        {factory.name}
+                        {factory.factory_name}
                       </Link>
                     </td>
                     <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
-                      {factory.city ? `${factory.city}, ${factory.country}` : factory.country}
+                      {factory.address || '-'}
                     </td>
                     <td className="px-[14px] py-[12px]">
                       {factory.specialties && factory.specialties.length > 0 ? (
@@ -94,7 +94,7 @@ export default async function FactoriesPage() {
                       {factory.rating ? `${factory.rating.toFixed(1)}` : '-'}
                     </td>
                     <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
-                      {factory.contact_email || factory.contact_wechat || '-'}
+                      {factory.contact_name || '-'}
                     </td>
                     <td className="px-[14px] py-[12px]">
                       <Link
