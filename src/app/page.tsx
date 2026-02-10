@@ -66,7 +66,7 @@ export default async function DashboardPage() {
       updated_at,
       client:clients(id, company_name),
       specifications:deal_specifications(product_name),
-      quotes:deal_quotes(total_jpy_incl_tax, status)
+      quotes:deal_quotes(total_billing_tax_jpy, status)
     `)
     .order('created_at', { ascending: false })
 
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
 
   const monthlyRevenue = completedDealsThisMonth.reduce((sum, d) => {
     const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
-    return sum + (approvedQuote?.total_jpy_incl_tax || 0)
+    return sum + (approvedQuote?.total_billing_tax_jpy || 0)
   }, 0)
 
   // Count completed and in-progress deals
@@ -257,7 +257,7 @@ export default async function DashboardPage() {
                   {recentDeals.length > 0 ? recentDeals.map((deal, i) => {
                     const spec = deal.specifications?.[0]
                     const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
-                    const amount = approvedQuote?.total_jpy_incl_tax || 0
+                    const amount = approvedQuote?.total_billing_tax_jpy || 0
                     // Handle client being array or object
                     const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
 

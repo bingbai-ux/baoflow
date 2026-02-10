@@ -59,7 +59,7 @@ export default async function AnalyticsPage() {
       created_at,
       updated_at,
       client:clients(id, company_name),
-      quotes:deal_quotes(total_jpy_incl_tax, status)
+      quotes:deal_quotes(total_billing_tax_jpy, status)
     `)
     .order('created_at', { ascending: false })
 
@@ -108,7 +108,7 @@ export default async function AnalyticsPage() {
 
     const revenue = monthDeals.reduce((sum, d) => {
       const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
-      return sum + (approvedQuote?.total_jpy_incl_tax || 0)
+      return sum + (approvedQuote?.total_billing_tax_jpy || 0)
     }, 0)
 
     const monthLabel = monthStart.toLocaleDateString('ja-JP', { month: 'short' })
@@ -121,7 +121,7 @@ export default async function AnalyticsPage() {
     const client = Array.isArray(d.client) ? d.client[0] : d.client
     const clientName = client?.company_name || '未設定'
     const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
-    const revenue = approvedQuote?.total_jpy_incl_tax || 0
+    const revenue = approvedQuote?.total_billing_tax_jpy || 0
 
     if (!clientRevenue[clientName]) {
       clientRevenue[clientName] = { name: clientName, revenue: 0 }
@@ -137,7 +137,7 @@ export default async function AnalyticsPage() {
   const totalRevenue = allDeals.reduce((sum, d) => {
     if (COMPLETED_PHASE.includes(d.master_status as MasterStatus)) {
       const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
-      return sum + (approvedQuote?.total_jpy_incl_tax || 0)
+      return sum + (approvedQuote?.total_billing_tax_jpy || 0)
     }
     return sum
   }, 0)
@@ -145,7 +145,7 @@ export default async function AnalyticsPage() {
   const averageDealSize = allDeals.length > 0
     ? allDeals.reduce((sum, d) => {
         const approvedQuote = d.quotes?.find((q: { status?: string }) => q.status === 'approved')
-        return sum + (approvedQuote?.total_jpy_incl_tax || 0)
+        return sum + (approvedQuote?.total_billing_tax_jpy || 0)
       }, 0) / allDeals.length
     : 0
 
