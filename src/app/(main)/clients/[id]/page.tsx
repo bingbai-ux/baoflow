@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils/format'
-import { StatusDot } from '@/components/deals/status-dot'
+import { StatusDot } from '@/components/status-dot'
 
 interface Props {
   params: Promise<{ id: string }>

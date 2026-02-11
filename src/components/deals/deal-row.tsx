@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { StatusDot } from '@/components/deals/status-dot'
+import { StatusDot } from '@/components/status-dot'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 import { type MasterStatus } from '@/lib/types'
 
@@ -19,13 +19,10 @@ interface DealRowProps {
     quotes?: { total_billing_tax_jpy?: number; status?: string }[]
   }
   winProbabilityLabels: Record<string, string>
+  isLast?: boolean
 }
 
-const tdStyle: React.CSSProperties = {
-  padding: '12px 14px',
-}
-
-export function DealRow({ deal, winProbabilityLabels }: DealRowProps) {
+export function DealRow({ deal, winProbabilityLabels, isLast = false }: DealRowProps) {
   const router = useRouter()
   const spec = deal.specifications?.[0]
   const approvedQuote = deal.quotes?.find((q) => q.status === 'approved')
@@ -33,40 +30,38 @@ export function DealRow({ deal, winProbabilityLabels }: DealRowProps) {
 
   return (
     <tr
-      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', cursor: 'pointer' }}
+      className={`${!isLast ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors cursor-pointer`}
       onClick={() => router.push(`/deals/${deal.id}`)}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fcfcfb')}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <td style={tdStyle}>
+      <td className="px-4 py-3">
         <span className="font-display tabular-nums text-[13px] text-[#0a0a0a]">
           {deal.deal_code}
         </span>
       </td>
-      <td style={tdStyle}>
+      <td className="px-4 py-3">
         <span className="font-body text-[13px] text-[#0a0a0a]">
           {deal.client?.company_name || '-'}
         </span>
       </td>
-      <td style={tdStyle}>
-        <span className="font-body text-[13px] text-[#0a0a0a]">
+      <td className="px-4 py-3">
+        <span className="font-body text-[13px] text-[#888]">
           {spec?.product_name || deal.deal_name || '-'}
         </span>
       </td>
-      <td style={tdStyle}>
-        <StatusDot status={deal.master_status || 'M01'} />
+      <td className="px-4 py-3">
+        <StatusDot status={deal.master_status || 'M01'} size={6} />
       </td>
-      <td style={tdStyle}>
+      <td className="px-4 py-3">
         <span className="font-body text-[12px] text-[#888]">
-          {winProbabilityLabels[deal.win_probability || ''] || deal.win_probability}
+          {winProbabilityLabels[deal.win_probability || ''] || deal.win_probability || '-'}
         </span>
       </td>
-      <td style={{ ...tdStyle, textAlign: 'right' }}>
+      <td className="px-4 py-3 text-right">
         <span className="font-display tabular-nums text-[13px] text-[#0a0a0a]">
           {amount ? formatJPY(amount) : '-'}
         </span>
       </td>
-      <td style={tdStyle}>
+      <td className="px-4 py-3">
         <span className="font-body text-[12px] text-[#888]">
           {formatDate(deal.last_activity_at || deal.updated_at)}
         </span>

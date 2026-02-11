@@ -79,67 +79,59 @@ export default async function DealsPage({ searchParams }: Props) {
   }
 
   return (
-    <main className="px-[26px] pb-10 bg-[#f2f2f0]">
-        {/* Page Header */}
-        <div className="flex justify-between items-center py-[18px]">
-          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
-            Orders
-          </h1>
-          <Link
-            href="/deals/new"
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            + 新規案件
-          </Link>
-        </div>
+    <>
+      {/* Page Header */}
+      <div className="flex justify-between items-center py-[18px]">
+        <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
+          Orders
+        </h1>
+        <Link
+          href="/deals/new"
+          className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+        >
+          + 新規案件
+        </Link>
+      </div>
 
-        {/* Filters */}
-        <div className="mb-4">
-          <DealFilters clients={clients || []} />
-        </div>
+      {/* Filters */}
+      <div className="mb-4">
+        <DealFilters clients={clients || []} />
+      </div>
 
-        {/* Deals Table */}
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                <th style={thStyle}>案件コード</th>
-                <th style={thStyle}>クライアント</th>
-                <th style={thStyle}>商品名</th>
-                <th style={thStyle}>ステータス</th>
-                <th style={thStyle}>受注角度</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>金額</th>
-                <th style={thStyle}>最終更新</th>
+      {/* Deals Table */}
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-[rgba(0,0,0,0.06)]">
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">案件コード</th>
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">商品名</th>
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">受注角度</th>
+              <th className="px-4 py-3 text-right text-[11px] font-medium text-[#bbb] font-body">金額</th>
+              <th className="px-4 py-3 text-left text-[11px] font-medium text-[#bbb] font-body">最終更新</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deals && deals.length > 0 ? (
+              deals.map((deal, index) => (
+                <DealRow
+                  key={deal.id}
+                  deal={deal}
+                  winProbabilityLabels={winProbabilityLabels}
+                  isLast={index === deals.length - 1}
+                />
+              ))
+            ) : (
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-[#888] text-[13px] font-body">
+                  案件がありません
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {deals && deals.length > 0 ? (
-                deals.map((deal) => (
-                  <DealRow
-                    key={deal.id}
-                    deal={deal}
-                    winProbabilityLabels={winProbabilityLabels}
-                  />
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} style={{ padding: '12px 14px', textAlign: 'center', color: '#888' }}>
-                    案件がありません
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-    </main>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 500,
-  color: '#bbbbbb',
-  fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
 }

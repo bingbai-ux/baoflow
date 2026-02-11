@@ -1,34 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PageHeader } from '@/components/layout/page-header'
-import { InsightBanner } from '@/components/dashboard/insight-banner'
-import { BigNum } from '@/components/shared/big-num'
-import { CardLabel } from '@/components/shared/card-label'
-import { SmallVal } from '@/components/shared/small-val'
-import { SmallLabel } from '@/components/shared/small-label'
-import { BarcodeBarsClient, GaugeClient } from './dashboard-client'
+import { StatusDot } from '@/components/status-dot'
 import { PipelineBar } from '@/components/dashboard/pipeline-bar'
-import { StatusDot } from '@/components/deals/status-dot'
-import { formatJPY } from '@/lib/utils/format'
+import { formatJPY, formatDate } from '@/lib/utils/format'
 import { type MasterStatus } from '@/lib/types'
-
-function Icon({ d }: { d: string }) {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#888"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={d} />
-    </svg>
-  )
-}
+import { ChevronRight } from 'lucide-react'
 
 // Phase mappings for M01-M25
 const QUOTE_PHASE: MasterStatus[] = ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10']
@@ -36,6 +13,12 @@ const ORDER_PHASE: MasterStatus[] = ['M11', 'M12', 'M13', 'M14', 'M15']
 const PRODUCTION_PHASE: MasterStatus[] = ['M16', 'M17', 'M18', 'M19']
 const SHIPPING_PHASE: MasterStatus[] = ['M20', 'M21', 'M22', 'M23', 'M24']
 const COMPLETED_PHASE: MasterStatus[] = ['M25']
+
+function getGreeting(hour: number): string {
+  if (hour >= 5 && hour < 12) return 'おはようございます'
+  if (hour >= 12 && hour < 17) return 'こんにちは'
+  return 'おつかれさまです'
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -73,6 +56,8 @@ export default async function DashboardPage() {
 
   const now = new Date()
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const hour = now.getHours()
+  const greeting = getGreeting(hour)
 
   // Calculate monthly revenue from approved quotes
   const completedDealsThisMonth = allDeals.filter(d => {
@@ -85,19 +70,11 @@ export default async function DashboardPage() {
     return sum + (approvedQuote?.total_billing_tax_jpy || 0)
   }, 0)
 
-  // Count completed and in-progress deals
-  const completedCount = allDeals.filter(d => COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length
-  const totalCount = allDeals.length
-  const progressRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
-
   // In-progress = not M25
   const inProgressCount = allDeals.filter(d => !COMPLETED_PHASE.includes(d.master_status as MasterStatus)).length
 
   // Delivered this month
-  const deliveredThisMonth = allDeals.filter(d => {
-    const updated = new Date(d.updated_at)
-    return COMPLETED_PHASE.includes(d.master_status as MasterStatus) && updated >= thisMonthStart
-  }).length
+  const deliveredThisMonth = completedDealsThisMonth.length
 
   // Status counts by phase
   const statusCounts = {
@@ -116,7 +93,7 @@ export default async function DashboardPage() {
     { stage: '完了', count: statusCounts.completed },
   ]
 
-  const recentDeals = allDeals.slice(0, 8)
+  const recentDeals = allDeals.slice(0, 6)
 
   // Stale deals (7 days without update, not completed)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -131,242 +108,199 @@ export default async function DashboardPage() {
     .select(`
       id,
       amount_usd,
+      amount_jpy,
       payment_type,
       status,
-      deal:deals(id, deal_code)
+      deal:deals(id, deal_code, client:clients(company_name))
     `)
-    .eq('status', 'pending')
+    .eq('status', 'unpaid')
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Format revenue
-  const revenueMillions = monthlyRevenue / 1000000
-  const revenueInteger = Math.floor(revenueMillions).toString()
-  const revenueDecimal = ((revenueMillions % 1) * 100).toFixed(0).padStart(2, '0')
+  // Calculate unpaid amount
+  const unpaidAmount = (pendingPayments || []).reduce((sum, p) => sum + (p.amount_jpy || 0), 0)
 
-  const progressInteger = Math.floor(progressRate).toString()
-  const progressDecimal = ((progressRate % 1) * 100).toFixed(0).padStart(2, '0')
-
-  const barData = [3, 5, 2, 4, 6, 3, 5, 7, 4, 6, 8, 5, 7, 4, 6, 5, 7, 3, 8, 6, 4, 7, 5, 8, 6, 4, 7, 9, 5, 8]
+  // Action items count
+  const actionItemsCount = staleDeals.length + (pendingPayments?.length || 0)
 
   return (
     <>
-      <PageHeader title="Overview Panel" subtitle="Data Based on All Clients" />
+      {/* Greeting Section */}
+      <div className="py-5">
+        <p className="text-[13px] text-[#888] font-body mb-1">{greeting}、</p>
+        <h1 className="text-[24px] font-display font-semibold text-[#0a0a0a]">
+          {profile?.display_name || 'User'}さん
+        </h1>
+      </div>
 
-        <div className="flex flex-col gap-2">
-          <InsightBanner />
-
-          {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-2">
-            {/* Monthly Revenue */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
-              <CardLabel icon={<Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />}>
-                月間売上
-              </CardLabel>
-              <BigNum integer={revenueInteger} decimal={revenueDecimal} unit="M¥" size={44} />
-              <div className="flex justify-between mt-1">
-                <div><SmallVal>{completedDealsThisMonth.length}</SmallVal><br /><SmallLabel>完了案件</SmallLabel></div>
-                <div className="text-right"><SmallVal>+12%</SmallVal><br /><SmallLabel>増減率</SmallLabel></div>
-              </div>
-              <div className="mt-2">
-                <BarcodeBarsClient data={barData} width={200} height={22} />
-              </div>
-            </div>
-
-            {/* Progress */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
-              <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
-                案件進捗
-              </CardLabel>
-              <div className="flex justify-between">
-                <div><SmallVal>{completedCount}</SmallVal><br /><SmallLabel>完了</SmallLabel></div>
-                <div className="text-right"><SmallVal>{totalCount - completedCount}</SmallVal><br /><SmallLabel>進行中</SmallLabel></div>
-              </div>
-              <div className="flex justify-center items-center flex-col my-1">
-                <GaugeClient value={progressRate} size={130} />
-                <div className="font-display text-[26px] font-medium tracking-[-0.03em] text-[#0a0a0a] -mt-1 flex items-start tabular-nums">
-                  {progressInteger}<span className="text-[14px]">,{progressDecimal}</span>
-                  <span className="text-[10px] text-[#888] mt-[2px] ml-[1px]">%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* In Progress */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
-              <CardLabel icon={<Icon d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}>
-                進行中案件
-              </CardLabel>
-              <BigNum integer={inProgressCount.toString()} unit="件" size={44} />
-              <div className="flex justify-between mt-1">
-                <div><SmallVal>{statusCounts.production}</SmallVal><br /><SmallLabel>製造中</SmallLabel></div>
-                <div className="text-right"><SmallVal>{statusCounts.shipping}</SmallVal><br /><SmallLabel>配送中</SmallLabel></div>
-              </div>
-              <div className="mt-2">
-                <BarcodeBarsClient data={barData} width={200} height={22} />
-              </div>
-            </div>
-
-            {/* Delivered */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px] flex flex-col justify-between min-h-[200px]">
-              <CardLabel icon={<Icon d="M5 13l4 4L19 7" />}>
-                今月納品
-              </CardLabel>
-              <BigNum integer={deliveredThisMonth.toString()} unit="件" size={44} />
-              <div className="flex justify-between mt-1">
-                <div><SmallVal>{statusCounts.completed}</SmallVal><br /><SmallLabel>累計完了</SmallLabel></div>
-                <div className="text-right"><SmallVal>{totalCount > 0 ? Math.round((deliveredThisMonth / totalCount) * 100) : 0}%</SmallVal><br /><SmallLabel>今月率</SmallLabel></div>
-              </div>
-              <div className="mt-2">
-                <BarcodeBarsClient data={barData} width={200} height={22} />
-              </div>
-            </div>
+      {/* Action Required Card */}
+      {actionItemsCount > 0 && (
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">対応が必要</h2>
+            <span className="text-[12px] text-[#888] font-body">{actionItemsCount}件</span>
           </div>
+          <div className="flex flex-col gap-2">
+            {staleDeals.slice(0, 3).map((deal) => {
+              const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+              return (
+                <Link
+                  key={deal.id}
+                  href={`/deals/${deal.id}`}
+                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px] no-underline hover:bg-[#f0f0ee] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />
+                    <div>
+                      <p className="text-[13px] text-[#0a0a0a] font-body">
+                        {deal.deal_code} - 7日以上更新なし
+                      </p>
+                      <p className="text-[11px] text-[#888] font-body">
+                        {client?.company_name || '未設定'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#bbb]" />
+                </Link>
+              )
+            })}
+            {(pendingPayments || []).slice(0, 2).map((payment) => {
+              const deal = Array.isArray(payment.deal) ? payment.deal[0] : payment.deal
+              const client = deal?.client
+              return (
+                <Link
+                  key={payment.id}
+                  href="/payments"
+                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px] no-underline hover:bg-[#f0f0ee] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />
+                    <div>
+                      <p className="text-[13px] text-[#0a0a0a] font-body">
+                        {deal?.deal_code || '-'} - 支払い待ち
+                      </p>
+                      <p className="text-[11px] text-[#888] font-body">
+                        {(client as { company_name?: string })?.company_name || '未設定'} - {formatJPY(payment.amount_jpy || 0)}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#bbb]" />
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
-          {/* Pipeline and Recent Deals */}
-          <div className="grid grid-cols-3 gap-2">
-            {/* Pipeline */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
-              <CardLabel icon={<Icon d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />}>
-                パイプライン
-              </CardLabel>
-              <div className="mt-4">
-                <PipelineBar data={pipelineData} />
-              </div>
-            </div>
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-4 gap-2 mb-2">
+        {/* Monthly Revenue */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+          <p className="text-[11px] text-[#888] font-body mb-2">月間売上</p>
+          <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
+            {formatJPY(monthlyRevenue)}
+          </p>
+          <p className="text-[11px] text-[#888] font-body mt-1">
+            {completedDealsThisMonth.length}件の納品
+          </p>
+        </div>
 
-            {/* Recent Deals */}
-            <div className="col-span-2 bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
-              <div className="px-[22px] py-[14px] border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[14px] font-semibold text-[#0a0a0a] font-display">最近の案件</span>
-              </div>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件コード</th>
-                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
-                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">商品名</th>
-                    <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
-                    <th className="px-[14px] py-[10px] text-right text-[11px] font-medium text-[#bbb] font-body">金額</th>
+        {/* In Progress */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+          <p className="text-[11px] text-[#888] font-body mb-2">進行中案件</p>
+          <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
+            {inProgressCount}<span className="text-[14px] text-[#888] ml-1">件</span>
+          </p>
+          <p className="text-[11px] text-[#888] font-body mt-1">
+            製造中 {statusCounts.production} / 配送中 {statusCounts.shipping}
+          </p>
+        </div>
+
+        {/* Delivered This Month */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+          <p className="text-[11px] text-[#888] font-body mb-2">今月納品</p>
+          <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
+            {deliveredThisMonth}<span className="text-[14px] text-[#888] ml-1">件</span>
+          </p>
+          <p className="text-[11px] text-[#888] font-body mt-1">
+            累計 {statusCounts.completed}件完了
+          </p>
+        </div>
+
+        {/* Unpaid */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+          <p className="text-[11px] text-[#888] font-body mb-2">未入金</p>
+          <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
+            {formatJPY(unpaidAmount)}
+          </p>
+          <p className="text-[11px] text-[#888] font-body mt-1">
+            {pendingPayments?.length || 0}件の支払い待ち
+          </p>
+        </div>
+      </div>
+
+      {/* Pipeline and Recent Deals */}
+      <div className="grid grid-cols-[1fr_2fr] gap-2">
+        {/* Pipeline */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a] mb-4">パイプライン</h2>
+          <PipelineBar data={pipelineData} />
+        </div>
+
+        {/* Recent Deals */}
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+            <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">最近の案件</h2>
+            <Link href="/deals" className="text-[12px] text-[#888] font-body no-underline hover:text-[#555]">
+              すべて見る
+            </Link>
+          </div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                <th className="px-4 py-2 text-left text-[11px] font-medium text-[#bbb] font-body">案件</th>
+                <th className="px-4 py-2 text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
+                <th className="px-4 py-2 text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
+                <th className="px-4 py-2 text-right text-[11px] font-medium text-[#bbb] font-body">金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentDeals.length > 0 ? recentDeals.map((deal, i) => {
+                const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
+                const amount = approvedQuote?.total_billing_tax_jpy || 0
+                const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+
+                return (
+                  <tr
+                    key={deal.id}
+                    className={`${i < recentDeals.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
+                  >
+                    <td className="px-4 py-3">
+                      <Link href={`/deals/${deal.id}`} className="text-[#0a0a0a] no-underline font-display text-[12px] tabular-nums">
+                        {deal.deal_code}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-[13px] text-[#0a0a0a] font-body">
+                      {client?.company_name || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusDot status={deal.master_status || 'M01'} size={6} />
+                    </td>
+                    <td className="px-4 py-3 text-right font-display font-medium text-[13px] tabular-nums">
+                      {amount > 0 ? formatJPY(amount) : '-'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recentDeals.length > 0 ? recentDeals.map((deal, i) => {
-                    const spec = deal.specifications?.[0]
-                    const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
-                    const amount = approvedQuote?.total_billing_tax_jpy || 0
-                    // Handle client being array or object
-                    const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
-
-                    return (
-                      <tr
-                        key={deal.id}
-                        className={`${i < recentDeals.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors cursor-pointer`}
-                      >
-                        <td className="px-[14px] py-[12px]">
-                          <Link href={`/deals/${deal.id}`} className="text-[#0a0a0a] no-underline font-display text-[12px] tabular-nums">
-                            {deal.deal_code}
-                          </Link>
-                        </td>
-                        <td className="px-[14px] py-[12px] font-display font-semibold text-[13px] text-[#0a0a0a]">
-                          {client?.company_name || '-'}
-                        </td>
-                        <td className="px-[14px] py-[12px] text-[12px] text-[#888] font-body">
-                          {spec?.product_name || deal.deal_name || '-'}
-                        </td>
-                        <td className="px-[14px] py-[12px]">
-                          <StatusDot status={deal.master_status || 'M01'} />
-                        </td>
-                        <td className="px-[14px] py-[12px] text-right font-display font-semibold text-[13px] tabular-nums">
-                          {amount > 0 ? formatJPY(amount) : '-'}
-                        </td>
-                      </tr>
-                    )
-                  }) : (
-                    <tr>
-                      <td colSpan={5} className="px-[14px] py-[24px] text-center text-[#888] text-[13px]">
-                        案件がありません
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Stale Deals Alert */}
-          {staleDeals.length > 0 && (
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
-              <CardLabel icon={<Icon d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />}>
-                停滞アラート（7日以上更新なし）
-              </CardLabel>
-              <div className="mt-3 flex flex-col gap-2">
-                {staleDeals.slice(0, 5).map((deal) => {
-                  const spec = deal.specifications?.[0]
-                  const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
-                  return (
-                    <div
-                      key={deal.id}
-                      className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
-                        <div>
-                          <div className="font-display text-[13px] font-medium">{deal.deal_code}</div>
-                          <div className="text-[11px] text-[#888]">
-                            {spec?.product_name || deal.deal_name || '商品名未設定'} - {client?.company_name || '未設定'}
-                          </div>
-                        </div>
-                      </div>
-                      <Link
-                        href={`/deals/${deal.id}`}
-                        className="bg-[#0a0a0a] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
-                      >
-                        対応する
-                      </Link>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Payment Alerts */}
-          {pendingPayments && pendingPayments.length > 0 && (
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
-              <CardLabel icon={<Icon d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />}>
-                支払いアラート
-              </CardLabel>
-              <div className="mt-3 flex flex-col gap-2">
-                {pendingPayments.map((payment) => {
-                  const deal = Array.isArray(payment.deal) ? payment.deal[0] : payment.deal
-                  return (
-                    <div
-                      key={payment.id}
-                      className="flex justify-between items-center px-[14px] py-[10px] bg-[#f2f2f0] rounded-[10px]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-[5px] h-[5px] rounded-full bg-[#e5a32e]" />
-                        <div>
-                          <div className="font-display text-[13px] font-medium">
-                            {deal?.deal_code || '不明'} - {payment.payment_type === 'advance' ? '前払い' : '残金'}
-                          </div>
-                          <div className="text-[11px] text-[#888]">
-                            ${payment.amount_usd?.toLocaleString() || 0} USD
-                          </div>
-                        </div>
-                      </div>
-                      <Link
-                        href={`/payments`}
-                        className="bg-[#22c55e] text-white rounded-[8px] px-[12px] py-[6px] text-[12px] font-medium no-underline"
-                      >
-                        支払う
-                      </Link>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                )
+              }) : (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-[#888] text-[13px] font-body">
+                    案件がありません
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   )

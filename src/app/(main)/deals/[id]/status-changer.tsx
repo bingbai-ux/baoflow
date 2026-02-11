@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateDealStatus } from '@/lib/actions/deals'
 import { MasterStatus, MASTER_STATUS_CONFIG } from '@/lib/types'
-import { statusLabelMap } from '@/components/deals/status-dot'
+import { statusLabelMap } from '@/components/status-dot'
 
 // Master Status order (M01-M25)
 const statusOrder: MasterStatus[] = [

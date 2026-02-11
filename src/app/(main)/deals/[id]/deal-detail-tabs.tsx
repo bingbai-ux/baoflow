@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { StatusDot } from '@/components/deals/status-dot'
+import { StatusDot } from '@/components/status-dot'
 import { formatJPY, formatUSD, formatDate } from '@/lib/utils/format'
 
 interface DealDetailTabsProps {

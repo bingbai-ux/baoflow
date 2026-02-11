@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { StatusDot } from '@/components/deals/status-dot'
+import { StatusDot } from '@/components/status-dot'
+import { DealProgressBar } from '@/components/deal-progress-bar'
 import { StatusChanger } from './status-changer'
 import { RepeatButton } from './repeat-button'
 import { DealDetailTabs } from './deal-detail-tabs'
 import { DealActionPanel } from './deal-action-panel'
 import { MASTER_STATUS_CONFIG, type MasterStatus } from '@/lib/types'
+import { ChevronLeft } from 'lucide-react'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -64,88 +66,94 @@ export default async function DealDetailPage({ params }: Props) {
 
   return (
     <>
-        {/* Page Header */}
-        <div className="flex justify-between items-center py-[18px]">
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
-                  {deal.deal_code}
-                </h1>
-                <StatusDot status={currentStatus} />
-              </div>
-              {deal.deal_name && (
-                <p className="text-[13px] text-[#888] font-body mt-1">{deal.deal_name}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href={`/deals/${id}/quotes/new`}
-              className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-            >
-              見積もり作成
-            </Link>
-            <Link
-              href={`/deals/${id}/excel-import`}
-              className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-            >
-              Excel取込
-            </Link>
-            <Link
-              href={`/deals/${id}/documents`}
-              className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-            >
-              帳票出力
-            </Link>
-            <RepeatButton dealId={id} />
-            <Link
-              href={`/deals/${id}/edit`}
-              className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-            >
-              編集
-            </Link>
-            <Link
-              href="/deals"
-              className="bg-white text-[#888] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-            >
-              戻る
-            </Link>
-          </div>
-        </div>
+      {/* Back Link */}
+      <Link
+        href="/deals"
+        className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        案件一覧
+      </Link>
 
-        {/* Action Panel */}
-        <div className="mb-4">
-          <DealActionPanel
-            dealId={id}
-            currentStatus={currentStatus}
-            hasFactoryAssignment={deal.factory_assignments && deal.factory_assignments.length > 0}
-            hasQuote={deal.quotes && deal.quotes.length > 0}
-          />
+      {/* Page Header */}
+      <div className="flex justify-between items-start py-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
+              {deal.deal_code}
+            </h1>
+            <StatusDot status={currentStatus} size={6} />
+          </div>
+          {deal.deal_name && (
+            <p className="text-[13px] text-[#888] font-body mt-1">{deal.deal_name}</p>
+          )}
         </div>
+        <div className="flex gap-2">
+          <Link
+            href={`/deals/${id}/quotes/new`}
+            className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            見積もり作成
+          </Link>
+          <Link
+            href={`/deals/${id}/excel-import`}
+            className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            Excel取込
+          </Link>
+          <Link
+            href={`/deals/${id}/documents`}
+            className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            帳票出力
+          </Link>
+          <RepeatButton dealId={id} />
+          <Link
+            href={`/deals/${id}/edit`}
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+          >
+            編集
+          </Link>
+        </div>
+      </div>
 
-        {/* Info Bar */}
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-4 mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div>
-              <span className="text-[11px] text-[#888] font-body">クライアント</span>
-              <p className="text-[13px] text-[#0a0a0a] font-body">{deal.client?.company_name || '-'}</p>
-            </div>
-            <div>
-              <span className="text-[11px] text-[#888] font-body">担当営業</span>
-              <p className="text-[13px] text-[#0a0a0a] font-body">{deal.sales_user?.display_name || '-'}</p>
-            </div>
-            {statusConfig?.nextAction && (
-              <div>
-                <span className="text-[11px] text-[#888] font-body">次のアクション</span>
-                <p className="text-[13px] text-[#22c55e] font-body">{statusConfig.nextAction}</p>
-              </div>
-            )}
+      {/* Progress Bar */}
+      <div className="mb-4">
+        <DealProgressBar currentStatus={currentStatus} />
+      </div>
+
+      {/* Action Panel */}
+      <div className="mb-4">
+        <DealActionPanel
+          dealId={id}
+          currentStatus={currentStatus}
+          hasFactoryAssignment={deal.factory_assignments && deal.factory_assignments.length > 0}
+          hasQuote={deal.quotes && deal.quotes.length > 0}
+        />
+      </div>
+
+      {/* Info Bar */}
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-4 mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <div>
+            <span className="text-[11px] text-[#888] font-body">クライアント</span>
+            <p className="text-[13px] text-[#0a0a0a] font-body">{deal.client?.company_name || '-'}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <StatusChanger dealId={id} currentStatus={currentStatus} />
+          <div>
+            <span className="text-[11px] text-[#888] font-body">担当営業</span>
+            <p className="text-[13px] text-[#0a0a0a] font-body">{deal.sales_user?.display_name || '-'}</p>
           </div>
+          {statusConfig?.nextAction && (
+            <div>
+              <span className="text-[11px] text-[#888] font-body">次のアクション</span>
+              <p className="text-[13px] text-[#22c55e] font-body">{statusConfig.nextAction}</p>
+            </div>
+          )}
         </div>
+        <div className="flex items-center gap-2">
+          <StatusChanger dealId={id} currentStatus={currentStatus} />
+        </div>
+      </div>
 
       {/* Tabbed Content */}
       <DealDetailTabs
