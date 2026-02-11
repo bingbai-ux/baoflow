@@ -44,7 +44,7 @@ async function postSystemMessage(
 
   await supabase.from('chat_messages').insert({
     room_id: room.id,
-    sender_id: null,
+    user_id: null,
     content,
     is_system_message: true,
   })

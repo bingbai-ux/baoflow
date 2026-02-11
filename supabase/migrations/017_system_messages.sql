@@ -13,8 +13,8 @@ BEGIN
   END IF;
 END $$;
 
--- Make sender_id nullable for system messages
-ALTER TABLE chat_messages ALTER COLUMN sender_id DROP NOT NULL;
+-- Make user_id nullable for system messages
+ALTER TABLE chat_messages ALTER COLUMN user_id DROP NOT NULL;
 
 -- ============================================================================
 -- Add product_category column to price_records for Smart Quote
