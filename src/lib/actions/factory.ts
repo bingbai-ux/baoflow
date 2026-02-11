@@ -67,20 +67,28 @@ export async function submitQuoteResponse(data: QuoteResponseData) {
 
   try {
     // Create quote record
-    const { error: quoteError } = await supabase.from('deal_quotes').insert({
+    const { data: quote, error: quoteError } = await supabase.from('deal_quotes').insert({
       deal_id: data.dealId,
       factory_id: profile.factory_id,
       factory_unit_price_usd: data.unitPriceUsd,
-      shipping_cost_usd: data.shippingCostUsd,
-      plate_cost_usd: data.plateCostUsd || 0,
-      production_days: data.productionDays,
+      plate_fee_usd: data.plateCostUsd || 0,
       moq: data.moq,
-      delivery_options: data.deliveryOptions,
-      notes: data.notes,
       status: 'submitted',
-    })
+    }).select().single()
 
     if (quoteError) throw quoteError
+
+    // Create shipping options if provided
+    if (data.deliveryOptions && data.deliveryOptions.length > 0 && quote) {
+      for (const opt of data.deliveryOptions) {
+        await supabase.from('deal_shipping_options').insert({
+          deal_quote_id: quote.id,
+          shipping_method: opt.method,
+          shipping_cost_usd: opt.shippingUsd,
+          shipping_days: opt.days,
+        })
+      }
+    }
 
     // Update assignment status
     const { error: assignmentError } = await supabase

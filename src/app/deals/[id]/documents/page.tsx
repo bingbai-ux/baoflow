@@ -21,9 +21,9 @@ interface DealData {
   }>
   quotes?: Array<{
     quantity: number
-    unit_selling_price_jpy: number
-    total_jpy: number
-    total_jpy_incl_tax: number
+    selling_price_jpy: number
+    total_billing_jpy: number
+    total_billing_tax_jpy: number
     status: string
   }>
 }
@@ -70,7 +70,7 @@ export default function DocumentsPage() {
           id, deal_code, deal_name,
           client:clients(company_name, contact_name, address, phone),
           specifications:deal_specifications(product_name),
-          quotes:deal_quotes(quantity, unit_selling_price_jpy, total_jpy, total_jpy_incl_tax, status)
+          quotes:deal_quotes(quantity, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status)
         `)
         .eq('id', dealId)
         .single()
@@ -231,7 +231,7 @@ export default function DocumentsPage() {
               <div className="flex justify-between items-center">
                 <span className="text-[14px] font-body">合計金額（税込）</span>
                 <span className="text-[24px] font-bold font-display tabular-nums">
-                  {formatJPY(approvedQuote.total_jpy_incl_tax)}
+                  {formatJPY(approvedQuote.total_billing_tax_jpy)}
                 </span>
               </div>
             </div>
@@ -254,10 +254,10 @@ export default function DocumentsPage() {
                   {approvedQuote?.quantity?.toLocaleString() || '-'}
                 </td>
                 <td className="py-3 text-[13px] text-right font-display tabular-nums">
-                  {approvedQuote ? formatJPY(approvedQuote.unit_selling_price_jpy) : '-'}
+                  {approvedQuote ? formatJPY(approvedQuote.selling_price_jpy) : '-'}
                 </td>
                 <td className="py-3 text-[13px] text-right font-display tabular-nums">
-                  {approvedQuote ? formatJPY(approvedQuote.total_jpy) : '-'}
+                  {approvedQuote ? formatJPY(approvedQuote.total_billing_jpy) : '-'}
                 </td>
               </tr>
             </tbody>
@@ -265,19 +265,19 @@ export default function DocumentsPage() {
               <tr className="border-b border-[rgba(0,0,0,0.1)]">
                 <td colSpan={3} className="py-2 text-[12px] text-right font-body">小計</td>
                 <td className="py-2 text-[13px] text-right font-display tabular-nums">
-                  {approvedQuote ? formatJPY(approvedQuote.total_jpy) : '-'}
+                  {approvedQuote ? formatJPY(approvedQuote.total_billing_jpy) : '-'}
                 </td>
               </tr>
               <tr className="border-b border-[rgba(0,0,0,0.1)]">
                 <td colSpan={3} className="py-2 text-[12px] text-right font-body">消費税 (10%)</td>
                 <td className="py-2 text-[13px] text-right font-display tabular-nums">
-                  {approvedQuote ? formatJPY(approvedQuote.total_jpy_incl_tax - approvedQuote.total_jpy) : '-'}
+                  {approvedQuote ? formatJPY(approvedQuote.total_billing_tax_jpy - approvedQuote.total_billing_jpy) : '-'}
                 </td>
               </tr>
               <tr>
                 <td colSpan={3} className="py-2 text-[13px] text-right font-bold font-body">合計（税込）</td>
                 <td className="py-2 text-[14px] text-right font-bold font-display tabular-nums">
-                  {approvedQuote ? formatJPY(approvedQuote.total_jpy_incl_tax) : '-'}
+                  {approvedQuote ? formatJPY(approvedQuote.total_billing_tax_jpy) : '-'}
                 </td>
               </tr>
             </tfoot>

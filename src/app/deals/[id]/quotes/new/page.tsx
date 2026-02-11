@@ -192,13 +192,12 @@ export default function NewQuotePage() {
           other_fees_usd: otherFeesUsd ? parseFloat(otherFeesUsd) : null,
           cost_ratio: costRatio,
           exchange_rate: exchangeRate,
-          total_usd: result.totalCostUsd,
-          unit_selling_price_usd: result.sellingPriceUsd,
-          unit_selling_price_jpy: result.sellingPriceJpy,
-          total_jpy: result.totalBillingJpy,
-          total_jpy_incl_tax: result.totalBillingTaxJpy,
-          gross_profit_jpy: Math.round(result.grossProfitUsd * exchangeRate),
-          gross_margin: result.grossProfitMargin,
+          total_cost_usd: result.totalCostUsd,
+          unit_cost_usd: result.unitCostUsd,
+          selling_price_usd: result.sellingPriceUsd,
+          selling_price_jpy: result.sellingPriceJpy,
+          total_billing_jpy: result.totalBillingJpy,
+          total_billing_tax_jpy: result.totalBillingTaxJpy,
           status: 'drafting',
         })
         .select()
@@ -213,11 +212,11 @@ export default function NewQuotePage() {
       // Create shipping options for this quote
       for (const opt of shippingOptions) {
         await supabase.from('deal_shipping_options').insert({
-          quote_id: quote.id,
+          deal_quote_id: quote.id,
           shipping_method: opt.method,
-          incoterms: opt.incoterms,
+          incoterm: opt.incoterms,
           shipping_cost_usd: opt.costUsd,
-          estimated_days: opt.days,
+          shipping_days: opt.days,
         })
       }
     }

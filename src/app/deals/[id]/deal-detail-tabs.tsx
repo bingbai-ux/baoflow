@@ -46,11 +46,11 @@ interface DealDetailTabsProps {
       plate_fee_usd?: number | null
       other_fees_usd?: number | null
       cost_ratio: number
-      total_usd: number
-      unit_selling_price_usd: number
-      unit_selling_price_jpy: number
-      total_jpy: number
-      total_jpy_incl_tax: number
+      total_cost_usd: number
+      selling_price_usd: number
+      selling_price_jpy: number
+      total_billing_jpy: number
+      total_billing_tax_jpy: number
       status: string
       factory?: {
         id: string
@@ -59,9 +59,9 @@ interface DealDetailTabsProps {
       shipping_options?: Array<{
         id: string
         shipping_method: string
-        incoterms: string
+        incoterm: string
         shipping_cost_usd: number
-        estimated_days: number
+        shipping_days: number
       }>
     }>
     samples?: Array<{
@@ -287,13 +287,13 @@ export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProp
                 </div>
                 <div>
                   <span className="text-[#888] font-body">販売単価JPY</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">{formatJPY(quote.unit_selling_price_jpy)}</p>
+                  <p className="font-display tabular-nums text-[#0a0a0a]">{formatJPY(quote.selling_price_jpy)}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)] flex justify-between items-center">
                 <span className="text-[11px] text-[#888] font-body">請求合計（税込）</span>
                 <span className="font-display tabular-nums text-[16px] font-semibold text-[#0a0a0a]">
-                  {formatJPY(quote.total_jpy_incl_tax)}
+                  {formatJPY(quote.total_billing_tax_jpy)}
                 </span>
               </div>
               {quote.shipping_options && quote.shipping_options.length > 0 && (
@@ -303,10 +303,10 @@ export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProp
                     {quote.shipping_options.map(opt => (
                       <div key={opt.id} className="flex justify-between text-[11px]">
                         <span className="font-body text-[#555]">
-                          {opt.shipping_method} / {opt.incoterms}
+                          {opt.shipping_method} / {opt.incoterm}
                         </span>
                         <span className="font-display tabular-nums text-[#0a0a0a]">
-                          {formatUSD(opt.shipping_cost_usd)} ({opt.estimated_days}日)
+                          {formatUSD(opt.shipping_cost_usd)} ({opt.shipping_days}日)
                         </span>
                       </div>
                     ))}
