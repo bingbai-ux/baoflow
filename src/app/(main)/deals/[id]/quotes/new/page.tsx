@@ -225,25 +225,25 @@ export default function NewQuotePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <div className="px-[26px] py-6 max-w-[1000px]">
+    <>
+      <div className="max-w-[1000px]">
         {/* Page Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
+        <div className="flex justify-between items-center py-[18px]">
+          <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
             見積もり作成
           </h1>
           <Link
             href={`/deals/${dealId}`}
-            className="text-[#888] text-[13px] font-body no-underline"
+            className="text-[#888] text-[13px] font-body no-underline hover:text-[#555]"
           >
             キャンセル
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           {/* Form */}
           <form onSubmit={handleSubmit}>
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
               <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">基本情報</h2>
 
               {/* Factory */}
@@ -365,7 +365,7 @@ export default function NewQuotePage() {
             </div>
 
             {/* Shipping Options */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
               <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">配送オプション</h2>
 
               {shippingOptions.map((opt, index) => (
@@ -466,7 +466,7 @@ export default function NewQuotePage() {
 
           {/* Calculation Results */}
           <div>
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
               <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">計算結果</h2>
 
               {calculationResults && calculationResults.length > 0 ? (
@@ -511,7 +511,7 @@ export default function NewQuotePage() {
 
             {/* Payment Method Comparison */}
             {paymentComparison && (
-              <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+              <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
                 <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">支払い方法比較</h2>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -558,7 +558,7 @@ export default function NewQuotePage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

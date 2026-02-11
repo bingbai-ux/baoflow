@@ -18,10 +18,10 @@ export default async function InventoryPage() {
   const lowStockItems = items?.filter((i) => i.current_stock <= (i.safety_stock || 0)) || []
 
   return (
-    <div className="px-[26px] py-5 space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-          Inventory
+    <>
+      <div className="flex items-center justify-between py-[18px]">
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          在庫
         </h1>
         <Link
           href="/inventory/shipment-orders"
@@ -32,20 +32,20 @@ export default async function InventoryPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">在庫アイテム数</p>
           <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
             {totalItems}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">安全在庫以下</p>
-          <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
+          <p className="text-[28px] font-display font-semibold text-[#e5a32e] tabular-nums">
             {lowStockItems.length}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <Link
             href="/inventory/billing"
             className="block no-underline"
@@ -58,8 +58,8 @@ export default async function InventoryPage() {
 
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (
-        <div className="bg-[rgba(229,163,46,0.1)] rounded-[20px] border border-[rgba(229,163,46,0.2)] p-5">
-          <h2 className="text-[14px] font-display font-semibold text-[#e5a32e] mb-3">
+        <div className="bg-[rgba(229,163,46,0.1)] rounded-[14px] border border-[rgba(229,163,46,0.2)] p-5 mb-4">
+          <h2 className="text-[14px] font-body font-medium text-[#e5a32e] mb-3">
             安全在庫アラート
           </h2>
           <div className="space-y-2">
@@ -69,11 +69,14 @@ export default async function InventoryPage() {
                 <Link
                   key={item.id}
                   href={`/inventory/${item.id}`}
-                  className="flex items-center justify-between p-3 bg-white rounded-[12px] no-underline"
+                  className="flex items-center justify-between p-3 bg-white rounded-[10px] no-underline hover:bg-[#fcfcfb] transition-colors"
                 >
-                  <div>
-                    <p className="text-[12px] text-[#888] font-body">{client?.company_name}</p>
-                    <p className="text-[13px] text-[#0a0a0a] font-body">{item.product_name}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />
+                    <div>
+                      <p className="text-[12px] text-[#888] font-body">{client?.company_name}</p>
+                      <p className="text-[13px] text-[#0a0a0a] font-body">{item.product_name}</p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[12px] text-[#e5a32e] font-display tabular-nums">
@@ -91,37 +94,42 @@ export default async function InventoryPage() {
       )}
 
       {/* Inventory List */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
-        <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
-          <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+        <div className="p-4 border-b border-[rgba(0,0,0,0.06)]">
+          <h2 className="text-[14px] font-body font-medium text-[#0a0a0a]">
             在庫一覧
           </h2>
         </div>
         {items && items.length > 0 ? (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                <th className="text-left py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
-                <th className="text-left py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">商品名</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">現在庫</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">安全在庫</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body"></th>
+              <tr className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.06)]">
+                <th className="text-left py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">クライアント</th>
+                <th className="text-left py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">商品名</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">現在庫</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">安全在庫</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
+              {items.map((item, index) => {
                 const client = Array.isArray(item.client) ? item.client[0] : item.client
                 const isLowStock = item.current_stock <= (item.safety_stock || 0)
                 return (
-                  <tr key={item.id} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#fcfcfb]">
+                  <tr key={item.id} className={`${index < items.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb]`}>
                     <td className="py-3 px-4 text-[12px] text-[#888] font-body">
                       {client?.company_name}
                     </td>
                     <td className="py-3 px-4 text-[13px] text-[#0a0a0a] font-body">
                       {item.product_name}
                     </td>
-                    <td className={`py-3 px-4 text-right font-display tabular-nums text-[13px] ${isLowStock ? 'text-[#e5a32e]' : 'text-[#0a0a0a]'}`}>
-                      {item.current_stock.toLocaleString()}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isLowStock && <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />}
+                        <span className={`font-display tabular-nums text-[13px] ${isLowStock ? 'text-[#e5a32e]' : 'text-[#0a0a0a]'}`}>
+                          {item.current_stock.toLocaleString()}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-right text-[12px] text-[#888] font-display tabular-nums">
                       {(item.safety_stock || 0).toLocaleString()}
@@ -147,6 +155,6 @@ export default async function InventoryPage() {
           </div>
         )}
       </div>
-    </div>
+    </>
   )
 }

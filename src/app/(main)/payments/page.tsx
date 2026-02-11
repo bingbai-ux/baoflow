@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PageHeader } from '@/components/layout/page-header'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 
 const paymentTypeLabels: Record<string, string> = {
@@ -38,12 +37,6 @@ export default async function PaymentsPage() {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single()
-
   const { data: payments } = await supabase
     .from('payments')
     .select(`
@@ -56,29 +49,31 @@ export default async function PaymentsPage() {
   return (
     <>
       <div className="flex justify-between items-center py-[18px]">
-        <PageHeader title="Payments" />
-          <Link
-            href="/payments/new"
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            + 新規支払い
-          </Link>
-        </div>
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          支払い
+        </h1>
+        <Link
+          href="/payments/new"
+          className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
+        >
+          + 新規支払い
+        </Link>
+      </div>
 
-        {/* Payments Table */}
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">案件番号</th>
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">クライアント</th>
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">種別</th>
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">方法</th>
-                <th className="px-[14px] py-[10px] text-right text-[11px] font-medium text-[#bbb] font-body">金額 (JPY)</th>
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">ステータス</th>
-                <th className="px-[14px] py-[10px] text-left text-[11px] font-medium text-[#bbb] font-body">日付</th>
-              </tr>
-            </thead>
+      {/* Payments Table */}
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.06)]">
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">案件番号</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">クライアント</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">種別</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">方法</th>
+              <th className="px-[14px] py-[10px] text-right text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">金額 (JPY)</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">ステータス</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">日付</th>
+            </tr>
+          </thead>
             <tbody>
               {payments && payments.length > 0 ? (
                 payments.map((payment, index) => (
@@ -114,7 +109,7 @@ export default async function PaymentsPage() {
                     <td className="px-[14px] py-[12px]">
                       <div className="flex items-center gap-[6px]">
                         <span
-                          className="w-[5px] h-[5px] rounded-full"
+                          className="w-[6px] h-[6px] rounded-full"
                           style={{ backgroundColor: statusColors[payment.status] || '#bbbbbb' }}
                         />
                         <span className="text-[12px] text-[#555] font-body">

@@ -11,51 +11,48 @@ export default async function LogisticsPage() {
     .order('name', { ascending: true })
 
   return (
-    <div className="px-[26px] py-5">
+    <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-          Logistics
+      <div className="flex items-center justify-between py-[18px]">
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          物流エージェント
         </h1>
         <Link
           href="/logistics/new"
-          className="flex items-center gap-2 bg-[#0a0a0a] text-white rounded-[8px] px-[13px] py-[7px] text-[12px] font-body font-medium no-underline"
+          className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          新規登録
+          + 新規登録
         </Link>
       </div>
 
       {/* Agents Table */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[rgba(0,0,0,0.06)]">
-              <th className="text-left text-[11px] font-medium text-[#bbb] font-body py-[10px] px-[14px]">
+            <tr className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.06)]">
+              <th className="text-left text-[9px] font-medium text-[#b0b0b0] font-body py-[10px] px-[14px] uppercase tracking-wider">
                 名称
               </th>
-              <th className="text-left text-[11px] font-medium text-[#bbb] font-body py-[10px] px-[14px]">
+              <th className="text-left text-[9px] font-medium text-[#b0b0b0] font-body py-[10px] px-[14px] uppercase tracking-wider">
                 タイプ
               </th>
-              <th className="text-left text-[11px] font-medium text-[#bbb] font-body py-[10px] px-[14px]">
+              <th className="text-left text-[9px] font-medium text-[#b0b0b0] font-body py-[10px] px-[14px] uppercase tracking-wider">
                 対応サービス
               </th>
-              <th className="text-left text-[11px] font-medium text-[#bbb] font-body py-[10px] px-[14px]">
+              <th className="text-left text-[9px] font-medium text-[#b0b0b0] font-body py-[10px] px-[14px] uppercase tracking-wider">
                 主要担当
               </th>
-              <th className="text-right text-[11px] font-medium text-[#bbb] font-body py-[10px] px-[14px]">
+              <th className="text-right text-[9px] font-medium text-[#b0b0b0] font-body py-[10px] px-[14px] uppercase tracking-wider">
                 操作
               </th>
             </tr>
           </thead>
           <tbody>
             {agents && agents.length > 0 ? (
-              agents.map((agent) => (
+              agents.map((agent, index) => (
                 <tr
                   key={agent.id}
-                  className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#fcfcfb]"
+                  className={`${index < agents.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb]`}
                 >
                   <td className="py-3 px-[14px]">
                     <div>
@@ -84,7 +81,7 @@ export default async function LogisticsPage() {
                         {agent.services.map((service: string, i: number) => (
                           <span
                             key={i}
-                            className="text-[10px] font-body text-[#555] bg-[#f2f2f0] px-2 py-0.5 rounded"
+                            className="text-[10px] font-body text-[#555] bg-[#f2f2f0] px-2 py-0.5 rounded-full"
                           >
                             {service}
                           </span>
@@ -96,8 +93,8 @@ export default async function LogisticsPage() {
                   </td>
                   <td className="py-3 px-[14px]">
                     {agent.is_primary ? (
-                      <span className="flex items-center gap-1 text-[11px] text-[#22c55e] font-body">
-                        <span className="w-[5px] h-[5px] rounded-full bg-[#22c55e]" />
+                      <span className="flex items-center gap-[6px] text-[11px] text-[#22c55e] font-body">
+                        <span className="w-[6px] h-[6px] rounded-full bg-[#22c55e]" />
                         主要
                       </span>
                     ) : (
@@ -126,6 +123,6 @@ export default async function LogisticsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   )
 }

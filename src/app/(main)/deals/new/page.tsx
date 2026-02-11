@@ -218,16 +218,16 @@ export default function NewDealPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <div className="px-[26px] py-6 max-w-[800px]">
+    <>
+      <div className="max-w-[800px]">
         {/* Page Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
+        <div className="flex justify-between items-center py-[18px]">
+          <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
             新規案件
           </h1>
           <Link
             href="/deals"
-            className="text-[#888] text-[13px] font-body no-underline"
+            className="text-[#888] text-[13px] font-body no-underline hover:text-[#555]"
           >
             キャンセル
           </Link>
@@ -235,7 +235,7 @@ export default function NewDealPage() {
 
         {/* Form Card */}
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
             <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">基本情報</h2>
 
             <div className="grid grid-cols-2 gap-4">
@@ -285,7 +285,7 @@ export default function NewDealPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
             <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">商品仕様</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -518,7 +518,7 @@ export default function NewDealPage() {
           </div>
         </form>
       </div>
-    </div>
+    </>
   )
 }
 

@@ -169,14 +169,16 @@ export default async function AnalyticsPage() {
   return (
     <>
       <div className="py-[18px]">
-        <PageHeader title="Analytics" subtitle="Business Intelligence" />
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          分析
+        </h1>
       </div>
 
         <div className="flex flex-col gap-2">
           {/* KPI Row */}
           <div className="grid grid-cols-4 gap-2">
             {/* Total Revenue */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />}>
                 累計売上
               </CardLabel>
@@ -198,7 +200,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Average Deal Size */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
                 平均案件単価
               </CardLabel>
@@ -220,7 +222,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Transactions In */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M7 17l9.2-9.2M17 17V7H7" />}>
                 入金合計
               </CardLabel>
@@ -242,7 +244,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Transactions Out */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M17 7l-9.2 9.2M7 7v10h10" />}>
                 出金合計
               </CardLabel>
@@ -267,7 +269,7 @@ export default async function AnalyticsPage() {
           {/* Charts Row */}
           <div className="grid grid-cols-2 gap-2">
             {/* Monthly Revenue Chart */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M3 3v18h18M7 16l4-4 4 4 5-5" />}>
                 月別売上推移
               </CardLabel>
@@ -281,7 +283,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Top Clients */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8" />}>
                 売上TOP5クライアント
               </CardLabel>
@@ -298,7 +300,7 @@ export default async function AnalyticsPage() {
           {/* Summary Row */}
           <div className="grid grid-cols-3 gap-2">
             {/* Status Distribution */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}>
                 ステータス分布
               </CardLabel>
@@ -331,7 +333,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M13 10V3L4 14h7v7l9-11h-7z" />}>
                 クイック統計
               </CardLabel>
@@ -367,7 +369,7 @@ export default async function AnalyticsPage() {
             </div>
 
             {/* Net Cashflow */}
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
               <CardLabel icon={<Icon d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}>
                 キャッシュフロー
               </CardLabel>

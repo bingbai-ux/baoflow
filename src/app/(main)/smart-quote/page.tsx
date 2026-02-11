@@ -91,26 +91,39 @@ export default function SmartQuotePage() {
     }
   }
 
-  const getConfidenceStars = (confidence: string) => {
-    switch (confidence) {
-      case 'high':
-        return '★★★'
-      case 'medium':
-        return '★★☆'
-      default:
-        return '★☆☆'
+  // Confidence indicator with dots
+  const ConfidenceDots = ({ level }: { level: string }) => {
+    const colors = {
+      high: '#22c55e',
+      medium: '#e5a32e',
+      low: '#bbbbbb',
     }
+    const color = colors[level as keyof typeof colors] || colors.low
+    const count = level === 'high' ? 3 : level === 'medium' ? 2 : 1
+    return (
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-[6px] h-[6px] rounded-full"
+            style={{ backgroundColor: i < count ? color : '#e8e8e6' }}
+          />
+        ))}
+      </div>
+    )
   }
 
   return (
-    <div className="px-[26px] py-5 space-y-5">
-      <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-        Smart Quote
-      </h1>
+    <>
+      <div className="py-[18px]">
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          スマート見積もり
+        </h1>
+      </div>
 
       {/* Search Form */}
-      <form onSubmit={handleSearch} className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
-        <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
+      <form onSubmit={handleSearch} className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
+        <h2 className="text-[14px] font-body font-medium text-[#0a0a0a] mb-4">
           条件入力
         </h2>
         <div className="grid grid-cols-5 gap-4 mb-4">
@@ -206,26 +219,26 @@ export default function SmartQuotePage() {
 
       {/* Results */}
       {estimates.length > 0 && (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
-          <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
-            <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="p-4 border-b border-[rgba(0,0,0,0.06)]">
+            <h2 className="text-[14px] font-body font-medium text-[#0a0a0a]">
               工場別比較表 ({estimates.length}件)
             </h2>
           </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[rgba(0,0,0,0.06)]">
-                <th className="text-left py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">工場名</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">推定単価</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">推定送料</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">推定合計</th>
-                <th className="text-center py-3 px-4 text-[11px] font-medium text-[#bbb] font-body">信頼度</th>
-                <th className="text-right py-3 px-4 text-[11px] font-medium text-[#bbb] font-body"></th>
+              <tr className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.06)]">
+                <th className="text-left py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">工場名</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">推定単価</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">推定送料</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">推定合計</th>
+                <th className="text-center py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">信頼度</th>
+                <th className="text-right py-3 px-4 text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody>
-              {estimates.map((est) => (
-                <tr key={est.factoryId} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#fcfcfb]">
+              {estimates.map((est, index) => (
+                <tr key={est.factoryId} className={`${index < estimates.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb]`}>
                   <td className="py-3 px-4 text-[13px] text-[#0a0a0a] font-body">{est.factoryName}</td>
                   <td className="py-3 px-4 text-right font-display tabular-nums text-[13px] text-[#0a0a0a]">
                     {est.estimatedUnitPrice > 0 ? `$${est.estimatedUnitPrice.toFixed(2)}` : '-'}
@@ -236,11 +249,11 @@ export default function SmartQuotePage() {
                   <td className="py-3 px-4 text-right font-display tabular-nums text-[13px] font-semibold text-[#0a0a0a]">
                     {est.estimatedTotal > 0 ? `$${est.estimatedTotal.toFixed(2)}` : '-'}
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`text-[12px] ${est.confidence === 'high' ? 'text-[#22c55e]' : est.confidence === 'medium' ? 'text-[#e5a32e]' : 'text-[#888]'}`}>
-                      {getConfidenceStars(est.confidence)}
-                    </span>
-                    <p className="text-[10px] text-[#888] font-body">{est.confidenceReason}</p>
+                  <td className="py-3 px-4">
+                    <div className="flex flex-col items-center gap-1">
+                      <ConfidenceDots level={est.confidence} />
+                      <p className="text-[10px] text-[#888] font-body">{est.confidenceReason}</p>
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button
@@ -259,12 +272,12 @@ export default function SmartQuotePage() {
       )}
 
       {estimates.length === 0 && !loading && (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
           <p className="text-[13px] text-[#888] font-body">
             条件を入力して「見積もり検索」をクリックしてください
           </p>
         </div>
       )}
-    </div>
+    </>
   )
 }

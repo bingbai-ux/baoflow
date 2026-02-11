@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PageHeader } from '@/components/layout/page-header'
 
 interface Settings {
   company: {
@@ -106,12 +105,14 @@ export default function SettingsPage() {
   return (
     <>
       <div className="py-[18px]">
-        <PageHeader title="Settings" />
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          設定
+        </h1>
       </div>
 
-        <div className="grid grid-cols-[200px_1fr] gap-4">
+        <div className="grid grid-cols-[200px_1fr] gap-2">
           {/* Sidebar */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-3">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-3">
             {sidebarItems.map(item => (
               <button
                 key={item.id}
@@ -128,7 +129,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Content */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
             {activeSection === 'company' && (
               <>
                 <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">会社情報</h2>
