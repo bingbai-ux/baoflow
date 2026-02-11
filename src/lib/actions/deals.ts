@@ -100,6 +100,22 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
     return { data: null, error: 'Unauthorized' }
   }
 
+  // Ensure profile exists (handles cases where trigger didn't create one)
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .single()
+
+  if (!existingProfile) {
+    await supabase.from('profiles').insert({
+      id: user.id,
+      email: user.email,
+      display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
+      role: 'sales',
+    })
+  }
+
   // Handle FormData input
   let dealData: {
     deal_name?: string | null
