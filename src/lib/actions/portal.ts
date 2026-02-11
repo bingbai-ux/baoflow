@@ -3,6 +3,78 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Helper to post system messages
+async function postSystemMessage(
+  dealId: string,
+  roomType: 'client_sales' | 'sales_factory',
+  content: string
+) {
+  const supabase = await createClient()
+
+  const { data: room } = await supabase
+    .from('chat_rooms')
+    .select('id')
+    .eq('deal_id', dealId)
+    .eq('room_type', roomType)
+    .single()
+
+  if (!room) return
+
+  await supabase.from('chat_messages').insert({
+    room_id: room.id,
+    sender_id: null,
+    content,
+    is_system_message: true,
+  })
+}
+
+// Helper to record price data for Smart Quote
+async function recordPriceData(dealId: string) {
+  const supabase = await createClient()
+
+  const { data: deal } = await supabase
+    .from('deals')
+    .select(`
+      id,
+      quotes:deal_quotes(
+        factory_id,
+        quantity,
+        factory_unit_price_usd,
+        status,
+        shipping_options:deal_shipping_options(
+          shipping_cost_usd,
+          is_selected
+        )
+      ),
+      specifications:deal_specifications(
+        product_category,
+        material_category
+      )
+    `)
+    .eq('id', dealId)
+    .single()
+
+  if (!deal) return
+
+  const quote = deal.quotes?.find((q) => q.status === 'approved') || deal.quotes?.[0]
+  const spec = deal.specifications?.[0]
+
+  if (!quote || !spec) return
+
+  const selectedShipping = quote.shipping_options?.find((o) => o.is_selected)
+
+  await supabase.from('price_records').insert({
+    factory_id: quote.factory_id,
+    product_category: spec.product_category,
+    material: spec.material_category,
+    quantity: quote.quantity,
+    unit_price_usd: quote.factory_unit_price_usd,
+    shipping_usd: selectedShipping?.shipping_cost_usd || 0,
+    deal_id: dealId,
+    recorded_at: new Date().toISOString(),
+  })
+}
+
 // Approve quote - move deal from M06-M10 to M11
 export async function approveQuote(dealId: string): Promise<{ error: string | null }> {
   const supabase = await createClient()
@@ -54,6 +126,13 @@ export async function approveQuote(dealId: string): Promise<{ error: string | nu
     return { error: error.message }
   }
 
+  // Update quote status to approved
+  await supabase
+    .from('deal_quotes')
+    .update({ status: 'approved' })
+    .eq('deal_id', dealId)
+    .eq('status', 'presented')
+
   // Record status change
   await supabase.from('deal_status_history').insert({
     deal_id: dealId,
@@ -63,9 +142,18 @@ export async function approveQuote(dealId: string): Promise<{ error: string | nu
     note: 'クライアント承認',
   })
 
+  // Post system messages
+  await postSystemMessage(dealId, 'client_sales', 'ご承認ありがとうございます。')
+  await postSystemMessage(dealId, 'sales_factory', '見積もりが承認されました。')
+
+  // Record price data for Smart Quote
+  await recordPriceData(dealId)
+
   revalidatePath('/portal')
   revalidatePath('/portal/orders')
   revalidatePath(`/portal/orders/${dealId}`)
+  revalidatePath('/deals')
+  revalidatePath(`/deals/${dealId}`)
 
   return { error: null }
 }
@@ -167,11 +255,25 @@ export async function createRepeatOrder(
     })
   }
 
-  // Create chat room
-  await supabase.from('chat_rooms').insert({
-    deal_id: newDeal.id,
-    room_type: 'client_sales',
-  })
+  // Create chat rooms
+  await supabase.from('chat_rooms').insert([
+    { deal_id: newDeal.id, room_type: 'client_sales' },
+    { deal_id: newDeal.id, room_type: 'sales_factory' },
+  ])
+
+  // Copy factory assignment if exists
+  const { data: originalAssignments } = await supabase
+    .from('deal_factory_assignments')
+    .select('factory_id')
+    .eq('deal_id', dealId)
+
+  if (originalAssignments && originalAssignments.length > 0) {
+    await supabase.from('deal_factory_assignments').insert({
+      deal_id: newDeal.id,
+      factory_id: originalAssignments[0].factory_id,
+      status: 'requesting',
+    })
+  }
 
   // Record status history
   await supabase.from('deal_status_history').insert({
@@ -182,8 +284,12 @@ export async function createRepeatOrder(
     note: `リピート注文 (元案件: ${original.deal_code})`,
   })
 
+  // Post system message
+  await postSystemMessage(newDeal.id, 'client_sales', 'リピート注文が作成されました。')
+
   revalidatePath('/portal')
   revalidatePath('/portal/orders')
+  revalidatePath('/deals')
 
   return { data: { id: newDeal.id }, error: null }
 }
@@ -311,11 +417,11 @@ export async function createQuoteRequest(
       ].filter(Boolean).join('\n') || null,
     })
 
-    // Create chat room
-    await supabase.from('chat_rooms').insert({
-      deal_id: newDeal.id,
-      room_type: 'client_sales',
-    })
+    // Create chat rooms
+    await supabase.from('chat_rooms').insert([
+      { deal_id: newDeal.id, room_type: 'client_sales' },
+      { deal_id: newDeal.id, room_type: 'sales_factory' },
+    ])
 
     // Record status history
     await supabase.from('deal_status_history').insert({
@@ -325,6 +431,9 @@ export async function createQuoteRequest(
       changed_by: user.id,
       note: 'クライアントポータルから見積もり依頼',
     })
+
+    // Post system message
+    await postSystemMessage(newDeal.id, 'client_sales', '見積もり依頼を受け付けました。担当者からご連絡いたします。')
   }
 
   revalidatePath('/portal')

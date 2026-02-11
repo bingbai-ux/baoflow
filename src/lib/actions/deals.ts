@@ -10,6 +10,63 @@ import type {
   UpdateDealInput,
 } from '@/lib/types'
 
+// System message templates for status changes
+const STATUS_MESSAGES: Partial<Record<MasterStatus, { client?: string; factory?: string }>> = {
+  M03: { factory: '新しい見積もり依頼があります。ご確認ください。' },
+  M05: { client: '工場から見積もりが届きました。' },
+  M06: { client: 'お見積書をお送りしました。ご確認ください。' },
+  M08: { factory: 'クライアントから修正依頼がありました。' },
+  M11: { client: 'ご承認ありがとうございます。', factory: '見積もりが承認されました。' },
+  M12: { client: '請求書を発行しました。ご確認ください。' },
+  M14: { client: 'ご入金を確認しました。ありがとうございます。', factory: '入金が確認されました。製造を開始してください。' },
+  M17: { client: '製造を開始しました。', factory: '製造開始を記録しました。' },
+  M19: { client: '製造が完了しました。発送準備を進めています。' },
+  M22: { client: '発送が完了しました。', factory: '発送情報を記録しました。' },
+  M24: { client: '商品が到着しました。検品を行っています。' },
+  M25: { client: '納品が完了しました。ありがとうございました。', factory: '納品が完了しました。' },
+}
+
+async function postSystemMessage(
+  dealId: string,
+  roomType: 'client_sales' | 'sales_factory',
+  content: string
+) {
+  const supabase = await createClient()
+
+  const { data: room } = await supabase
+    .from('chat_rooms')
+    .select('id')
+    .eq('deal_id', dealId)
+    .eq('room_type', roomType)
+    .single()
+
+  if (!room) return
+
+  await supabase.from('chat_messages').insert({
+    room_id: room.id,
+    sender_id: null,
+    content,
+    is_system_message: true,
+  })
+}
+
+async function postStatusChangeMessages(dealId: string, newStatus: MasterStatus, trackingNumber?: string) {
+  const messages = STATUS_MESSAGES[newStatus]
+  if (!messages) return
+
+  if (messages.client) {
+    let content = messages.client
+    if (newStatus === 'M22' && trackingNumber) {
+      content = `発送が完了しました。トラッキング番号: ${trackingNumber}`
+    }
+    await postSystemMessage(dealId, 'client_sales', content)
+  }
+
+  if (messages.factory) {
+    await postSystemMessage(dealId, 'sales_factory', messages.factory)
+  }
+}
+
 // Generate deal code: PF-YYYYMM-NNN
 async function generateDealCode(): Promise<string> {
   const supabase = await createClient()
@@ -168,7 +225,8 @@ export async function updateDeal(
 export async function updateDealStatus(
   id: string,
   newStatus: MasterStatus,
-  note?: string
+  note?: string,
+  options?: { trackingNumber?: string }
 ): Promise<{ data: Deal | null; error: string | null }> {
   const supabase = await createClient()
 
@@ -215,10 +273,78 @@ export async function updateDealStatus(
     note: note || null,
   })
 
+  // Post system messages to chat rooms
+  await postStatusChangeMessages(id, newStatus, options?.trackingNumber)
+
   revalidatePath('/deals')
   revalidatePath(`/deals/${id}`)
+  revalidatePath('/portal/orders')
+  revalidatePath(`/portal/orders/${id}`)
   revalidatePath('/')
   return { data, error: null }
+}
+
+// Specific status transition actions
+export async function sendQuoteRequest(dealId: string): Promise<{ error: string | null }> {
+  const result = await updateDealStatus(dealId, 'M03', '工場に見積もり依頼を送信')
+  return { error: result.error }
+}
+
+export async function presentQuoteToClient(dealId: string): Promise<{ error: string | null }> {
+  const result = await updateDealStatus(dealId, 'M06', 'クライアントに見積もりを提示')
+  return { error: result.error }
+}
+
+export async function issueInvoice(dealId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+
+  // Create invoice document record
+  await supabase.from('documents').insert({
+    deal_id: dealId,
+    document_type: 'invoice',
+    version: 1,
+  })
+
+  const result = await updateDealStatus(dealId, 'M12', '請求書発行')
+  return { error: result.error }
+}
+
+export async function confirmPayment(dealId: string): Promise<{ error: string | null }> {
+  const result = await updateDealStatus(dealId, 'M14', '入金確認')
+  return { error: result.error }
+}
+
+export async function payFactoryAdvance(dealId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+
+  // Update factory payment to paid
+  await supabase
+    .from('deal_factory_payments')
+    .update({ status: 'paid', paid_at: new Date().toISOString() })
+    .eq('deal_id', dealId)
+    .eq('payment_type', 'advance')
+
+  const result = await updateDealStatus(dealId, 'M15', '工場前払い完了')
+  return { error: result.error }
+}
+
+export async function confirmArrival(dealId: string): Promise<{ error: string | null }> {
+  const result = await updateDealStatus(dealId, 'M24', '到着確認')
+  return { error: result.error }
+}
+
+export async function completeDelivery(dealId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+
+  // Create delivery note document record
+  await supabase.from('documents').insert({
+    deal_id: dealId,
+    document_type: 'delivery_note',
+    version: 1,
+  })
+
+  const result = await updateDealStatus(dealId, 'M25', '納品完了')
+  return { error: result.error }
 }
 
 export async function deleteDeal(id: string): Promise<{ error: string | null }> {

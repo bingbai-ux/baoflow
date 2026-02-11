@@ -6,6 +6,7 @@ import { StatusDot } from '@/components/deals/status-dot'
 import { StatusChanger } from './status-changer'
 import { RepeatButton } from './repeat-button'
 import { DealDetailTabs } from './deal-detail-tabs'
+import { DealActionPanel } from './deal-action-panel'
 import { MASTER_STATUS_CONFIG, type MasterStatus } from '@/lib/types'
 
 interface Props {
@@ -115,6 +116,16 @@ export default async function DealDetailPage({ params }: Props) {
               戻る
             </Link>
           </div>
+        </div>
+
+        {/* Action Panel */}
+        <div className="mb-4">
+          <DealActionPanel
+            dealId={id}
+            currentStatus={currentStatus}
+            hasFactoryAssignment={deal.factory_assignments && deal.factory_assignments.length > 0}
+            hasQuote={deal.quotes && deal.quotes.length > 0}
+          />
         </div>
 
         {/* Info Bar */}

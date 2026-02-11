@@ -3,6 +3,31 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Helper to post system messages
+async function postSystemMessage(
+  dealId: string,
+  roomType: 'client_sales' | 'sales_factory',
+  content: string
+) {
+  const supabase = await createClient()
+
+  const { data: room } = await supabase
+    .from('chat_rooms')
+    .select('id')
+    .eq('deal_id', dealId)
+    .eq('room_type', roomType)
+    .single()
+
+  if (!room) return
+
+  await supabase.from('chat_messages').insert({
+    room_id: room.id,
+    sender_id: null,
+    content,
+    is_system_message: true,
+  })
+}
+
 interface QuoteResponseData {
   dealId: string
   unitPriceUsd: number
@@ -69,13 +94,31 @@ export async function submitQuoteResponse(data: QuoteResponseData) {
     // Update deal status to M05 (工場回答受領)
     const { error: dealError } = await supabase
       .from('deals')
-      .update({ master_status: 'M05' })
+      .update({
+        master_status: 'M05',
+        last_activity_at: new Date().toISOString(),
+      })
       .eq('id', data.dealId)
 
     if (dealError) throw dealError
 
+    // Record status history
+    await supabase.from('deal_status_history').insert({
+      deal_id: data.dealId,
+      from_status: 'M04',
+      to_status: 'M05',
+      changed_by: user.id,
+      note: '工場から見積もり回答',
+    })
+
+    // Post system messages
+    await postSystemMessage(data.dealId, 'sales_factory', '見積もり回答を提出しました。')
+    await postSystemMessage(data.dealId, 'client_sales', '工場から見積もりが届きました。')
+
     revalidatePath('/factory/quotes')
     revalidatePath('/factory')
+    revalidatePath('/deals')
+    revalidatePath(`/deals/${data.dealId}`)
 
     return { success: true }
   } catch (error) {
@@ -110,19 +153,53 @@ export async function updateProductionStatus(data: ProductionUpdateData) {
       completed: 'M19',
     }
 
+    const newStatus = statusMap[data.status]
+
+    // Get current status
+    const { data: currentDeal } = await supabase
+      .from('deals')
+      .select('master_status')
+      .eq('id', data.dealId)
+      .single()
+
     const { error } = await supabase
       .from('deals')
       .update({
-        master_status: statusMap[data.status],
-        updated_at: new Date().toISOString(),
+        master_status: newStatus,
+        last_activity_at: new Date().toISOString(),
       })
       .eq('id', data.dealId)
 
     if (error) throw error
 
+    // Record status history
+    await supabase.from('deal_status_history').insert({
+      deal_id: data.dealId,
+      from_status: currentDeal?.master_status || null,
+      to_status: newStatus,
+      changed_by: user.id,
+      note: data.status === 'started' ? '製造開始' : data.status === 'completed' ? '製造完了' : '製造進捗更新',
+    })
+
+    // Post system messages
+    const messages: Record<string, { client: string; factory: string }> = {
+      started: { client: '製造を開始しました。', factory: '製造開始を記録しました。' },
+      in_progress: { client: '製造を進めています。', factory: '製造進捗を更新しました。' },
+      completed: { client: '製造が完了しました。検品・発送準備を進めています。', factory: '製造完了を記録しました。' },
+    }
+
+    if (messages[data.status]) {
+      await postSystemMessage(data.dealId, 'client_sales', messages[data.status].client)
+      await postSystemMessage(data.dealId, 'sales_factory', messages[data.status].factory)
+    }
+
     revalidatePath(`/factory/production/${data.dealId}`)
     revalidatePath('/factory/production')
     revalidatePath('/factory')
+    revalidatePath('/deals')
+    revalidatePath(`/deals/${data.dealId}`)
+    revalidatePath('/portal/orders')
+    revalidatePath(`/portal/orders/${data.dealId}`)
 
     return { success: true }
   } catch (error) {
@@ -236,14 +313,46 @@ export async function submitTrackingInfo(data: TrackingData) {
       })
     }
 
+    // Get current status
+    const { data: currentDeal } = await supabase
+      .from('deals')
+      .select('master_status')
+      .eq('id', data.dealId)
+      .single()
+
     // Update deal status to M22 (発送済み)
     await supabase
       .from('deals')
-      .update({ master_status: 'M22' })
+      .update({
+        master_status: 'M22',
+        last_activity_at: new Date().toISOString(),
+      })
       .eq('id', data.dealId)
+
+    // Record status history
+    await supabase.from('deal_status_history').insert({
+      deal_id: data.dealId,
+      from_status: currentDeal?.master_status || null,
+      to_status: 'M22',
+      changed_by: user.id,
+      note: `発送完了 (トラッキング: ${data.trackingNumber})`,
+    })
+
+    // Post system messages
+    await postSystemMessage(
+      data.dealId,
+      'client_sales',
+      `発送が完了しました。トラッキング番号: ${data.trackingNumber}`
+    )
+    await postSystemMessage(data.dealId, 'sales_factory', '発送情報を記録しました。')
 
     revalidatePath(`/factory/production/${data.dealId}`)
     revalidatePath('/factory/production')
+    revalidatePath('/deals')
+    revalidatePath(`/deals/${data.dealId}`)
+    revalidatePath('/portal/orders')
+    revalidatePath(`/portal/orders/${data.dealId}`)
+    revalidatePath('/shipments')
 
     return { success: true }
   } catch (error) {
