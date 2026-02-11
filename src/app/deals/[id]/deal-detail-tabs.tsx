@@ -15,12 +15,12 @@ interface DealDetailTabsProps {
       height_mm?: number | null
       width_mm?: number | null
       depth_mm?: number | null
-      diameter_top_mm?: number | null
-      diameter_bottom_mm?: number | null
+      diameter_mm?: number | null
+      bottom_diameter_mm?: number | null
       capacity_ml?: number | null
       material_category?: string | null
       material_thickness?: string | null
-      material_note?: string | null
+      material_notes?: string | null
       printing_method?: string | null
       print_colors?: number | null
       print_sides?: string | null
@@ -104,12 +104,12 @@ interface DealDetailTabsProps {
     height_mm?: number | null
     width_mm?: number | null
     depth_mm?: number | null
-    diameter_top_mm?: number | null
-    diameter_bottom_mm?: number | null
+    diameter_mm?: number | null
+    bottom_diameter_mm?: number | null
     capacity_ml?: number | null
     material_category?: string | null
     material_thickness?: string | null
-    material_note?: string | null
+    material_notes?: string | null
     printing_method?: string | null
     print_colors?: number | null
     print_sides?: string | null
@@ -609,16 +609,16 @@ function formatSize(spec: {
   height_mm?: number | null
   width_mm?: number | null
   depth_mm?: number | null
-  diameter_top_mm?: number | null
-  diameter_bottom_mm?: number | null
+  diameter_mm?: number | null
+  bottom_diameter_mm?: number | null
   capacity_ml?: number | null
 }) {
   const parts = []
   if (spec.height_mm) parts.push(`H${spec.height_mm}`)
   if (spec.width_mm) parts.push(`W${spec.width_mm}`)
   if (spec.depth_mm) parts.push(`D${spec.depth_mm}`)
-  if (spec.diameter_top_mm) parts.push(`口径${spec.diameter_top_mm}`)
-  if (spec.diameter_bottom_mm) parts.push(`底径${spec.diameter_bottom_mm}`)
+  if (spec.diameter_mm) parts.push(`口径${spec.diameter_mm}`)
+  if (spec.bottom_diameter_mm) parts.push(`底径${spec.bottom_diameter_mm}`)
   if (spec.capacity_ml) parts.push(`${spec.capacity_ml}ml`)
   return parts.length > 0 ? parts.join(' × ') : null
 }

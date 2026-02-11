@@ -184,12 +184,12 @@ export default function NewDealPage() {
         height_mm: formData.get('height_mm') ? parseFloat(formData.get('height_mm') as string) : null,
         width_mm: formData.get('width_mm') ? parseFloat(formData.get('width_mm') as string) : null,
         depth_mm: formData.get('depth_mm') ? parseFloat(formData.get('depth_mm') as string) : null,
-        diameter_top_mm: formData.get('diameter_top_mm') ? parseFloat(formData.get('diameter_top_mm') as string) : null,
-        diameter_bottom_mm: formData.get('diameter_bottom_mm') ? parseFloat(formData.get('diameter_bottom_mm') as string) : null,
+        diameter_mm: formData.get('diameter_mm') ? parseFloat(formData.get('diameter_mm') as string) : null,
+        bottom_diameter_mm: formData.get('bottom_diameter_mm') ? parseFloat(formData.get('bottom_diameter_mm') as string) : null,
         capacity_ml: formData.get('capacity_ml') ? parseFloat(formData.get('capacity_ml') as string) : null,
         material_category: formData.get('material_category') as string || null,
         material_thickness: formData.get('material_thickness') as string || null,
-        material_note: formData.get('material_note') as string || null,
+        material_notes: formData.get('material_notes') as string || null,
         printing_method: formData.get('printing_method') as string || null,
         print_colors: formData.get('print_colors') ? parseInt(formData.get('print_colors') as string) : null,
         print_sides: formData.get('print_sides') as string || null,
@@ -319,8 +319,8 @@ export default function NewDealPage() {
                 <input type="number" name="height_mm" style={inputStyle} placeholder="高さ" step="0.1" />
                 <input type="number" name="width_mm" style={inputStyle} placeholder="幅" step="0.1" />
                 <input type="number" name="depth_mm" style={inputStyle} placeholder="奥行" step="0.1" />
-                <input type="number" name="diameter_top_mm" style={inputStyle} placeholder="口径" step="0.1" />
-                <input type="number" name="diameter_bottom_mm" style={inputStyle} placeholder="底径" step="0.1" />
+                <input type="number" name="diameter_mm" style={inputStyle} placeholder="口径" step="0.1" />
+                <input type="number" name="bottom_diameter_mm" style={inputStyle} placeholder="底径" step="0.1" />
                 <input type="number" name="capacity_ml" style={inputStyle} placeholder="容量ml" step="0.1" />
               </div>
             </div>
@@ -348,12 +348,12 @@ export default function NewDealPage() {
                 />
               </div>
 
-              {/* Material Note */}
+              {/* Material Notes */}
               <div>
                 <label style={labelStyle}>素材備考</label>
                 <input
                   type="text"
-                  name="material_note"
+                  name="material_notes"
                   style={inputStyle}
                   placeholder="例: アルミ蒸着層付き"
                 />
