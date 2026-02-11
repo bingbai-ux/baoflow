@@ -43,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Public paths - no auth required
-  if (pathname === '/login' || pathname === '/portal/login') {
+  if (pathname === '/login' || pathname === '/portal/login' || pathname === '/factory/login') {
     if (user) {
       // Already logged in - redirect based on role
       const { data: profile } = await supabase
@@ -53,11 +53,15 @@ export async function updateSession(request: NextRequest) {
         .single()
 
       if (profile?.role === 'client') {
-        if (pathname === '/login') {
+        if (pathname === '/login' || pathname === '/factory/login') {
           return NextResponse.redirect(new URL('/portal', request.url))
         }
+      } else if (profile?.role === 'factory') {
+        if (pathname === '/login' || pathname === '/portal/login') {
+          return NextResponse.redirect(new URL('/factory', request.url))
+        }
       } else {
-        if (pathname === '/portal/login') {
+        if (pathname === '/portal/login' || pathname === '/factory/login') {
           return NextResponse.redirect(new URL('/', request.url))
         }
       }
@@ -69,6 +73,9 @@ export async function updateSession(request: NextRequest) {
   if (!user) {
     if (pathname.startsWith('/portal')) {
       return NextResponse.redirect(new URL('/portal/login', request.url))
+    }
+    if (pathname.startsWith('/factory')) {
+      return NextResponse.redirect(new URL('/factory/login', request.url))
     }
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -90,8 +97,16 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Sales/Admin routes - not for clients
-  const salesRoutes = ['/', '/deals', '/clients', '/factories', '/analytics', '/payments', '/settings', '/registry', '/logistics']
+  // Factory routes - only for factory users
+  if (pathname.startsWith('/factory')) {
+    if (role !== 'factory') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return supabaseResponse
+  }
+
+  // Sales/Admin routes - not for clients or factory
+  const salesRoutes = ['/', '/deals', '/clients', '/factories', '/analytics', '/payments', '/settings', '/registry', '/logistics', '/inventory', '/smart-quote', '/shipments']
   const isSalesRoute = salesRoutes.some(route =>
     pathname === route || pathname.startsWith(`${route}/`)
   )
@@ -99,6 +114,9 @@ export async function updateSession(request: NextRequest) {
   if (isSalesRoute) {
     if (role === 'client') {
       return NextResponse.redirect(new URL('/portal', request.url))
+    }
+    if (role === 'factory') {
+      return NextResponse.redirect(new URL('/factory', request.url))
     }
     if (role !== 'admin' && role !== 'sales') {
       return NextResponse.redirect(new URL('/login', request.url))
