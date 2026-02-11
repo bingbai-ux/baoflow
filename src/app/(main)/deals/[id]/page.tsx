@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Header } from '@/components/layout/header'
 import { StatusDot } from '@/components/deals/status-dot'
 import { StatusChanger } from './status-changer'
 import { RepeatButton } from './repeat-button'
@@ -64,10 +63,7 @@ export default async function DealDetailPage({ params }: Props) {
   const spec = deal.specifications?.[0]
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
+    <>
         {/* Page Header */}
         <div className="flex justify-between items-center py-[18px]">
           <div className="flex items-center gap-4">
@@ -151,13 +147,12 @@ export default async function DealDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Tabbed Content */}
-        <DealDetailTabs
-          deal={deal}
-          spec={spec}
-          statusHistory={statusHistory || []}
-        />
-      </main>
-    </div>
+      {/* Tabbed Content */}
+      <DealDetailTabs
+        deal={deal}
+        spec={spec}
+        statusHistory={statusHistory || []}
+      />
+    </>
   )
 }

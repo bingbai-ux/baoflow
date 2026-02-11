@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 
@@ -55,12 +54,9 @@ export default async function PaymentsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
-        <div className="flex justify-between items-center py-[18px]">
-          <PageHeader title="Payments" />
+    <>
+      <div className="flex justify-between items-center py-[18px]">
+        <PageHeader title="Payments" />
           <Link
             href="/payments/new"
             className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
@@ -143,8 +139,7 @@ export default async function PaymentsPage() {
               )}
             </tbody>
           </table>
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }

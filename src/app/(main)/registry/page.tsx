@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Header } from '@/components/layout/header'
 import Link from 'next/link'
 
 export default async function RegistryPage() {
@@ -38,10 +37,7 @@ export default async function RegistryPage() {
   const allFactories = factories || []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f2f2f0' }}>
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <div style={{ padding: '24px 26px' }}>
+    <>
         {/* Page Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
@@ -184,8 +180,7 @@ export default async function RegistryPage() {
             </table>
           )}
         </div>
-      </div>
-    </div>
+    </>
   )
 }
 

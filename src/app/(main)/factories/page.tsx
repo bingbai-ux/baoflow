@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 
 export default async function FactoriesPage() {
@@ -24,10 +23,7 @@ export default async function FactoriesPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
+    <>
         <div className="flex justify-between items-center py-[18px]">
           <PageHeader title="Factories" />
           <Link
@@ -118,8 +114,7 @@ export default async function FactoriesPage() {
               )}
             </tbody>
           </table>
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }

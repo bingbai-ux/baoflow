@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 
 interface Settings {
@@ -105,13 +104,10 @@ export default function SettingsPage() {
   const inputDisabledClassName = "w-full bg-[#e8e8e6] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border-none outline-none"
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header />
-
-      <main className="px-[26px] pb-10">
-        <div className="py-[18px]">
-          <PageHeader title="Settings" />
-        </div>
+    <>
+      <div className="py-[18px]">
+        <PageHeader title="Settings" />
+      </div>
 
         <div className="grid grid-cols-[200px_1fr] gap-4">
           {/* Sidebar */}
@@ -341,9 +337,8 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
-          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }

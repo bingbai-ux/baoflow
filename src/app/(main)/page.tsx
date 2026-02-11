@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { InsightBanner } from '@/components/dashboard/insight-banner'
 import { BigNum } from '@/components/shared/big-num'
@@ -151,11 +150,8 @@ export default async function DashboardPage() {
   const barData = [3, 5, 2, 4, 6, 3, 5, 7, 4, 6, 8, 5, 7, 4, 6, 5, 7, 3, 8, 6, 4, 7, 5, 8, 6, 4, 7, 9, 5, 8]
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
-        <PageHeader title="Overview Panel" subtitle="Data Based on All Clients" />
+    <>
+      <PageHeader title="Overview Panel" subtitle="Data Based on All Clients" />
 
         <div className="flex flex-col gap-2">
           <InsightBanner />
@@ -371,8 +367,7 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }

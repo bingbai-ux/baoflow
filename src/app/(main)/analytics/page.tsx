@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { BigNum } from '@/components/shared/big-num'
 import { CardLabel } from '@/components/shared/card-label'
@@ -168,13 +167,10 @@ export default async function AnalyticsPage() {
   const avgDealInteger = Math.floor(avgDealThousands).toString()
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
-      <Header userName={profile?.display_name || user.email || undefined} />
-
-      <main className="px-[26px] pb-10">
-        <div className="py-[18px]">
-          <PageHeader title="Analytics" subtitle="Business Intelligence" />
-        </div>
+    <>
+      <div className="py-[18px]">
+        <PageHeader title="Analytics" subtitle="Business Intelligence" />
+      </div>
 
         <div className="flex flex-col gap-2">
           {/* KPI Row */}
@@ -400,8 +396,7 @@ export default async function AnalyticsPage() {
               </div>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
