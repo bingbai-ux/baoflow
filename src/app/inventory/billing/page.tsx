@@ -46,9 +46,9 @@ export default async function InventoryBillingPage() {
     )
 
     clientBillings[client.id].items!.push(item)
-    clientBillings[client.id].totalQuantity += item.current_quantity
+    clientBillings[client.id].totalQuantity += item.current_stock
     clientBillings[client.id].storageDays = Math.max(clientBillings[client.id].storageDays, storageDays)
-    clientBillings[client.id].estimatedFee += item.current_quantity * storageDays * DAILY_RATE_PER_UNIT
+    clientBillings[client.id].estimatedFee += item.current_stock * storageDays * DAILY_RATE_PER_UNIT
   })
 
   const billings = Object.values(clientBillings)

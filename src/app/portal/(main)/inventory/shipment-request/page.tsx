@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 interface InventoryItem {
   id: string
   product_name: string
-  current_quantity: number
+  current_stock: number
   sku?: string
 }
 
@@ -49,9 +49,9 @@ export default function ShipmentRequestPage() {
       // Get inventory items
       const { data: itemsData } = await supabase
         .from('inventory_items')
-        .select('id, product_name, current_quantity, sku')
+        .select('id, product_name, current_stock, sku')
         .eq('client_id', profile.client_id)
-        .gt('current_quantity', 0)
+        .gt('current_stock', 0)
         .order('product_name')
 
       if (itemsData) {
@@ -65,7 +65,7 @@ export default function ShipmentRequestPage() {
   }, [])
 
   const selectedItem = items.find((i) => i.id === formData.itemId)
-  const maxQuantity = selectedItem?.current_quantity || 0
+  const maxQuantity = selectedItem?.current_stock || 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,7 +168,7 @@ export default function ShipmentRequestPage() {
                 <option value="">選択してください</option>
                 {items.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.product_name} ({item.current_quantity.toLocaleString()}個在庫)
+                    {item.product_name} ({item.current_stock.toLocaleString()}個在庫)
                   </option>
                 ))}
               </select>

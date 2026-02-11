@@ -15,7 +15,7 @@ export default async function InventoryPage() {
 
   // Calculate stats
   const totalItems = items?.length || 0
-  const lowStockItems = items?.filter((i) => i.current_quantity <= (i.safety_stock || 0)) || []
+  const lowStockItems = items?.filter((i) => i.current_stock <= (i.safety_stock || 0)) || []
 
   return (
     <div className="px-[26px] py-5 space-y-5">
@@ -77,7 +77,7 @@ export default async function InventoryPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-[12px] text-[#e5a32e] font-display tabular-nums">
-                      {item.current_quantity.toLocaleString()}個
+                      {item.current_stock.toLocaleString()}個
                     </p>
                     <p className="text-[10px] text-[#888] font-body">
                       安全在庫: {(item.safety_stock || 0).toLocaleString()}個
@@ -111,7 +111,7 @@ export default async function InventoryPage() {
             <tbody>
               {items.map((item) => {
                 const client = Array.isArray(item.client) ? item.client[0] : item.client
-                const isLowStock = item.current_quantity <= (item.safety_stock || 0)
+                const isLowStock = item.current_stock <= (item.safety_stock || 0)
                 return (
                   <tr key={item.id} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#fcfcfb]">
                     <td className="py-3 px-4 text-[12px] text-[#888] font-body">
@@ -121,7 +121,7 @@ export default async function InventoryPage() {
                       {item.product_name}
                     </td>
                     <td className={`py-3 px-4 text-right font-display tabular-nums text-[13px] ${isLowStock ? 'text-[#e5a32e]' : 'text-[#0a0a0a]'}`}>
-                      {item.current_quantity.toLocaleString()}
+                      {item.current_stock.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right text-[12px] text-[#888] font-display tabular-nums">
                       {(item.safety_stock || 0).toLocaleString()}

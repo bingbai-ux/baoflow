@@ -88,7 +88,7 @@ export default async function PortalInventoryPage() {
                   )}
                 </div>
                 <p className="text-[16px] font-display tabular-nums text-[#0a0a0a]">
-                  {item.current_quantity.toLocaleString()}個
+                  {item.current_stock.toLocaleString()}個
                 </p>
               </div>
             ))}

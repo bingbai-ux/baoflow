@@ -69,7 +69,7 @@ export async function createShipmentOrder(data: ShipmentOrderData) {
     // Get inventory item details
     const { data: item } = await supabase
       .from('inventory_items')
-      .select('client_id, current_quantity')
+      .select('client_id, current_stock')
       .eq('id', data.inventoryItemId)
       .single()
 
@@ -77,7 +77,7 @@ export async function createShipmentOrder(data: ShipmentOrderData) {
       return { error: 'Inventory item not found' }
     }
 
-    if (item.current_quantity < data.quantity) {
+    if ((item.current_stock || 0) < data.quantity) {
       return { error: 'Insufficient quantity' }
     }
 
@@ -193,24 +193,25 @@ export async function recordIncoming(data: MovementData) {
       inventory_item_id: data.inventoryItemId,
       movement_type: 'incoming',
       quantity: data.quantity,
-      deal_id: data.dealId,
+      source_type: data.dealId ? 'deal' : null,
+      source_id: data.dealId || null,
       notes: data.notes,
     })
 
     if (movementError) throw movementError
 
-    // Update current quantity
+    // Update current stock
     const { data: item } = await supabase
       .from('inventory_items')
-      .select('current_quantity')
+      .select('current_stock')
       .eq('id', data.inventoryItemId)
       .single()
 
-    const newQuantity = (item?.current_quantity || 0) + data.quantity
+    const newStock = (item?.current_stock || 0) + data.quantity
 
     const { error: updateError } = await supabase
       .from('inventory_items')
-      .update({ current_quantity: newQuantity })
+      .update({ current_stock: newStock })
       .eq('id', data.inventoryItemId)
 
     if (updateError) throw updateError
@@ -233,24 +234,25 @@ export async function recordOutgoing(data: MovementData) {
       inventory_item_id: data.inventoryItemId,
       movement_type: 'outgoing',
       quantity: data.quantity,
-      shipment_order_id: data.orderId,
+      source_type: data.orderId ? 'shipment_order' : null,
+      source_id: data.orderId || null,
       notes: data.notes,
     })
 
     if (movementError) throw movementError
 
-    // Update current quantity
+    // Update current stock
     const { data: item } = await supabase
       .from('inventory_items')
-      .select('current_quantity')
+      .select('current_stock')
       .eq('id', data.inventoryItemId)
       .single()
 
-    const newQuantity = Math.max(0, (item?.current_quantity || 0) - data.quantity)
+    const newStock = Math.max(0, (item?.current_stock || 0) - data.quantity)
 
     const { error: updateError } = await supabase
       .from('inventory_items')
-      .update({ current_quantity: newQuantity })
+      .update({ current_stock: newStock })
       .eq('id', data.inventoryItemId)
 
     if (updateError) throw updateError
@@ -274,7 +276,7 @@ export async function getShipmentOrders(status?: string) {
       client:clients(company_name),
       inventory_item:inventory_items(
         product_name,
-        current_quantity
+        current_stock
       )
     `)
     .order('created_at', { ascending: false })

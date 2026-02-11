@@ -87,7 +87,7 @@ export default async function InventoryDetailPage({ params }: Props) {
             <div>
               <p className="text-[11px] text-[#888] font-body mb-1">現在庫</p>
               <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
-                {item.current_quantity.toLocaleString()}個
+                {item.current_stock.toLocaleString()}個
               </p>
             </div>
             <div>

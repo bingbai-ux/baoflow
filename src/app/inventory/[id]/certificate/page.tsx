@@ -107,7 +107,7 @@ export default async function InventoryCertificatePage({ params }: PageProps) {
               <tr className="border-b border-[rgba(0,0,0,0.06)]">
                 <th className="text-left py-3 text-[12px] text-[#888] font-body font-normal">現在数量</th>
                 <td className="py-3 text-[16px] font-display tabular-nums font-semibold text-[#0a0a0a]">
-                  {item.current_quantity.toLocaleString()} 個
+                  {item.current_stock.toLocaleString()} 個
                 </td>
               </tr>
               <tr className="border-b border-[rgba(0,0,0,0.06)]">

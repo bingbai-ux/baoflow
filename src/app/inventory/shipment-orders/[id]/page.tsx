@@ -16,7 +16,7 @@ export default async function ShipmentOrderDetailPage({ params }: Props) {
     .select(`
       *,
       client:clients(company_name),
-      inventory_item:inventory_items(product_name, current_quantity)
+      inventory_item:inventory_items(product_name, current_stock)
     `)
     .eq('id', id)
     .single()
@@ -88,7 +88,7 @@ export default async function ShipmentOrderDetailPage({ params }: Props) {
             <div>
               <p className="text-[11px] text-[#888] font-body mb-1">現在庫</p>
               <p className="text-[13px] text-[#0a0a0a] font-display tabular-nums">
-                {(item?.current_quantity || 0).toLocaleString()}個
+                {(item?.current_stock || 0).toLocaleString()}個
               </p>
             </div>
           </div>
