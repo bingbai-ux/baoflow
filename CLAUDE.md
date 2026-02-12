@@ -5,6 +5,26 @@
 
 ---
 
+## 開発ルール（厳守）
+
+### コードを書く前に必ず行うこと
+1. `docs/db-schema-actual.md` を読み、使用するテーブルの全カラムを確認する
+2. 不明な場合は Supabase MCP で `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'テーブル名'` を実行して確認する
+3. 要件定義書（`/docs/BAOFlow_要件定義書_v3_2.md`）の該当セクションを読む
+
+### コードを書いた後に必ず行うこと
+1. `npm run build` でエラーがないことを確認
+2. 変更したページに対して、`npm run dev` でサーバーを起動し `curl http://localhost:3000/対象ページ` を実行してHTTPステータス200を確認
+3. Supabase クエリを含む場合、使用している全カラム名が `docs/db-schema-actual.md` に存在することを grep で確認
+4. エラーがあれば自分で修正してから完了報告する
+
+### 絶対にやってはいけないこと
+- `docs/db-schema-actual.md` を確認せずにカラム名を書くこと
+- 存在しないテーブルやカラムを推測で使うこと
+- build だけ通して動作確認せずに完了報告すること
+
+---
+
 ## 1. プロジェクト概要
 
 **BAO Flow** は、日本のクライアント（カフェ、食品メーカー等）と中国の工場をつなぐパッケージ受発注管理プラットフォーム。
