@@ -378,16 +378,17 @@ export default async function PortalOrderDetailPage({ params }: Props) {
                       {shipping.tracking_number}
                     </span>
                   </div>
-                  {shipping.tracking_url && (
-                    <a
-                      href={shipping.tracking_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center bg-[#0a0a0a] text-white rounded-[8px] py-2 text-[12px] font-body no-underline"
-                    >
-                      配送状況を確認
-                    </a>
-                  )}
+                  <a
+                    href={
+                      shipping.tracking_url ||
+                      `https://t.17track.net/ja#nums=${encodeURIComponent(shipping.tracking_number)}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-center bg-[#0a0a0a] text-white rounded-[8px] py-2 text-[12px] font-body no-underline hover:bg-[#333]"
+                  >
+                    配送状況を確認
+                  </a>
                   {shipping.delivery_address && (
                     <div className="pt-2 border-t border-[rgba(0,0,0,0.06)]">
                       <span className="text-[#888] block mb-1">配送先</span>

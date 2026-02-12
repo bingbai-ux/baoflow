@@ -70,20 +70,17 @@ export default async function ShipmentsPage() {
                     </td>
                     <td className="py-3 px-4">
                       {shipping?.tracking_number ? (
-                        shipping.tracking_url ? (
-                          <a
-                            href={shipping.tracking_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[12px] font-display tabular-nums text-[#0a0a0a] underline"
-                          >
-                            {shipping.tracking_number}
-                          </a>
-                        ) : (
-                          <span className="text-[12px] font-display tabular-nums text-[#0a0a0a]">
-                            {shipping.tracking_number}
-                          </span>
-                        )
+                        <a
+                          href={
+                            shipping.tracking_url ||
+                            `https://t.17track.net/ja#nums=${encodeURIComponent(shipping.tracking_number)}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] font-display tabular-nums text-[#0a0a0a] underline hover:text-[#22c55e]"
+                        >
+                          {shipping.tracking_number}
+                        </a>
                       ) : (
                         <span className="text-[12px] text-[#888] font-body">-</span>
                       )}

@@ -9,12 +9,17 @@ interface DealData {
   id: string
   deal_code: string
   deal_name: string
+  master_status: string
   shipping?: {
+    id?: string
     packing_info?: {
       weight_kg?: number
       carton_count?: number
       cbm?: number
     }
+    tracking_number?: string
+    tracking_url?: string
+    logistics_agent_id?: string
   }[]
   specifications?: {
     product_category?: string
@@ -28,6 +33,14 @@ interface LogisticsAgent {
   is_primary: boolean
 }
 
+const STEP_LABELS = [
+  '重量・サイズ',
+  '配送方法',
+  '食品届出',
+  'コスト確認',
+  'トラッキング',
+]
+
 export default function ShipmentWizardPage() {
   const router = useRouter()
   const params = useParams()
@@ -38,6 +51,7 @@ export default function ShipmentWizardPage() {
   const [submitting, setSubmitting] = useState(false)
   const [deal, setDeal] = useState<DealData | null>(null)
   const [agents, setAgents] = useState<LogisticsAgent[]>([])
+  const [shippingId, setShippingId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     weightKg: '',
@@ -49,20 +63,24 @@ export default function ShipmentWizardPage() {
     estimatedInspectionCost: 0,
     estimatedShippingCost: 0,
     estimatedDeliveryDays: 0,
+    trackingNumber: '',
+    trackingUrl: '',
+    carrierCode: '',
   })
 
   useEffect(() => {
     const loadData = async () => {
       const supabase = createClient()
 
-      // Get deal
+      // Get deal with shipping info
       const { data: dealData } = await supabase
         .from('deals')
         .select(`
           id,
           deal_code,
           deal_name,
-          shipping:deal_shipping(packing_info),
+          master_status,
+          shipping:deal_shipping(id, packing_info, tracking_number, tracking_url, logistics_agent_id),
           specifications:deal_specifications(product_category)
         `)
         .eq('id', dealId)
@@ -70,14 +88,24 @@ export default function ShipmentWizardPage() {
 
       if (dealData) {
         setDeal(dealData)
-        const packingInfo = dealData.shipping?.[0]?.packing_info as Record<string, number> | undefined
-        if (packingInfo) {
+        const shipping = dealData.shipping?.[0]
+        if (shipping) {
+          setShippingId(shipping.id || null)
+          const packingInfo = shipping.packing_info as Record<string, number> | undefined
           setFormData((prev) => ({
             ...prev,
-            weightKg: packingInfo.weight_kg?.toString() || '',
-            cartonCount: packingInfo.carton_count?.toString() || '',
-            cbm: packingInfo.cbm?.toString() || '',
+            weightKg: packingInfo?.weight_kg?.toString() || '',
+            cartonCount: packingInfo?.carton_count?.toString() || '',
+            cbm: packingInfo?.cbm?.toString() || '',
+            agentId: shipping.logistics_agent_id || '',
+            trackingNumber: shipping.tracking_number || '',
+            trackingUrl: shipping.tracking_url || '',
           }))
+        }
+
+        // If status is M22 or later, start at step 5 (tracking)
+        if (['M22', 'M23', 'M24'].includes(dealData.master_status)) {
+          setStep(5)
         }
       }
 
@@ -99,7 +127,7 @@ export default function ShipmentWizardPage() {
   }, [dealId])
 
   const handleNext = () => {
-    if (step < 4) setStep(step + 1)
+    if (step < 5) setStep(step + 1)
   }
 
   const handleBack = () => {
@@ -110,30 +138,27 @@ export default function ShipmentWizardPage() {
     setSubmitting(true)
     const supabase = createClient()
 
-    // Update shipping info
-    const { data: existing } = await supabase
-      .from('deal_shipping')
-      .select('id')
-      .eq('deal_id', dealId)
-      .single()
-
     const shippingData = {
       packing_info: {
         weight_kg: parseFloat(formData.weightKg) || 0,
         carton_count: parseInt(formData.cartonCount) || 0,
         cbm: parseFloat(formData.cbm) || 0,
       },
-      logistics_agent_id: formData.agentId,
-      delivery_method: formData.deliveryMethod,
+      logistics_agent_id: formData.agentId || null,
+      delivery_method: formData.deliveryMethod || null,
       estimated_shipping_cost: formData.estimatedShippingCost,
       estimated_delivery_days: formData.estimatedDeliveryDays,
+      tracking_number: formData.trackingNumber || null,
+      tracking_url: formData.trackingUrl || null,
+      carrier_code: formData.carrierCode || null,
+      shipped_at: formData.trackingNumber ? new Date().toISOString() : null,
     }
 
-    if (existing) {
+    if (shippingId) {
       await supabase
         .from('deal_shipping')
         .update(shippingData)
-        .eq('id', existing.id)
+        .eq('id', shippingId)
     } else {
       await supabase.from('deal_shipping').insert({
         deal_id: dealId,
@@ -141,11 +166,49 @@ export default function ShipmentWizardPage() {
       })
     }
 
-    // Update deal status to M22
+    // Update deal status based on tracking info
+    const newStatus = formData.trackingNumber ? 'M22' : 'M21'
     await supabase
       .from('deals')
-      .update({ master_status: 'M22' })
+      .update({ master_status: newStatus })
       .eq('id', dealId)
+
+    router.push(`/deals/${dealId}`)
+    router.refresh()
+  }
+
+  // Save tracking info only (for step 5)
+  const handleSaveTracking = async () => {
+    setSubmitting(true)
+    const supabase = createClient()
+
+    if (shippingId) {
+      await supabase
+        .from('deal_shipping')
+        .update({
+          tracking_number: formData.trackingNumber || null,
+          tracking_url: formData.trackingUrl || null,
+          carrier_code: formData.carrierCode || null,
+          shipped_at: formData.trackingNumber ? new Date().toISOString() : null,
+        })
+        .eq('id', shippingId)
+    } else {
+      await supabase.from('deal_shipping').insert({
+        deal_id: dealId,
+        tracking_number: formData.trackingNumber || null,
+        tracking_url: formData.trackingUrl || null,
+        carrier_code: formData.carrierCode || null,
+        shipped_at: formData.trackingNumber ? new Date().toISOString() : null,
+      })
+    }
+
+    // Update status to M22 if tracking number is provided
+    if (formData.trackingNumber) {
+      await supabase
+        .from('deals')
+        .update({ master_status: 'M22' })
+        .eq('id', dealId)
+    }
 
     router.push(`/deals/${dealId}`)
     router.refresh()
@@ -181,33 +244,42 @@ export default function ShipmentWizardPage() {
       </div>
 
       {/* Progress Steps */}
-      <div className="flex items-center justify-between bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
-        {[1, 2, 3, 4].map((s) => (
-          <div key={s} className="flex items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-display font-semibold ${
-                s < step
-                  ? 'bg-[#22c55e] text-white'
-                  : s === step
-                  ? 'bg-[#0a0a0a] text-white'
-                  : 'bg-[#e8e8e6] text-[#888]'
-              }`}
-            >
-              {s < step ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                s
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="flex items-center justify-between">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <div key={s} className="flex items-center flex-1">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-display font-semibold ${
+                    s < step
+                      ? 'bg-[#22c55e] text-white'
+                      : s === step
+                      ? 'bg-[#0a0a0a] text-white'
+                      : 'bg-[#e8e8e6] text-[#888]'
+                  }`}
+                >
+                  {s < step ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    s
+                  )}
+                </div>
+                <span className={`mt-2 text-[10px] font-body ${s === step ? 'text-[#0a0a0a] font-medium' : 'text-[#888]'}`}>
+                  {STEP_LABELS[s - 1]}
+                </span>
+              </div>
+              {s < 5 && (
+                <div className={`flex-1 h-[2px] mx-2 ${s < step ? 'bg-[#22c55e]' : 'bg-[#e8e8e6]'}`} />
               )}
             </div>
-            {s < 4 && <div className={`w-20 h-[2px] mx-2 ${s < step ? 'bg-[#22c55e]' : 'bg-[#e8e8e6]'}`} />}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Step Content */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         {step === 1 && (
           <div>
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
@@ -287,6 +359,11 @@ export default function ShipmentWizardPage() {
                   )}
                 </label>
               ))}
+              {agents.length === 0 && (
+                <p className="text-[13px] text-[#888] font-body text-center py-4">
+                  物流エージェントが登録されていません
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -341,10 +418,10 @@ export default function ShipmentWizardPage() {
         {step === 4 && (
           <div>
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
-              Step 4: コスト確認・手配開始
+              Step 4: コスト確認
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-[#f2f2f0] rounded-[12px]">
                   <p className="text-[11px] text-[#888] font-body mb-1">総重量</p>
                   <p className="text-[16px] font-display tabular-nums text-[#0a0a0a]">
@@ -357,12 +434,18 @@ export default function ShipmentWizardPage() {
                     {formData.cartonCount || '-'}
                   </p>
                 </div>
+                <div className="p-4 bg-[#f2f2f0] rounded-[12px]">
+                  <p className="text-[11px] text-[#888] font-body mb-1">CBM</p>
+                  <p className="text-[16px] font-display tabular-nums text-[#0a0a0a]">
+                    {formData.cbm || '-'}
+                  </p>
+                </div>
               </div>
 
               <div className="p-4 bg-[#f2f2f0] rounded-[12px]">
                 <p className="text-[11px] text-[#888] font-body mb-2">配送業者</p>
                 <p className="text-[13px] text-[#0a0a0a] font-body">
-                  {agents.find((a) => a.id === formData.agentId)?.name || '-'}
+                  {agents.find((a) => a.id === formData.agentId)?.name || '未選択'}
                 </p>
               </div>
 
@@ -377,6 +460,91 @@ export default function ShipmentWizardPage() {
             </div>
           </div>
         )}
+
+        {step === 5 && (
+          <div>
+            <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
+              Step 5: トラッキング情報
+            </h2>
+            <div className="space-y-4">
+              <div className="p-4 bg-[rgba(34,197,94,0.1)] rounded-[12px] mb-4">
+                <p className="text-[12px] text-[#22c55e] font-body">
+                  工場から発送されたら、トラッキング番号を入力してください。自動で配送状況を追跡します。
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[12px] text-[#888] font-body mb-[6px]">
+                  運送業者
+                </label>
+                <select
+                  value={formData.carrierCode}
+                  onChange={(e) => setFormData({ ...formData, carrierCode: e.target.value })}
+                  className="w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6]"
+                >
+                  <option value="">選択してください</option>
+                  <option value="dhl">DHL</option>
+                  <option value="fedex">FedEx</option>
+                  <option value="ups">UPS</option>
+                  <option value="ems">EMS</option>
+                  <option value="sf-express">SF Express (順豊)</option>
+                  <option value="yto">YTO (圓通)</option>
+                  <option value="zto">ZTO (中通)</option>
+                  <option value="sto">STO (申通)</option>
+                  <option value="yunda">Yunda (韻達)</option>
+                  <option value="china-post">China Post</option>
+                  <option value="sagawa">佐川急便</option>
+                  <option value="yamato">ヤマト運輸</option>
+                  <option value="jppost">日本郵便</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[12px] text-[#888] font-body mb-[6px]">
+                  トラッキング番号 <span className="text-[#e5a32e]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.trackingNumber}
+                  onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+                  className="w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6]"
+                  placeholder="例: 1234567890"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[12px] text-[#888] font-body mb-[6px]">
+                  トラッキングURL（任意）
+                </label>
+                <input
+                  type="url"
+                  value={formData.trackingUrl}
+                  onChange={(e) => setFormData({ ...formData, trackingUrl: e.target.value })}
+                  className="w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6]"
+                  placeholder="https://..."
+                />
+                <p className="text-[11px] text-[#888] font-body mt-1">
+                  運送業者を選択すると、自動でURLが生成されます
+                </p>
+              </div>
+
+              {formData.trackingNumber && (
+                <div className="p-4 bg-[#f2f2f0] rounded-[12px]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-[#22c55e]" />
+                    <span className="text-[13px] text-[#0a0a0a] font-body font-medium">
+                      追跡準備完了
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-[#888] font-body">
+                    保存後、自動で配送状況の追跡を開始します
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -384,25 +552,34 @@ export default function ShipmentWizardPage() {
         <button
           onClick={handleBack}
           disabled={step === 1}
-          className="px-6 py-[10px] text-[13px] text-[#888] font-body disabled:opacity-30"
+          className="px-6 py-[10px] text-[13px] text-[#888] font-body disabled:opacity-30 cursor-pointer bg-transparent border-none"
         >
           戻る
         </button>
-        {step < 4 ? (
+        {step < 5 ? (
           <button
             onClick={handleNext}
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-6 py-[10px] text-[13px] font-medium font-body"
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-6 py-[10px] text-[13px] font-medium font-body cursor-pointer border-none"
           >
             次へ
           </button>
         ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-6 py-[10px] text-[13px] font-medium font-body disabled:opacity-50"
-          >
-            {submitting ? '処理中...' : '手配開始'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-6 py-[10px] text-[13px] font-medium font-body disabled:opacity-50 cursor-pointer"
+            >
+              {submitting ? '処理中...' : '全体を保存'}
+            </button>
+            <button
+              onClick={handleSaveTracking}
+              disabled={submitting || !formData.trackingNumber}
+              className="bg-[#0a0a0a] text-white rounded-[8px] px-6 py-[10px] text-[13px] font-medium font-body disabled:opacity-50 cursor-pointer border-none"
+            >
+              {submitting ? '処理中...' : 'トラッキングを保存'}
+            </button>
+          </div>
         )}
       </div>
     </div>
