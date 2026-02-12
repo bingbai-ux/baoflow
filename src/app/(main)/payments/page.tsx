@@ -3,16 +3,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 
-const paymentTypeLabels: Record<string, string> = {
-  deposit: '前払い',
-  balance: '残金',
-  full: '一括',
-}
-
-const paymentMethodLabels: Record<string, string> = {
-  wise: 'Wise',
-  alibaba: 'Alibaba',
-  bank_transfer: '銀行振込',
+const directionLabels: Record<string, string> = {
+  in: '入金',
+  out: '出金',
 }
 
 const statusLabels: Record<string, string> = {
@@ -37,14 +30,10 @@ export default async function PaymentsPage() {
     redirect('/login')
   }
 
-  const { data: payments } = await supabase
-    .from('payments')
-    .select(`
-      *,
-      deals (id, deal_number, product_name),
-      clients:deals(clients(company_name))
-    `)
-    .order('created_at', { ascending: false })
+  const { data: transactions } = await supabase
+    .from('transactions')
+    .select('*')
+    .order('occurred_at', { ascending: false })
 
   return (
     <>
@@ -65,70 +54,58 @@ export default async function PaymentsPage() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.06)]">
-              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">案件番号</th>
-              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">クライアント</th>
-              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">種別</th>
-              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">方法</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">契約番号</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">方向</th>
+              <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">支払方法</th>
               <th className="px-[14px] py-[10px] text-right text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">金額 (JPY)</th>
               <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">ステータス</th>
               <th className="px-[14px] py-[10px] text-left text-[9px] font-medium text-[#b0b0b0] font-body uppercase tracking-wider">日付</th>
             </tr>
           </thead>
             <tbody>
-              {payments && payments.length > 0 ? (
-                payments.map((payment, index) => (
+              {transactions && transactions.length > 0 ? (
+                transactions.map((tx, index) => (
                   <tr
-                    key={payment.id}
-                    className={`${index < payments.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
+                    key={tx.id}
+                    className={`${index < transactions.length - 1 ? 'border-b border-[rgba(0,0,0,0.06)]' : ''} hover:bg-[#fcfcfb] transition-colors`}
                   >
-                    <td className="px-[14px] py-[12px]">
-                      {payment.deals ? (
-                        <Link
-                          href={`/deals/${payment.deals.id}`}
-                          className="text-[#0a0a0a] no-underline font-display font-medium text-[13px]"
-                        >
-                          {payment.deals.deal_number}
-                        </Link>
-                      ) : (
-                        '-'
-                      )}
+                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-display tabular-nums">
+                      {tx.contract_number || '-'}
                     </td>
                     <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {(payment.clients as any)?.clients?.company_name || '-'}
+                      <span className={tx.direction === 'in' ? 'text-[#22c55e]' : 'text-[#0a0a0a]'}>
+                        {directionLabels[tx.direction] || tx.direction}
+                      </span>
                     </td>
                     <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
-                      {paymentTypeLabels[payment.payment_type] || payment.payment_type}
-                    </td>
-                    <td className="px-[14px] py-[12px] text-[13px] text-[#0a0a0a] font-body">
-                      {paymentMethodLabels[payment.payment_method] || payment.payment_method}
+                      {tx.payment_method || '-'}
                     </td>
                     <td className="px-[14px] py-[12px] text-right font-display tabular-nums font-medium text-[13px]">
-                      {payment.amount_jpy ? formatCurrency(payment.amount_jpy) : '-'}
+                      {tx.amount_jpy ? formatCurrency(tx.amount_jpy) : '-'}
                     </td>
                     <td className="px-[14px] py-[12px]">
                       <div className="flex items-center gap-[6px]">
                         <span
                           className="w-[6px] h-[6px] rounded-full"
-                          style={{ backgroundColor: statusColors[payment.status] || '#bbbbbb' }}
+                          style={{ backgroundColor: statusColors[tx.status] || '#bbbbbb' }}
                         />
                         <span className="text-[12px] text-[#555] font-body">
-                          {statusLabels[payment.status] || payment.status}
+                          {statusLabels[tx.status] || tx.status}
                         </span>
                       </div>
                     </td>
                     <td className="px-[14px] py-[12px] font-display tabular-nums text-[13px] text-[#0a0a0a]">
-                      {formatDate(payment.created_at)}
+                      {tx.occurred_at ? formatDate(tx.occurred_at) : formatDate(tx.created_at)}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-[14px] py-[40px] text-center text-[13px] text-[#888] font-body"
                   >
-                    支払いがありません
+                    取引がありません
                   </td>
                 </tr>
               )}

@@ -84,7 +84,7 @@ export default async function AnalyticsPage() {
   const { data: transactions } = await supabase
     .from('transactions')
     .select('*')
-    .order('transaction_date', { ascending: false })
+    .order('occurred_at', { ascending: false })
 
   const allTransactions = transactions || []
 

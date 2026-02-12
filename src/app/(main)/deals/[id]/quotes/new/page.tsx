@@ -61,12 +61,12 @@ export default function NewQuotePage() {
       // Get default exchange rate from settings
       const { data: settings } = await supabase
         .from('system_settings')
-        .select('value')
-        .eq('key', 'default_exchange_rate')
+        .select('default_exchange_rate')
+        .limit(1)
         .single()
 
-      if (settings?.value) {
-        setExchangeRate(parseFloat(settings.value))
+      if (settings?.default_exchange_rate) {
+        setExchangeRate(parseFloat(String(settings.default_exchange_rate)))
       }
     }
 

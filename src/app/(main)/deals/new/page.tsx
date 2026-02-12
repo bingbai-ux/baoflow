@@ -191,7 +191,7 @@ export default function NewDealPage() {
         material_thickness: formData.get('material_thickness') as string || null,
         material_notes: formData.get('material_notes') as string || null,
         printing_method: formData.get('printing_method') as string || null,
-        print_colors: formData.get('print_colors') ? parseInt(formData.get('print_colors') as string) : null,
+        print_colors: formData.get('print_colors') as string || null,
         print_sides: formData.get('print_sides') as string || null,
         processing_list: selectedProcessing.length > 0 ? selectedProcessing : null,
         lamination: formData.get('lamination') as string || null,

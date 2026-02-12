@@ -16,10 +16,7 @@ export default async function ShipmentsPage() {
       specifications:deal_specifications(product_name),
       shipping:deal_shipping(
         tracking_number,
-        tracking_url,
-        shipped_at,
-        estimated_arrival,
-        logistics_agent_id
+        tracking_url
       ),
       client:clients(company_name)
     `)

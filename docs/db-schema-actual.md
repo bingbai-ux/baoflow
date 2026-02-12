@@ -1,6 +1,6 @@
 # BAOFlow Database Schema (Actual)
 
-> **Auto-generated: 2026-02-11**
+> **Auto-generated: 2026-02-12**
 > This file contains the actual database schema from Supabase.
 > **Always reference this file when writing code that interacts with the database.**
 
@@ -414,6 +414,7 @@
 | product_name | text | YES | null |
 | product_specs | text | YES | null |
 | current_stock | integer | YES | 0 |
+| safety_stock | integer | YES | 0 |
 | storage_location | text | YES | null |
 | created_at | timestamptz | NO | now() |
 | updated_at | timestamptz | NO | now() |
