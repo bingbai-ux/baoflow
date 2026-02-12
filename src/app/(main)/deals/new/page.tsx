@@ -211,7 +211,7 @@ export default function NewDealPage() {
                 name="specification_memo"
                 rows={4}
                 style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
-                placeholder="サイズ、素材、印刷方法など、わかっている情報を自由に入力してください"
+                placeholder="サイズ、素材、印刷方法など、わかっている情報を自由に入力してください&#10;※ 見積もりExcelがある場合は、案件保存後に「Excel取込」から自動で読み取れます"
               />
             </div>
           </div>

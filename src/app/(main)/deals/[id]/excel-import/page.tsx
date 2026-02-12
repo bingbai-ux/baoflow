@@ -1,32 +1,14 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-interface ParsedRow {
-  item: string
-  material: string
-  size: string
-  quantity: number
-  unitPriceCny: number
-  totalCny: number
-  notes: string
-}
-
-interface ParseResult {
-  success: boolean
-  fileName: string
-  sheetName: string
-  headers: string[]
-  rows: ParsedRow[]
-  summary: {
-    totalItems: number
-    totalQuantity: number
-    totalAmountCny: number
-    averageUnitPrice: number
-  }
-}
+import {
+  parseFactoryDocument,
+  applyParsedQuote,
+  checkApiKeyAvailable,
+  ParsedQuote,
+} from '@/lib/actions/excel-parse'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -37,17 +19,64 @@ export default function ExcelImportPage({ params }: Props) {
   const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ParseResult | null>(null)
+  const [applying, setApplying] = useState(false)
+  const [result, setResult] = useState<ParsedQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [apiKeyAvailable, setApiKeyAvailable] = useState<boolean | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Editable fields
+  const [editedData, setEditedData] = useState<ParsedQuote>({})
+
+  useEffect(() => {
+    checkApiKeyAvailable().then(setApiKeyAvailable)
+  }, [])
+
+  useEffect(() => {
+    if (result) {
+      setEditedData(result)
+    }
+  }, [result])
+
+  const handleFileSelect = (selectedFile: File) => {
+    const validExtensions = ['.xlsx', '.xls', '.csv', '.pdf', '.png', '.jpg', '.jpeg', '.webp']
+    const ext = selectedFile.name.toLowerCase().slice(selectedFile.name.lastIndexOf('.'))
+
+    if (!validExtensions.includes(ext)) {
+      setError('対応していないファイル形式です。Excel, CSV, PDF, 画像ファイルをアップロードしてください。')
+      return
+    }
+
+    setFile(selectedFile)
+    setResult(null)
+    setError(null)
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0]
     if (selected) {
-      setFile(selected)
-      setResult(null)
-      setError(null)
+      handleFileSelect(selected)
     }
   }
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile) {
+      handleFileSelect(droppedFile)
+    }
+  }, [])
 
   const handleParse = async () => {
     if (!file) return
@@ -59,18 +88,14 @@ export default function ExcelImportPage({ params }: Props) {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/parse-excel', {
-        method: 'POST',
-        body: formData,
-      })
+      const response = await parseFactoryDocument(formData)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to parse file')
+      if (!response.success) {
+        setError(response.error || '解析に失敗しました')
+        return
       }
 
-      setResult(data)
+      setResult(response.data || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -79,249 +104,305 @@ export default function ExcelImportPage({ params }: Props) {
   }
 
   const handleApply = async () => {
-    if (!result || result.rows.length === 0) return
+    if (!editedData) return
 
-    // Find the best matching row (usually first non-empty)
-    const primaryRow = result.rows[0]
+    setApplying(true)
+    setError(null)
 
-    // Navigate back to deal with parsed data in URL params
-    const params = new URLSearchParams({
-      product_name: primaryRow.item,
-      material: primaryRow.material,
-      size: primaryRow.size,
-      quantity: primaryRow.quantity.toString(),
-      unit_price_cny: primaryRow.unitPriceCny.toString(),
-    })
+    try {
+      const response = await applyParsedQuote(id, editedData)
 
-    router.push(`/deals/${id}/edit?${params.toString()}`)
+      if (!response.success) {
+        setError(response.error || '反映に失敗しました')
+        return
+      }
+
+      router.push(`/deals/${id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setApplying(false)
+    }
   }
 
+  const updateField = (key: keyof ParsedQuote, value: string | number | null) => {
+    setEditedData(prev => ({ ...prev, [key]: value }))
+  }
+
+  const inputClassName = "w-full bg-[#f2f2f0] rounded-[10px] px-[14px] py-[10px] text-[13px] font-body text-[#0a0a0a] border border-transparent outline-none focus:border-[#e8e8e6] transition-all"
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f2f2f0', padding: '24px 26px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600 }}>
-          工場見積Excel取込
-        </h1>
+    <>
+      <div className="py-[18px]">
         <Link
           href={`/deals/${id}`}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#888888',
-            border: '1px solid #e8e8e6',
-            borderRadius: 8,
-            padding: '8px 16px',
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: 'none',
-          }}
+          className="text-[13px] text-[#888] hover:text-[#555] font-body mb-2 inline-block"
         >
-          戻る
+          ← 案件詳細
         </Link>
+        <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+          Excel/PDF 自動取込
+        </h1>
+        <p className="text-[13px] text-[#888] font-body mt-1">
+          工場の見積もりファイルをアップロードすると、AIが自動で内容を読み取ります
+        </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8 }}>
+      <div className="grid grid-cols-[1fr_1.5fr] gap-2">
         {/* Upload Card */}
-        <div style={cardStyle}>
-          <h2 style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+          <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">
             ファイルアップロード
           </h2>
 
-          <div
-            style={{
-              border: '2px dashed #e8e8e6',
-              borderRadius: 10,
-              padding: 24,
-              textAlign: 'center',
-              backgroundColor: '#f2f2f0',
-            }}
-          >
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-              id="file-input"
-            />
-            <label
-              htmlFor="file-input"
-              style={{
-                cursor: 'pointer',
-                display: 'block',
-              }}
-            >
-              <svg
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#888888"
-                strokeWidth="1.5"
-                style={{ margin: '0 auto 12px' }}
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-              </svg>
-              <div style={{ fontSize: 12, color: '#888888' }}>
-                クリックしてファイルを選択
-              </div>
-              <div style={{ fontSize: 11, color: '#bbbbbb', marginTop: 4 }}>
-                .xlsx, .xls, .csv 対応
-              </div>
-            </label>
-          </div>
-
-          {file && (
-            <div style={{ marginTop: 12, padding: '10px 12px', backgroundColor: '#f2f2f0', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 500 }}>{file.name}</div>
-              <div style={{ fontSize: 11, color: '#888888' }}>
-                {(file.size / 1024).toFixed(1)} KB
-              </div>
+          {apiKeyAvailable === false ? (
+            <div className="p-4 bg-[#fef3c7] rounded-[12px] text-[13px] text-[#92400e] font-body">
+              <p className="font-medium mb-1">AI解析を利用するにはAPI Keyの設定が必要です</p>
+              <p className="text-[12px]">
+                設定 → <code className="bg-[#fff] px-1 rounded">ANTHROPIC_API_KEY</code>
+              </p>
             </div>
+          ) : (
+            <>
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-[12px] p-6 text-center transition-all cursor-pointer ${
+                  isDragging
+                    ? 'border-[#22c55e] bg-[#f0fdf4]'
+                    : 'border-[#e8e8e6] bg-[#f2f2f0] hover:border-[#ccc]'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="file-input"
+                />
+                <label htmlFor="file-input" className="cursor-pointer block">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={isDragging ? '#22c55e' : '#888888'}
+                    strokeWidth="1.5"
+                    className="mx-auto mb-3"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                  </svg>
+                  <div className="text-[13px] text-[#555] font-body">
+                    {isDragging ? 'ドロップしてアップロード' : 'クリックまたはドラッグ&ドロップ'}
+                  </div>
+                  <div className="text-[11px] text-[#bbb] font-body mt-1">
+                    Excel (.xlsx, .xls), CSV, PDF, 画像 対応
+                  </div>
+                </label>
+              </div>
+
+              {file && (
+                <div className="mt-3 p-3 bg-[#f2f2f0] rounded-[10px] flex items-center justify-between">
+                  <div>
+                    <div className="text-[13px] font-medium text-[#0a0a0a] font-body">{file.name}</div>
+                    <div className="text-[11px] text-[#888] font-body">
+                      {(file.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setFile(null)
+                      setResult(null)
+                      setError(null)
+                    }}
+                    className="text-[#888] hover:text-[#555] p-1"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={handleParse}
+                disabled={!file || loading || !apiKeyAvailable}
+                className={`w-full mt-4 py-[10px] rounded-[8px] text-[13px] font-medium font-body transition-all ${
+                  !file || loading || !apiKeyAvailable
+                    ? 'bg-[#e8e8e6] text-[#888] cursor-not-allowed'
+                    : 'bg-[#0a0a0a] text-white cursor-pointer hover:bg-[#333]'
+                }`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    AI解析中...
+                  </span>
+                ) : (
+                  'AIで解析する'
+                )}
+              </button>
+            </>
           )}
 
-          <button
-            onClick={handleParse}
-            disabled={!file || loading}
-            style={{
-              width: '100%',
-              marginTop: 16,
-              padding: '10px 16px',
-              backgroundColor: loading || !file ? '#e8e8e6' : '#0a0a0a',
-              color: loading || !file ? '#888888' : '#ffffff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: loading || !file ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? '解析中...' : '解析する'}
-          </button>
-
           {error && (
-            <div style={{ marginTop: 12, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+            <div className="mt-3 p-3 bg-[#fef3c7] rounded-[10px] text-[12px] text-[#92400e] font-body">
               {error}
             </div>
           )}
         </div>
 
         {/* Results Card */}
-        <div style={cardStyle}>
-          <h2 style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-[20px_22px]">
+          <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">
             解析結果
           </h2>
 
           {!result ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#888888', fontSize: 13 }}>
-              ファイルをアップロードして解析してください
+            <div className="text-center py-12 text-[#888] text-[13px] font-body">
+              ファイルをアップロードしてAI解析を実行してください
             </div>
           ) : (
             <>
-              {/* Summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-                <div style={{ padding: 12, backgroundColor: '#f2f2f0', borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#888888' }}>品目数</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "'Fraunces', serif" }}>
-                    {result.summary.totalItems}
-                  </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">商品名</label>
+                  <input
+                    type="text"
+                    value={editedData.product_name || ''}
+                    onChange={(e) => updateField('product_name', e.target.value || null)}
+                    className={inputClassName}
+                    placeholder="未検出"
+                  />
                 </div>
-                <div style={{ padding: 12, backgroundColor: '#f2f2f0', borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#888888' }}>総数量</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "'Fraunces', serif" }}>
-                    {result.summary.totalQuantity.toLocaleString()}
-                  </div>
-                </div>
-                <div style={{ padding: 12, backgroundColor: '#f2f2f0', borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#888888' }}>総額 (CNY)</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "'Fraunces', serif" }}>
-                    ¥{result.summary.totalAmountCny.toLocaleString()}
-                  </div>
-                </div>
-                <div style={{ padding: 12, backgroundColor: '#f2f2f0', borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#888888' }}>平均単価</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "'Fraunces', serif" }}>
-                    ¥{result.summary.averageUnitPrice.toFixed(2)}
-                  </div>
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">素材</label>
+                  <input
+                    type="text"
+                    value={editedData.material || ''}
+                    onChange={(e) => updateField('material', e.target.value || null)}
+                    className={inputClassName}
+                    placeholder="未検出"
+                  />
                 </div>
               </div>
 
-              {/* Data Table */}
-              <div style={{ overflow: 'auto', maxHeight: 400 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                      <th style={thStyle}>品名</th>
-                      <th style={thStyle}>材質</th>
-                      <th style={thStyle}>サイズ</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>数量</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>単価</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>金額</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.rows.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                        <td style={tdStyle}>{row.item || '-'}</td>
-                        <td style={tdStyle}>{row.material || '-'}</td>
-                        <td style={tdStyle}>{row.size || '-'}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontFamily: "'Fraunces', serif" }}>
-                          {row.quantity.toLocaleString()}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontFamily: "'Fraunces', serif" }}>
-                          ¥{row.unitPriceCny.toFixed(2)}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontFamily: "'Fraunces', serif", fontWeight: 500 }}>
-                          ¥{row.totalCny.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mb-4">
+                <label className="block text-[11px] text-[#888] mb-1 font-body">サイズ</label>
+                <input
+                  type="text"
+                  value={editedData.size_description || ''}
+                  onChange={(e) => updateField('size_description', e.target.value || null)}
+                  className={inputClassName}
+                  placeholder="例: W140×D80×H230mm"
+                />
               </div>
 
-              {/* Apply Button */}
-              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">数量</label>
+                  <input
+                    type="number"
+                    value={editedData.quantity ?? ''}
+                    onChange={(e) => updateField('quantity', e.target.value ? parseInt(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">単価 (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editedData.unit_price_usd ?? ''}
+                    onChange={(e) => updateField('unit_price_usd', e.target.value ? parseFloat(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">合計 (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editedData.total_usd ?? ''}
+                    onChange={(e) => updateField('total_usd', e.target.value ? parseFloat(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">MOQ</label>
+                  <input
+                    type="number"
+                    value={editedData.moq ?? ''}
+                    onChange={(e) => updateField('moq', e.target.value ? parseInt(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">製造日数</label>
+                  <input
+                    type="number"
+                    value={editedData.production_days ?? ''}
+                    onChange={(e) => updateField('production_days', e.target.value ? parseInt(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#888] mb-1 font-body">送料 (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editedData.shipping_cost_usd ?? ''}
+                    onChange={(e) => updateField('shipping_cost_usd', e.target.value ? parseFloat(e.target.value) : null)}
+                    className={inputClassName}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-[11px] text-[#888] mb-1 font-body">特記事項</label>
+                <textarea
+                  value={editedData.notes || ''}
+                  onChange={(e) => updateField('notes', e.target.value || null)}
+                  className={`${inputClassName} min-h-[80px] resize-none`}
+                  placeholder="備考、条件など"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-[rgba(0,0,0,0.06)]">
+                <button
+                  onClick={() => {
+                    setResult(null)
+                    setEditedData({})
+                  }}
+                  className="px-4 py-[10px] bg-white border border-[#e8e8e6] rounded-[8px] text-[13px] text-[#555] font-medium font-body hover:bg-[#f2f2f0] transition-all cursor-pointer"
+                >
+                  キャンセル
+                </button>
                 <button
                   onClick={handleApply}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#22c55e',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}
+                  disabled={applying}
+                  className="px-5 py-[10px] bg-[#22c55e] text-white rounded-[8px] text-[13px] font-medium font-body hover:bg-[#16a34a] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  案件に反映する
+                  {applying ? '反映中...' : '案件に反映する'}
                 </button>
               </div>
             </>
           )}
         </div>
       </div>
-    </div>
+    </>
   )
-}
-
-const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
-  borderRadius: 20,
-  border: '1px solid rgba(0,0,0,0.06)',
-  padding: '20px 22px',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  textAlign: 'left',
-  fontSize: 11,
-  fontWeight: 500,
-  color: '#bbbbbb',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  fontSize: 12,
-  color: '#555555',
 }
