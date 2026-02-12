@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ClientProgressBar, mapStatusToStep } from '@/components/portal/progress-bar'
 import { OrderActions } from './order-actions'
+import { DesignReviewActions } from './design-review-actions'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -76,6 +77,9 @@ export default async function PortalOrderDetailPage({ params }: Props) {
         file_name,
         version_number,
         is_final,
+        status,
+        submitted_at,
+        reviewer_notes,
         created_at
       ),
       shipping:deal_shipping(
@@ -334,30 +338,60 @@ export default async function PortalOrderDetailPage({ params }: Props) {
               </div>
             ) : deal.design_files && deal.design_files.length > 0 ? (
               <div className="space-y-2">
-                {deal.design_files.map((file) => (
-                  <div key={file.id} className="p-3 bg-[#f2f2f0] rounded-[10px]">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[12px] font-body text-[#0a0a0a]">
-                          {file.file_name || `v${file.version_number}`}
-                        </p>
-                        <p className="text-[10px] text-[#888] font-body">
-                          v{file.version_number}
-                        </p>
+                {deal.design_files.map((file) => {
+                  const statusLabel = file.status === 'submitted' ? '確認待ち'
+                    : file.status === 'approved' ? '承認済み'
+                    : file.status === 'revision_requested' ? '修正依頼中'
+                    : null
+                  const statusColor = file.status === 'submitted' ? 'bg-[#e5a32e]'
+                    : file.status === 'approved' ? 'bg-[#22c55e]'
+                    : file.status === 'revision_requested' ? 'bg-[#888]'
+                    : ''
+
+                  return (
+                    <div key={file.id}>
+                      <div className="p-3 bg-[#f2f2f0] rounded-[10px]">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[12px] font-body text-[#0a0a0a]">
+                                {file.file_name || `v${file.version_number}`}
+                              </p>
+                              {statusLabel && (
+                                <span className="flex items-center gap-1">
+                                  <span className={`w-[5px] h-[5px] rounded-full ${statusColor}`} />
+                                  <span className="text-[10px] text-[#888] font-body">{statusLabel}</span>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[#888] font-body">
+                              v{file.version_number}
+                            </p>
+                            {file.reviewer_notes && file.status === 'revision_requested' && (
+                              <p className="text-[10px] text-[#e5a32e] font-body mt-1">
+                                修正依頼: {file.reviewer_notes}
+                              </p>
+                            )}
+                          </div>
+                          {file.file_url && (
+                            <a
+                              href={file.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-[#0a0a0a] font-body underline"
+                            >
+                              ダウンロード
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      {file.file_url && (
-                        <a
-                          href={file.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[11px] text-[#0a0a0a] font-body underline"
-                        >
-                          ダウンロード
-                        </a>
+                      {/* Show review actions for submitted designs */}
+                      {file.status === 'submitted' && (
+                        <DesignReviewActions design={file} />
                       )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-[12px] text-[#888] font-body">デザインデータはまだありません</p>

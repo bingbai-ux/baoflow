@@ -131,3 +131,166 @@ export async function getSamplesForDeal(dealId: string): Promise<DealSample[]> {
 
   return data || []
 }
+
+/**
+ * Mark sample as shipped by factory
+ */
+export async function shipSample(sampleId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('deal_samples')
+    .update({
+      sample_status: 'shipping',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sampleId)
+    .select('deal_id, round_number')
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  // Post system message to client chat
+  if (data) {
+    const { data: room } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .eq('deal_id', data.deal_id)
+      .eq('room_type', 'client_sales')
+      .single()
+
+    if (room) {
+      await supabase.from('chat_messages').insert({
+        room_id: room.id,
+        user_id: null,
+        content_original: `サンプル (ラウンド${data.round_number}) を発送しました。`,
+        is_system_message: true,
+      })
+    }
+
+    revalidatePath(`/deals/${data.deal_id}`)
+  }
+
+  return { success: true }
+}
+
+/**
+ * Mark sample as received/arrived
+ */
+export async function receiveSample(sampleId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('deal_samples')
+    .update({
+      sample_status: 'arrived',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sampleId)
+    .select('deal_id, round_number')
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  if (data) {
+    revalidatePath(`/deals/${data.deal_id}`)
+  }
+
+  return { success: true }
+}
+
+/**
+ * Approve sample (mark as OK)
+ */
+export async function approveSample(sampleId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('deal_samples')
+    .update({
+      sample_status: 'ok',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sampleId)
+    .select('deal_id, round_number')
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  // Post system message to factory chat
+  if (data) {
+    const { data: room } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .eq('deal_id', data.deal_id)
+      .eq('room_type', 'sales_factory')
+      .single()
+
+    if (room) {
+      await supabase.from('chat_messages').insert({
+        room_id: room.id,
+        user_id: null,
+        content_original: `サンプル (ラウンド${data.round_number}) が承認されました。`,
+        is_system_message: true,
+      })
+    }
+
+    revalidatePath(`/deals/${data.deal_id}`)
+  }
+
+  return { success: true }
+}
+
+/**
+ * Request revision for sample
+ */
+export async function requestSampleRevision(
+  sampleId: string,
+  feedbackMemo: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('deal_samples')
+    .update({
+      sample_status: 'revision_needed',
+      feedback_memo: feedbackMemo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sampleId)
+    .select('deal_id, round_number')
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  // Post system message to factory chat with feedback
+  if (data) {
+    const { data: room } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .eq('deal_id', data.deal_id)
+      .eq('room_type', 'sales_factory')
+      .single()
+
+    if (room) {
+      await supabase.from('chat_messages').insert({
+        room_id: room.id,
+        user_id: null,
+        content_original: `サンプル (ラウンド${data.round_number}) の修正が必要です。\n修正内容: ${feedbackMemo}`,
+        is_system_message: true,
+      })
+    }
+
+    revalidatePath(`/deals/${data.deal_id}`)
+  }
+
+  return { success: true }
+}

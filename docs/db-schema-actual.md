@@ -123,6 +123,10 @@
 | comment | text | YES | null |
 | uploaded_by_user_id | uuid | YES | null |
 | is_final | boolean | YES | false |
+| status | text | YES | 'draft' |
+| submitted_at | timestamptz | YES | null |
+| reviewed_at | timestamptz | YES | null |
+| reviewer_notes | text | YES | null |
 | created_at | timestamptz | NO | now() |
 | updated_at | timestamptz | NO | now() |
 

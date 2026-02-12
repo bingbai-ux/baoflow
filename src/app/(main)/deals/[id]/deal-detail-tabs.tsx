@@ -1,9 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { StatusDot } from '@/components/status-dot'
 import { formatJPY, formatUSD, formatDate } from '@/lib/utils/format'
+import { selectWinningFactory } from '@/lib/actions/factory-assignments'
+import { receiveSample, approveSample, requestSampleRevision, createSample } from '@/lib/actions/samples'
+import { submitDesignToClient, approveDesign, requestDesignRevision } from '@/lib/actions/designs'
 
 interface DealDetailTabsProps {
   deal: {
@@ -78,8 +82,12 @@ interface DealDetailTabsProps {
       id: string
       file_name: string
       file_url: string
-      version: number
+      version_number: number
       is_final: boolean
+      status?: string | null
+      submitted_at?: string | null
+      reviewed_at?: string | null
+      reviewer_notes?: string | null
       created_at: string
     }>
     payments?: Array<{
@@ -183,6 +191,77 @@ const paymentMethodLabels: Record<string, string> = {
 export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProps) {
   const tabs = getVisibleTabs(deal.master_status)
   const [activeTab, setActiveTab] = useState('overview')
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+  const [sampleFeedback, setSampleFeedback] = useState('')
+  const [designFeedback, setDesignFeedback] = useState('')
+  const [showSampleForm, setShowSampleForm] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState<string | null>(null)
+  const [showDesignFeedbackModal, setShowDesignFeedbackModal] = useState<string | null>(null)
+
+  // Group quotes by factory for comparison
+  type QuoteWithFactory = NonNullable<typeof deal.quotes>[number]
+  const quotesByFactory = (deal.quotes || []).reduce((acc, quote) => {
+    const factoryId = quote.factory?.id || 'unknown'
+    const entry = acc[factoryId] ?? (acc[factoryId] = { factory: quote.factory, quotes: [] as QuoteWithFactory[] })
+    entry.quotes.push(quote)
+    return acc
+  }, {} as Record<string, { factory?: { id: string; factory_name: string }; quotes: QuoteWithFactory[] }>)
+
+  const handleSelectFactory = async (factoryId: string) => {
+    startTransition(async () => {
+      await selectWinningFactory(deal.id, factoryId)
+      router.refresh()
+    })
+  }
+
+  const handleReceiveSample = async (sampleId: string) => {
+    startTransition(async () => {
+      await receiveSample(sampleId)
+      router.refresh()
+    })
+  }
+
+  const handleApproveSample = async (sampleId: string) => {
+    startTransition(async () => {
+      await approveSample(sampleId)
+      router.refresh()
+    })
+  }
+
+  const handleRequestSampleRevision = async (sampleId: string) => {
+    if (!sampleFeedback.trim()) return
+    startTransition(async () => {
+      await requestSampleRevision(sampleId, sampleFeedback)
+      setSampleFeedback('')
+      setShowFeedbackModal(null)
+      router.refresh()
+    })
+  }
+
+  const handleSubmitDesign = async (designId: string) => {
+    startTransition(async () => {
+      await submitDesignToClient(designId)
+      router.refresh()
+    })
+  }
+
+  const handleApproveDesign = async (designId: string) => {
+    startTransition(async () => {
+      await approveDesign(designId)
+      router.refresh()
+    })
+  }
+
+  const handleRequestDesignRevision = async (designId: string) => {
+    if (!designFeedback.trim()) return
+    startTransition(async () => {
+      await requestDesignRevision(designId, designFeedback)
+      setDesignFeedback('')
+      setShowDesignFeedbackModal(null)
+      router.refresh()
+    })
+  }
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString)
@@ -253,156 +332,401 @@ export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProp
     </div>
   )
 
-  const renderQuotesTab = () => (
-    <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-[14px] font-medium text-[#0a0a0a] font-body">見積もり一覧</h3>
-        <Link
-          href={`/deals/${deal.id}/quotes/new`}
-          className="bg-[#22c55e] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body no-underline"
-        >
-          + 見積もり追加
-        </Link>
+  const renderQuotesTab = () => {
+    const factoryCount = Object.keys(quotesByFactory).length
+    const hasMultipleFactories = factoryCount > 1
+    const selectedAssignment = deal.factory_assignments?.find(a => a.status === 'selected')
+
+    return (
+      <div className="space-y-4">
+        {/* Comparison Table (only if multiple factories) */}
+        {hasMultipleFactories && (
+          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+            <h3 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">工場比較表</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <th className="text-left py-2 px-3 text-[11px] text-[#888] font-body font-medium">項目</th>
+                    {Object.values(quotesByFactory).map(({ factory }) => (
+                      <th key={factory?.id || 'unknown'} className="text-center py-2 px-3 text-[11px] text-[#0a0a0a] font-body font-medium">
+                        {factory?.factory_name || '不明'}
+                        {selectedAssignment?.factory?.id === factory?.id && (
+                          <span className="ml-1 text-[#22c55e]">●</span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <td className="py-2 px-3 text-[#888] font-body">単価 (USD)</td>
+                    {Object.values(quotesByFactory).map(({ factory, quotes }) => {
+                      const latestQuote = quotes?.[0]
+                      return (
+                        <td key={factory?.id || 'unknown'} className="text-center py-2 px-3 font-display tabular-nums">
+                          {latestQuote?.factory_unit_price_usd ? formatUSD(latestQuote.factory_unit_price_usd) : '-'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <td className="py-2 px-3 text-[#888] font-body">合計 (USD)</td>
+                    {Object.values(quotesByFactory).map(({ factory, quotes }) => {
+                      const latestQuote = quotes?.[0]
+                      return (
+                        <td key={factory?.id || 'unknown'} className="text-center py-2 px-3 font-display tabular-nums font-semibold">
+                          {latestQuote?.total_cost_usd ? formatUSD(latestQuote.total_cost_usd) : '-'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  <tr className="border-b border-[rgba(0,0,0,0.06)]">
+                    <td className="py-2 px-3 text-[#888] font-body">数量</td>
+                    {Object.values(quotesByFactory).map(({ factory, quotes }) => {
+                      const latestQuote = quotes?.[0]
+                      return (
+                        <td key={factory?.id || 'unknown'} className="text-center py-2 px-3 font-display tabular-nums">
+                          {latestQuote?.quantity?.toLocaleString() || '-'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  {!selectedAssignment && (
+                    <tr>
+                      <td className="py-3 px-3 text-[#888] font-body">選定</td>
+                      {Object.values(quotesByFactory).map(({ factory }) => (
+                        <td key={factory?.id || 'unknown'} className="text-center py-3 px-3">
+                          <button
+                            onClick={() => factory?.id && handleSelectFactory(factory.id)}
+                            disabled={isPending || !factory?.id}
+                            className="bg-[#22c55e] text-white px-3 py-1 rounded-[6px] text-[11px] font-body disabled:opacity-50"
+                          >
+                            {isPending ? '...' : '選定'}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Quote List */}
+        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-[14px] font-medium text-[#0a0a0a] font-body">見積もり一覧</h3>
+            <Link
+              href={`/deals/${deal.id}/quotes/new`}
+              className="bg-[#22c55e] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body no-underline"
+            >
+              + 見積もり追加
+            </Link>
+          </div>
+          {deal.quotes && deal.quotes.length > 0 ? (
+            <div className="space-y-4">
+              {deal.quotes.map(quote => (
+                <div key={quote.id} className="border border-[rgba(0,0,0,0.06)] rounded-[12px] p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="text-[13px] font-medium text-[#0a0a0a] font-body">
+                        {quote.factory?.factory_name || '工場未選択'}
+                      </span>
+                      <span className="text-[11px] text-[#888] ml-2 font-body">v{quote.version}</span>
+                    </div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-body ${
+                      quote.status === 'approved' ? 'bg-[#22c55e] text-white' : 'bg-[#f2f2f0] text-[#888]'
+                    }`}>
+                      {quoteStatusLabels[quote.status] || quote.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4 text-[12px]">
+                    <div>
+                      <span className="text-[#888] font-body">数量</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">{quote.quantity?.toLocaleString() || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#888] font-body">単価USD</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">{quote.factory_unit_price_usd ? formatUSD(quote.factory_unit_price_usd) : '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#888] font-body">掛率</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">{quote.cost_ratio ? `${(quote.cost_ratio * 100).toFixed(0)}%` : '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#888] font-body">販売単価JPY</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">{quote.selling_price_jpy ? formatJPY(quote.selling_price_jpy) : '-'}</p>
+                    </div>
+                  </div>
+                  {quote.total_billing_tax_jpy && (
+                    <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)] flex justify-between items-center">
+                      <span className="text-[11px] text-[#888] font-body">請求合計（税込）</span>
+                      <span className="font-display tabular-nums text-[16px] font-semibold text-[#0a0a0a]">
+                        {formatJPY(quote.total_billing_tax_jpy)}
+                      </span>
+                    </div>
+                  )}
+                  {quote.shipping_options && quote.shipping_options.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
+                      <span className="text-[11px] text-[#888] font-body mb-2 block">配送オプション</span>
+                      <div className="space-y-1">
+                        {quote.shipping_options.map(opt => (
+                          <div key={opt.id} className="flex justify-between text-[11px]">
+                            <span className="font-body text-[#555]">
+                              {opt.shipping_method} / {opt.incoterm}
+                            </span>
+                            <span className="font-display tabular-nums text-[#0a0a0a]">
+                              {formatUSD(opt.shipping_cost_usd)} ({opt.shipping_days}日)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] text-[#888] font-body">見積もりがありません</p>
+          )}
+        </div>
       </div>
-      {deal.quotes && deal.quotes.length > 0 ? (
-        <div className="space-y-4">
-          {deal.quotes.map(quote => (
-            <div key={quote.id} className="border border-[rgba(0,0,0,0.06)] rounded-[12px] p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="text-[13px] font-medium text-[#0a0a0a] font-body">
-                    {quote.factory?.factory_name || '工場未選択'}
-                  </span>
-                  <span className="text-[11px] text-[#888] ml-2 font-body">v{quote.version}</span>
-                </div>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-body ${
-                  quote.status === 'approved' ? 'bg-[#22c55e] text-white' : 'bg-[#f2f2f0] text-[#888]'
-                }`}>
-                  {quoteStatusLabels[quote.status] || quote.status}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-4 text-[12px]">
-                <div>
-                  <span className="text-[#888] font-body">数量</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">{quote.quantity.toLocaleString()}</p>
-                </div>
-                <div>
-                  <span className="text-[#888] font-body">単価USD</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">{formatUSD(quote.factory_unit_price_usd)}</p>
-                </div>
-                <div>
-                  <span className="text-[#888] font-body">掛率</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">{(quote.cost_ratio * 100).toFixed(0)}%</p>
-                </div>
-                <div>
-                  <span className="text-[#888] font-body">販売単価JPY</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">{formatJPY(quote.selling_price_jpy)}</p>
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)] flex justify-between items-center">
-                <span className="text-[11px] text-[#888] font-body">請求合計（税込）</span>
-                <span className="font-display tabular-nums text-[16px] font-semibold text-[#0a0a0a]">
-                  {formatJPY(quote.total_billing_tax_jpy)}
-                </span>
-              </div>
-              {quote.shipping_options && quote.shipping_options.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
-                  <span className="text-[11px] text-[#888] font-body mb-2 block">配送オプション</span>
-                  <div className="space-y-1">
-                    {quote.shipping_options.map(opt => (
-                      <div key={opt.id} className="flex justify-between text-[11px]">
-                        <span className="font-body text-[#555]">
-                          {opt.shipping_method} / {opt.incoterm}
-                        </span>
-                        <span className="font-display tabular-nums text-[#0a0a0a]">
-                          {formatUSD(opt.shipping_cost_usd)} ({opt.shipping_days}日)
-                        </span>
+    )
+  }
+
+  const renderSamplesTab = () => {
+    // Sample status progress steps
+    const sampleSteps = ['requested', 'manufacturing', 'shipping', 'arrived', 'ok']
+
+    const getStepIndex = (status: string) => {
+      if (status === 'revision_needed') return 3 // Show at arrived position for revision
+      return sampleSteps.indexOf(status)
+    }
+
+    return (
+      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-[14px] font-medium text-[#0a0a0a] font-body">サンプル一覧</h3>
+          <Link
+            href={`/deals/${deal.id}/samples/new`}
+            className="bg-[#0a0a0a] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body no-underline"
+          >
+            + サンプル依頼
+          </Link>
+        </div>
+        {deal.samples && deal.samples.length > 0 ? (
+          <div className="space-y-4">
+            {deal.samples.map(sample => {
+              const currentStep = getStepIndex(sample.sample_status)
+
+              return (
+                <div key={sample.id} className="border border-[rgba(0,0,0,0.06)] rounded-[12px] p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[13px] font-medium text-[#0a0a0a] font-body">
+                      ラウンド {sample.round_number}
+                    </span>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-body ${
+                      sample.sample_status === 'ok' ? 'bg-[#22c55e] text-white' :
+                      sample.sample_status === 'revision_needed' ? 'bg-[#e5a32e] text-white' :
+                      'bg-[#f2f2f0] text-[#888]'
+                    }`}>
+                      {sampleStatusLabels[sample.sample_status] || sample.sample_status}
+                    </span>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="flex items-center gap-1 mb-4">
+                    {sampleSteps.map((step, index) => (
+                      <div key={step} className="flex-1">
+                        <div className={`h-1 rounded-full ${
+                          index <= currentStep ? 'bg-[#22c55e]' : 'bg-[#e8e8e6]'
+                        }`} />
+                        <div className="text-[9px] text-center mt-1 text-[#888] font-body">
+                          {sampleStatusLabels[step]}
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[12px] text-[#888] font-body">見積もりがありません</p>
-      )}
-    </div>
-  )
 
-  const renderSamplesTab = () => (
-    <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-[14px] font-medium text-[#0a0a0a] font-body">サンプル一覧</h3>
-        <button className="bg-[#0a0a0a] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body">
-          + サンプル追加
-        </button>
+                  <div className="grid grid-cols-2 gap-4 text-[12px] mb-3">
+                    <div>
+                      <span className="text-[#888] font-body">製造費用</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">
+                        {sample.sample_production_fee_usd ? formatUSD(sample.sample_production_fee_usd) : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#888] font-body">送料</span>
+                      <p className="font-display tabular-nums text-[#0a0a0a]">
+                        {sample.sample_shipping_fee_usd ? formatUSD(sample.sample_shipping_fee_usd) : '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {sample.feedback_memo && (
+                    <div className="mb-3 p-2 bg-[#f2f2f0] rounded-[8px] text-[11px] text-[#555] font-body">
+                      フィードバック: {sample.feedback_memo}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  {sample.sample_status === 'shipping' && (
+                    <button
+                      onClick={() => handleReceiveSample(sample.id)}
+                      disabled={isPending}
+                      className="w-full bg-[#0a0a0a] text-white rounded-[8px] py-2 text-[12px] font-medium font-body disabled:opacity-50"
+                    >
+                      {isPending ? '処理中...' : '受領確認'}
+                    </button>
+                  )}
+
+                  {sample.sample_status === 'arrived' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApproveSample(sample.id)}
+                        disabled={isPending}
+                        className="flex-1 bg-[#22c55e] text-white rounded-[8px] py-2 text-[12px] font-medium font-body disabled:opacity-50"
+                      >
+                        {isPending ? '...' : '承認'}
+                      </button>
+                      <button
+                        onClick={() => setShowFeedbackModal(sample.id)}
+                        disabled={isPending}
+                        className="flex-1 bg-[#e5a32e] text-white rounded-[8px] py-2 text-[12px] font-medium font-body disabled:opacity-50"
+                      >
+                        差し戻し
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Feedback Modal */}
+                  {showFeedbackModal === sample.id && (
+                    <div className="mt-3 p-3 border border-[rgba(0,0,0,0.06)] rounded-[10px]">
+                      <textarea
+                        value={sampleFeedback}
+                        onChange={(e) => setSampleFeedback(e.target.value)}
+                        placeholder="修正内容を入力してください"
+                        className="w-full bg-[#f2f2f0] rounded-[8px] px-3 py-2 text-[12px] font-body resize-none"
+                        rows={3}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleRequestSampleRevision(sample.id)}
+                          disabled={isPending || !sampleFeedback.trim()}
+                          className="flex-1 bg-[#e5a32e] text-white rounded-[6px] py-1.5 text-[11px] font-body disabled:opacity-50"
+                        >
+                          送信
+                        </button>
+                        <button
+                          onClick={() => { setShowFeedbackModal(null); setSampleFeedback('') }}
+                          className="flex-1 bg-[#f2f2f0] text-[#888] rounded-[6px] py-1.5 text-[11px] font-body"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-[12px] text-[#888] font-body">サンプルがありません</p>
+        )}
       </div>
-      {deal.samples && deal.samples.length > 0 ? (
-        <div className="space-y-3">
-          {deal.samples.map(sample => (
-            <div key={sample.id} className="border border-[rgba(0,0,0,0.06)] rounded-[12px] p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[13px] font-medium text-[#0a0a0a] font-body">
-                  ラウンド {sample.round_number}
-                </span>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-body ${
-                  sample.sample_status === 'ok' ? 'bg-[#22c55e] text-white' : 'bg-[#f2f2f0] text-[#888]'
-                }`}>
-                  {sampleStatusLabels[sample.sample_status] || sample.sample_status}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-[12px]">
-                <div>
-                  <span className="text-[#888] font-body">製造費用</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">
-                    {sample.sample_production_fee_usd ? formatUSD(sample.sample_production_fee_usd) : '-'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[#888] font-body">送料</span>
-                  <p className="font-display tabular-nums text-[#0a0a0a]">
-                    {sample.sample_shipping_fee_usd ? formatUSD(sample.sample_shipping_fee_usd) : '-'}
-                  </p>
-                </div>
-              </div>
-              {sample.feedback_memo && (
-                <div className="mt-2 text-[11px] text-[#555] font-body">
-                  フィードバック: {sample.feedback_memo}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[12px] text-[#888] font-body">サンプルがありません</p>
-      )}
-    </div>
-  )
+    )
+  }
+
+  const designStatusLabels: Record<string, string> = {
+    draft: '下書き',
+    submitted: '確認依頼中',
+    approved: '承認済み',
+    revision_requested: '修正依頼',
+  }
 
   const renderDesignTab = () => (
     <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-[14px] font-medium text-[#0a0a0a] font-body">デザインファイル</h3>
-        <button className="bg-[#0a0a0a] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body">
+        <Link
+          href={`/deals/${deal.id}/designs`}
+          className="bg-[#0a0a0a] text-white rounded-[8px] px-3 py-1.5 text-[12px] font-medium font-body no-underline"
+        >
           + ファイル追加
-        </button>
+        </Link>
       </div>
       {deal.design_files && deal.design_files.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {deal.design_files.map(file => (
-            <div key={file.id} className="flex items-center justify-between py-3 border-b border-[rgba(0,0,0,0.06)]">
-              <div className="flex items-center gap-3">
-                <span className="text-[13px] text-[#0a0a0a] font-body">{file.file_name}</span>
-                <span className="text-[11px] text-[#888] font-body">v{file.version}</span>
-                {file.is_final && (
-                  <span className="bg-[#22c55e] text-white text-[10px] px-2 py-0.5 rounded-full font-body">
-                    最終確定
+            <div key={file.id} className="border border-[rgba(0,0,0,0.06)] rounded-[12px] p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-medium text-[#0a0a0a] font-body">
+                    {file.file_name || 'デザインファイル'}
                   </span>
+                  <span className="text-[11px] text-[#888] bg-[#f2f2f0] px-2 py-0.5 rounded-full font-body">
+                    v{file.version_number}
+                  </span>
+                  {file.is_final && (
+                    <span className="bg-[#22c55e] text-white text-[10px] px-2 py-0.5 rounded-full font-body">
+                      最終確定
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-body ${
+                  file.status === 'approved' ? 'bg-[#22c55e] text-white' :
+                  file.status === 'revision_requested' ? 'bg-[#e5a32e] text-white' :
+                  file.status === 'submitted' ? 'bg-[#0a0a0a] text-white' :
+                  'bg-[#f2f2f0] text-[#888]'
+                }`}>
+                  {designStatusLabels[file.status || 'draft'] || file.status}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-[#888] font-body mb-3">
+                <span>作成日: {formatDate(file.created_at)}</span>
+                {file.submitted_at && <span>提出日: {formatDate(file.submitted_at)}</span>}
+                {file.reviewed_at && <span>確認日: {formatDate(file.reviewed_at)}</span>}
+              </div>
+
+              {file.reviewer_notes && (
+                <div className="mb-3 p-2 bg-[#fef3c7] rounded-[8px] text-[11px] text-[#92400e] font-body">
+                  修正依頼: {file.reviewer_notes}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-center bg-[#f2f2f0] text-[#555] rounded-[6px] py-2 text-[11px] font-body no-underline hover:bg-[#e8e8e6]"
+                >
+                  ダウンロード
+                </a>
+
+                {file.status === 'draft' && (
+                  <button
+                    onClick={() => handleSubmitDesign(file.id)}
+                    disabled={isPending}
+                    className="flex-1 bg-[#0a0a0a] text-white rounded-[6px] py-2 text-[11px] font-body disabled:opacity-50"
+                  >
+                    {isPending ? '...' : 'クライアントに確認依頼'}
+                  </button>
+                )}
+
+                {file.status === 'revision_requested' && (
+                  <button
+                    onClick={() => handleSubmitDesign(file.id)}
+                    disabled={isPending}
+                    className="flex-1 bg-[#22c55e] text-white rounded-[6px] py-2 text-[11px] font-body disabled:opacity-50"
+                  >
+                    {isPending ? '...' : '修正後に再提出'}
+                  </button>
                 )}
               </div>
-              <span className="text-[11px] text-[#888] font-body">{formatDate(file.created_at)}</span>
             </div>
           ))}
         </div>
