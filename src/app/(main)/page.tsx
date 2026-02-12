@@ -143,35 +143,43 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-2">
             {staleDeals.slice(0, 3).map((deal) => {
               const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+              const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
+              const amount = approvedQuote?.total_billing_tax_jpy || 0
+              const lastActivity = new Date(deal.last_activity_at || deal.updated_at)
+              const elapsedDays = Math.floor((now.getTime() - lastActivity.getTime()) / (24 * 60 * 60 * 1000))
               return (
-                <Link
+                <div
                   key={deal.id}
-                  href={`/deals/${deal.id}`}
-                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px] no-underline hover:bg-[#f0f0ee] transition-colors"
+                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px]"
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />
                     <div>
                       <p className="text-[13px] text-[#0a0a0a] font-body">
-                        {deal.deal_code} - 7日以上更新なし
+                        {deal.deal_code} - <span className="text-[#e5a32e]">{elapsedDays}日経過</span>
                       </p>
                       <p className="text-[11px] text-[#888] font-body">
                         {client?.company_name || '未設定'}
+                        {amount > 0 && <span className="ml-2 font-display tabular-nums">{formatJPY(amount)}</span>}
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#bbb]" />
-                </Link>
+                  <Link
+                    href={`/deals/${deal.id}`}
+                    className="bg-[#0a0a0a] text-white rounded-[6px] px-3 py-1.5 text-[11px] font-medium font-body no-underline"
+                  >
+                    対応する
+                  </Link>
+                </div>
               )
             })}
             {(pendingPayments || []).slice(0, 2).map((payment) => {
               const deal = Array.isArray(payment.deal) ? payment.deal[0] : payment.deal
               const client = deal?.client
               return (
-                <Link
+                <div
                   key={payment.id}
-                  href="/payments"
-                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px] no-underline hover:bg-[#f0f0ee] transition-colors"
+                  className="flex items-center justify-between px-4 py-3 bg-[#f5f5f3] rounded-[10px]"
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-[6px] h-[6px] rounded-full bg-[#e5a32e]" />
@@ -180,12 +188,18 @@ export default async function DashboardPage() {
                         {deal?.deal_code || '-'} - 支払い待ち
                       </p>
                       <p className="text-[11px] text-[#888] font-body">
-                        {(client as { company_name?: string })?.company_name || '未設定'} - {formatJPY(payment.amount_jpy || 0)}
+                        {(client as { company_name?: string })?.company_name || '未設定'}
+                        <span className="ml-2 font-display tabular-nums">{formatJPY(payment.amount_jpy || 0)}</span>
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#bbb]" />
-                </Link>
+                  <Link
+                    href="/payments"
+                    className="bg-[#22c55e] text-white rounded-[6px] px-3 py-1.5 text-[11px] font-medium font-body no-underline"
+                  >
+                    支払い処理
+                  </Link>
+                </div>
               )
             })}
           </div>

@@ -9,6 +9,7 @@ interface DealDetailTabsProps {
   deal: {
     id: string
     deal_code: string
+    master_status?: string
     specifications?: Array<{
       product_category?: string | null
       product_name?: string | null
@@ -130,18 +131,25 @@ interface DealDetailTabsProps {
   }>
 }
 
-const tabs = [
-  { id: 'overview', label: '概要' },
-  { id: 'quotes', label: '見積もり' },
-  { id: 'samples', label: 'サンプル' },
-  { id: 'design', label: 'デザイン' },
-  { id: 'payments', label: '支払い' },
-  { id: 'shipping', label: '配送' },
-  { id: 'chat', label: 'チャット', href: true },
-  { id: 'customs', label: '通関', href: true },
-  { id: 'food-import', label: '輸入届出', href: true },
-  { id: 'history', label: '履歴' },
+const allTabs = [
+  { id: 'overview', label: '概要', minStatus: 1 },
+  { id: 'quotes', label: '見積もり', minStatus: 1 },
+  { id: 'samples', label: 'サンプル', minStatus: 6 },
+  { id: 'design', label: 'デザイン', minStatus: 6 },
+  { id: 'payments', label: '支払い', minStatus: 11 },
+  { id: 'shipping', label: '配送', minStatus: 20 },
+  { id: 'chat', label: 'チャット', href: true, minStatus: 1 },
+  { id: 'customs', label: '通関', href: true, minStatus: 20 },
+  { id: 'food-import', label: '輸入届出', href: true, minStatus: 20 },
+  { id: 'history', label: '履歴', minStatus: 1 },
 ]
+
+// Get visible tabs based on master_status
+const getVisibleTabs = (status?: string) => {
+  if (!status) return allTabs
+  const statusNum = parseInt(status.replace('M', ''), 10) || 1
+  return allTabs.filter(tab => statusNum >= tab.minStatus)
+}
 
 const quoteStatusLabels: Record<string, string> = {
   drafting: '作成中',
@@ -173,6 +181,7 @@ const paymentMethodLabels: Record<string, string> = {
 }
 
 export function DealDetailTabs({ deal, spec, statusHistory }: DealDetailTabsProps) {
+  const tabs = getVisibleTabs(deal.master_status)
   const [activeTab, setActiveTab] = useState('overview')
 
   const formatDateTime = (dateString: string) => {

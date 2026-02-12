@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -24,64 +24,12 @@ const productCategoryOptions = [
   'その他',
 ]
 
-const materialCategoryOptions = [
-  'クラフト紙',
-  'コート紙',
-  'PET',
-  'PP',
-  'アルミ蒸着フィルム',
-  'ナイロン',
-  '段ボール',
-  '合成紙',
-  'その他',
-]
-
-const printingMethodOptions = [
-  'グラビア印刷',
-  'フレキソ印刷',
-  'オフセット印刷',
-  'デジタル印刷',
-  'シルクスクリーン',
-  'その他',
-]
-
-const processingOptions = [
-  'エンボス加工',
-  '箔押し',
-  'UV加工',
-  'PP貼り',
-  'マットラミネート',
-  'グロスラミネート',
-  '窓貼り',
-  'ミシン目',
-  'ジッパー付き',
-  'バルブ付き',
-  'ノッチ',
-]
-
-const laminationOptions = [
-  'なし',
-  'マットラミ',
-  'グロスラミ',
-  'ソフトタッチ',
-]
-
-const attachmentOptions = [
-  'ハンドル',
-  'リボン',
-  'タグ',
-  'インナー仕切り',
-  'フォーム挿入',
-  'シール',
-]
-
 export default function NewDealPage() {
   const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedProcessing, setSelectedProcessing] = useState<string[]>([])
-  const [selectedAttachments, setSelectedAttachments] = useState<string[]>([])
+  const submitActionRef = useRef<'detail' | 'save'>('save')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,18 +42,6 @@ export default function NewDealPage() {
     }
     fetchData()
   }, [])
-
-  const toggleProcessing = (item: string) => {
-    setSelectedProcessing(prev =>
-      prev.includes(item) ? prev.filter(p => p !== item) : [...prev, item]
-    )
-  }
-
-  const toggleAttachment = (item: string) => {
-    setSelectedAttachments(prev =>
-      prev.includes(item) ? prev.filter(a => a !== item) : [...prev, item]
-    )
-  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -151,17 +87,17 @@ export default function NewDealPage() {
       return
     }
 
-    // Create deal
+    // Create deal with minimal info
     const { data: deal, error: dealError } = await supabase
       .from('deals')
       .insert({
         deal_code: dealCode,
-        deal_name: formData.get('deal_name') as string || null,
+        deal_name: null,
         client_id: clientId,
         sales_user_id: user.id,
         master_status: 'M01',
-        win_probability: formData.get('win_probability') as string || 'medium',
-        delivery_type: formData.get('delivery_type') as string || 'direct',
+        win_probability: 'medium',
+        delivery_type: 'direct',
         ai_mode: 'assist',
         last_activity_at: new Date().toISOString(),
       })
@@ -174,28 +110,13 @@ export default function NewDealPage() {
       return
     }
 
-    // Create specification
+    // Create specification with basic info only
     const { error: specError } = await supabase
       .from('deal_specifications')
       .insert({
         deal_id: deal.id,
         product_category: formData.get('product_category') as string || null,
         product_name: formData.get('product_name') as string || null,
-        height_mm: formData.get('height_mm') ? parseFloat(formData.get('height_mm') as string) : null,
-        width_mm: formData.get('width_mm') ? parseFloat(formData.get('width_mm') as string) : null,
-        depth_mm: formData.get('depth_mm') ? parseFloat(formData.get('depth_mm') as string) : null,
-        diameter_mm: formData.get('diameter_mm') ? parseFloat(formData.get('diameter_mm') as string) : null,
-        bottom_diameter_mm: formData.get('bottom_diameter_mm') ? parseFloat(formData.get('bottom_diameter_mm') as string) : null,
-        capacity_ml: formData.get('capacity_ml') ? parseFloat(formData.get('capacity_ml') as string) : null,
-        material_category: formData.get('material_category') as string || null,
-        material_thickness: formData.get('material_thickness') as string || null,
-        material_notes: formData.get('material_notes') as string || null,
-        printing_method: formData.get('printing_method') as string || null,
-        print_colors: formData.get('print_colors') as string || null,
-        print_sides: formData.get('print_sides') as string || null,
-        processing_list: selectedProcessing.length > 0 ? selectedProcessing : null,
-        lamination: formData.get('lamination') as string || null,
-        attachments_list: selectedAttachments.length > 0 ? selectedAttachments : null,
         specification_memo: formData.get('specification_memo') as string || null,
       })
 
@@ -214,17 +135,27 @@ export default function NewDealPage() {
       note: '案件作成',
     })
 
-    router.push(`/deals/${deal.id}`)
+    // Navigate based on which button was clicked
+    if (submitActionRef.current === 'detail') {
+      router.push(`/deals/${deal.id}/edit`)
+    } else {
+      router.push(`/deals/${deal.id}`)
+    }
   }
 
   return (
     <>
-      <div className="max-w-[800px]">
+      <div className="max-w-[600px]">
         {/* Page Header */}
         <div className="flex justify-between items-center py-[18px]">
-          <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
-            新規案件
-          </h1>
+          <div>
+            <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a]">
+              新規案件
+            </h1>
+            <p className="text-[12px] text-[#888] font-body mt-1">
+              ステップ 1/2: 基本情報を入力
+            </p>
+          </div>
           <Link
             href="/deals"
             className="text-[#888] text-[13px] font-body no-underline hover:text-[#555]"
@@ -233,257 +164,44 @@ export default function NewDealPage() {
           </Link>
         </div>
 
-        {/* Excel/PDF Import Placeholder */}
-        <div className="bg-[#f2f2f0] rounded-[14px] border border-dashed border-[#e8e8e6] p-5 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-white flex items-center justify-center">
-              <svg className="w-5 h-5 text-[#888]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] text-[#555] font-body font-medium">
-                Excel/PDF から自動入力
-              </p>
-              <p className="text-[11px] text-[#888] font-body mt-0.5">
-                工場の見積もりExcel/PDFをアップロードすると、仕様と価格を自動入力します（準備中）
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled
-              className="bg-white text-[#888] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[12px] font-body opacity-50 cursor-not-allowed"
-            >
-              ファイル選択
-            </button>
-          </div>
-        </div>
-
         {/* Form Card */}
         <form onSubmit={handleSubmit}>
           <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
             <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">基本情報</h2>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Client */}
-              <div>
-                <label style={labelStyle}>クライアント *</label>
-                <select name="client_id" required style={inputStyle}>
-                  <option value="">選択してください</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.company_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Deal Name */}
-              <div>
-                <label style={labelStyle}>案件名</label>
-                <input
-                  type="text"
-                  name="deal_name"
-                  style={inputStyle}
-                  placeholder="例: ABC様向けコーヒー袋"
-                />
-              </div>
-
-              {/* Win Probability */}
-              <div>
-                <label style={labelStyle}>受注角度</label>
-                <select name="win_probability" style={inputStyle} defaultValue="medium">
-                  <option value="very_high">非常に高い</option>
-                  <option value="high">高い</option>
-                  <option value="medium">中程度</option>
-                  <option value="low">低い</option>
-                </select>
-              </div>
-
-              {/* Delivery Type */}
-              <div>
-                <label style={labelStyle}>納品タイプ</label>
-                <select name="delivery_type" style={inputStyle} defaultValue="direct">
-                  <option value="direct">直送</option>
-                  <option value="logistics_center">ロジセンター経由</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
-            <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">商品仕様</h2>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              {/* Product Category */}
-              <div>
-                <label style={labelStyle}>商品カテゴリ</label>
-                <select name="product_category" style={inputStyle}>
-                  <option value="">選択してください</option>
-                  {productCategoryOptions.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Product Name */}
-              <div>
-                <label style={labelStyle}>商品名</label>
-                <input
-                  type="text"
-                  name="product_name"
-                  style={inputStyle}
-                  placeholder="例: コーヒー豆パッケージ 200g"
-                />
-              </div>
-            </div>
-
-            {/* Size */}
+            {/* Client */}
             <div className="mb-4">
-              <label style={labelStyle}>サイズ (mm)</label>
-              <div className="grid grid-cols-6 gap-2">
-                <input type="number" name="height_mm" style={inputStyle} placeholder="高さ" step="0.1" />
-                <input type="number" name="width_mm" style={inputStyle} placeholder="幅" step="0.1" />
-                <input type="number" name="depth_mm" style={inputStyle} placeholder="奥行" step="0.1" />
-                <input type="number" name="diameter_mm" style={inputStyle} placeholder="口径" step="0.1" />
-                <input type="number" name="bottom_diameter_mm" style={inputStyle} placeholder="底径" step="0.1" />
-                <input type="number" name="capacity_ml" style={inputStyle} placeholder="容量ml" step="0.1" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              {/* Material Category */}
-              <div>
-                <label style={labelStyle}>素材カテゴリ</label>
-                <select name="material_category" style={inputStyle}>
-                  <option value="">選択してください</option>
-                  {materialCategoryOptions.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Material Thickness */}
-              <div>
-                <label style={labelStyle}>素材厚み</label>
-                <input
-                  type="text"
-                  name="material_thickness"
-                  style={inputStyle}
-                  placeholder="例: 100μm"
-                />
-              </div>
-
-              {/* Material Notes */}
-              <div>
-                <label style={labelStyle}>素材備考</label>
-                <input
-                  type="text"
-                  name="material_notes"
-                  style={inputStyle}
-                  placeholder="例: アルミ蒸着層付き"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              {/* Printing Method */}
-              <div>
-                <label style={labelStyle}>印刷方法</label>
-                <select name="printing_method" style={inputStyle}>
-                  <option value="">選択してください</option>
-                  {printingMethodOptions.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Print Colors */}
-              <div>
-                <label style={labelStyle}>印刷色数</label>
-                <input
-                  type="number"
-                  name="print_colors"
-                  style={inputStyle}
-                  placeholder="例: 4"
-                  min="1"
-                  max="12"
-                />
-              </div>
-
-              {/* Print Sides */}
-              <div>
-                <label style={labelStyle}>印刷面</label>
-                <select name="print_sides" style={inputStyle}>
-                  <option value="">選択してください</option>
-                  <option value="片面">片面</option>
-                  <option value="両面">両面</option>
-                  <option value="外面">外面</option>
-                  <option value="内面">内面</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Processing */}
-            <div className="mb-4">
-              <label style={labelStyle}>加工</label>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {processingOptions.map(item => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => toggleProcessing(item)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '9999px',
-                      fontSize: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                      backgroundColor: selectedProcessing.includes(item) ? '#0a0a0a' : '#f2f2f0',
-                      color: selectedProcessing.includes(item) ? '#ffffff' : '#555555',
-                    }}
-                  >
-                    {item}
-                  </button>
+              <label style={labelStyle}>クライアント *</label>
+              <select name="client_id" required style={inputStyle}>
+                <option value="">選択してください</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.company_name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
-            {/* Lamination */}
+            {/* Product Category */}
             <div className="mb-4">
-              <label style={labelStyle}>ラミネーション</label>
-              <select name="lamination" style={inputStyle}>
-                {laminationOptions.map(opt => (
+              <label style={labelStyle}>商品カテゴリ</label>
+              <select name="product_category" style={inputStyle}>
+                <option value="">選択してください</option>
+                {productCategoryOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
             </div>
 
-            {/* Attachments */}
+            {/* Product Name */}
             <div className="mb-4">
-              <label style={labelStyle}>付属品</label>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {attachmentOptions.map(item => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => toggleAttachment(item)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '9999px',
-                      fontSize: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                      backgroundColor: selectedAttachments.includes(item) ? '#0a0a0a' : '#f2f2f0',
-                      color: selectedAttachments.includes(item) ? '#ffffff' : '#555555',
-                    }}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+              <label style={labelStyle}>商品名</label>
+              <input
+                type="text"
+                name="product_name"
+                style={inputStyle}
+                placeholder="例: コーヒー豆パッケージ 200g"
+              />
             </div>
 
             {/* Specification Memo */}
@@ -491,9 +209,9 @@ export default function NewDealPage() {
               <label style={labelStyle}>仕様メモ</label>
               <textarea
                 name="specification_memo"
-                rows={3}
-                style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
-                placeholder="その他の仕様に関する情報"
+                rows={4}
+                style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
+                placeholder="サイズ、素材、印刷方法など、わかっている情報を自由に入力してください"
               />
             </div>
           </div>
@@ -505,16 +223,18 @@ export default function NewDealPage() {
             </div>
           )}
 
-          {/* Buttons */}
+          {/* Buttons - Two options */}
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={loading}
+              onClick={() => { submitActionRef.current = 'detail' }}
               style={{
+                flex: 1,
                 backgroundColor: '#0a0a0a',
                 color: '#ffffff',
                 borderRadius: '8px',
-                padding: '10px 20px',
+                padding: '12px 20px',
                 fontSize: '13px',
                 fontWeight: 500,
                 fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
@@ -523,24 +243,27 @@ export default function NewDealPage() {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? '保存中...' : '保存'}
+              {loading ? '保存中...' : '保存して詳細を入力'}
             </button>
-            <Link
-              href="/deals"
+            <button
+              type="submit"
+              disabled={loading}
+              onClick={() => { submitActionRef.current = 'save' }}
               style={{
                 backgroundColor: '#ffffff',
-                color: '#888',
+                color: '#555',
                 border: '1px solid #e8e8e6',
                 borderRadius: '8px',
-                padding: '10px 20px',
+                padding: '12px 20px',
                 fontSize: '13px',
                 fontWeight: 500,
                 fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
-                textDecoration: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
               }}
             >
-              キャンセル
-            </Link>
+              保存のみ
+            </button>
           </div>
         </form>
       </div>
@@ -561,7 +284,7 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   backgroundColor: '#f2f2f0',
   borderRadius: '10px',
-  padding: '10px 14px',
+  padding: '12px 14px',
   fontSize: '13px',
   border: 'none',
   fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",

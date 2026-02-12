@@ -19,6 +19,18 @@ interface ShippingOption {
   days: number
 }
 
+interface PriceRecord {
+  id: string
+  factory_id: string | null
+  product_type: string | null
+  material: string | null
+  size: string | null
+  printing: string | null
+  quantity: number | null
+  unit_price_usd: number | null
+  factory?: { factory_name: string }[] | { factory_name: string } | null
+}
+
 const shippingMethodLabels: Record<string, string> = {
   sea: '船便',
   air: '航空便',
@@ -31,6 +43,7 @@ export default function NewQuotePage() {
   const dealId = params.id as string
 
   const [factories, setFactories] = useState<Factory[]>([])
+  const [priceRecords, setPriceRecords] = useState<PriceRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,6 +81,15 @@ export default function NewQuotePage() {
       if (settings?.default_exchange_rate) {
         setExchangeRate(parseFloat(String(settings.default_exchange_rate)))
       }
+
+      // Get price records for Smart Quote reference
+      const { data: priceData } = await supabase
+        .from('price_records')
+        .select('id, factory_id, product_type, material, size, printing, quantity, unit_price_usd, factory:factories(factory_name)')
+        .order('quantity', { ascending: true })
+        .limit(20)
+
+      if (priceData) setPriceRecords(priceData)
     }
 
     fetchData()
@@ -511,7 +533,7 @@ export default function NewQuotePage() {
 
             {/* Payment Method Comparison */}
             {paymentComparison && (
-              <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+              <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mb-4">
                 <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-4 font-body">支払い方法比較</h2>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -555,6 +577,65 @@ export default function NewQuotePage() {
                 )}
               </div>
             )}
+
+            {/* Smart Quote Reference */}
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+              <h2 className="text-[14px] font-medium text-[#0a0a0a] mb-3 font-body">
+                Smart Quote 参考価格
+              </h2>
+              <p className="text-[11px] text-[#888] font-body mb-3">
+                過去の類似案件の単価です。参考としてご利用ください。
+              </p>
+              {priceRecords.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                      <th style={thStyle}>工場</th>
+                      <th style={thStyle}>商品</th>
+                      <th style={thStyle}>数量</th>
+                      <th style={thStyle}>単価USD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceRecords.map((record) => {
+                      const factory = Array.isArray(record.factory) ? record.factory[0] : record.factory
+                      return (
+                        <tr key={record.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                          <td style={tdStyle}>
+                            <span className="font-body text-[11px] text-[#555]">
+                              {factory?.factory_name || '-'}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <span className="font-body text-[11px] text-[#555]">
+                              {record.product_type || '-'}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <span className="font-display tabular-nums text-[11px]">
+                              {record.quantity?.toLocaleString() || '-'}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <button
+                              type="button"
+                              onClick={() => record.unit_price_usd && setFactoryUnitPriceUsd(String(record.unit_price_usd))}
+                              className="font-display tabular-nums text-[11px] text-[#22c55e] hover:underline cursor-pointer bg-transparent border-none p-0"
+                            >
+                              {record.unit_price_usd ? formatUSD(record.unit_price_usd) : '-'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[12px] text-[#888] font-body">
+                  参考価格データがありません
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
