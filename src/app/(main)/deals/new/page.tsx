@@ -233,6 +233,32 @@ export default function NewDealPage() {
           </Link>
         </div>
 
+        {/* Excel/PDF Import Placeholder */}
+        <div className="bg-[#f2f2f0] rounded-[14px] border border-dashed border-[#e8e8e6] p-5 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-[10px] bg-white flex items-center justify-center">
+              <svg className="w-5 h-5 text-[#888]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] text-[#555] font-body font-medium">
+                Excel/PDF から自動入力
+              </p>
+              <p className="text-[11px] text-[#888] font-body mt-0.5">
+                工場の見積もりExcel/PDFをアップロードすると、仕様と価格を自動入力します（準備中）
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled
+              className="bg-white text-[#888] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[12px] font-body opacity-50 cursor-not-allowed"
+            >
+              ファイル選択
+            </button>
+          </div>
+        </div>
+
         {/* Form Card */}
         <form onSubmit={handleSubmit}>
           <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6 mb-4">
