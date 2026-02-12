@@ -97,7 +97,7 @@ export default async function FactoryProductionDetailPage({ params }: Props) {
       <FactoryProgressBar status={deal.master_status} />
 
       {/* Product Info */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
           商品情報
         </h2>
@@ -127,7 +127,7 @@ export default async function FactoryProductionDetailPage({ params }: Props) {
 
       {/* Packing Info */}
       {packingInfo && (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
             梱包情報
           </h2>
@@ -162,7 +162,7 @@ export default async function FactoryProductionDetailPage({ params }: Props) {
 
       {/* Tracking Info */}
       {shipping?.tracking_number && (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
             発送情報
           </h2>

@@ -94,7 +94,7 @@ export default async function FactoryQuoteDetailPage({ params }: Props) {
 
       <div className="grid grid-cols-2 gap-2">
         {/* Product Specifications */}
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
             商品仕様
           </h2>
@@ -149,7 +149,7 @@ export default async function FactoryQuoteDetailPage({ params }: Props) {
         </div>
 
         {/* Delivery Info */}
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
             配送先
           </h2>
@@ -168,7 +168,7 @@ export default async function FactoryQuoteDetailPage({ params }: Props) {
       {assignment.status === 'requesting' ? (
         <QuoteResponseForm dealId={dealId} />
       ) : (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-8 text-center">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-8 text-center">
           <p className="text-[13px] text-[#888] font-body">
             この見積もりは既に回答済みです
           </p>

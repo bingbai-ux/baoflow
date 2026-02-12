@@ -63,7 +63,7 @@ export function ProductionActions({ dealId, status, hasPackingInfo, hasTracking 
   }
 
   return (
-    <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+    <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
       <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
         アクション
       </h2>

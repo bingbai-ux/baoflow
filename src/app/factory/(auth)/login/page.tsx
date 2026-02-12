@@ -51,7 +51,7 @@ export default function FactoryLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[#f2f2f0]">
-      <div className="w-full max-w-[380px] bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-8">
+      <div className="w-full max-w-[380px] bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-8">
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-[28px] font-bold font-display text-[#0a0a0a] tracking-[-0.02em] mb-1">

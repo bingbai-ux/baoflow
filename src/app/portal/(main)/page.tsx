@@ -13,7 +13,7 @@ export default async function PortalDashboardPage() {
     return null
   }
 
-  // Get client_id from profile
+  // Get client_id and company name from profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('client_id')
@@ -27,6 +27,15 @@ export default async function PortalDashboardPage() {
       </div>
     )
   }
+
+  // Get client company name
+  const { data: client } = await supabase
+    .from('clients')
+    .select('company_name')
+    .eq('id', profile.client_id)
+    .single()
+
+  const companyName = client?.company_name || ''
 
   // Get active orders
   const { data: activeDeals } = await supabase
@@ -64,25 +73,30 @@ export default async function PortalDashboardPage() {
   return (
     <div className="space-y-5">
       {/* Page Title */}
-      <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-        Dashboard
-      </h1>
+      <div className="py-2">
+        <h1 className="text-[22px] font-display font-semibold text-[#0a0a0a]">
+          {companyName ? `${companyName}様` : 'ようこそ'}
+        </h1>
+        <p className="text-[13px] text-[#888] font-body mt-1">
+          いつもご利用ありがとうございます
+        </p>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">進行中の注文</p>
           <p className="text-[28px] font-display tabular-nums font-semibold text-[#0a0a0a]">
             {activeDeals?.length || 0}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">確認待ち見積もり</p>
           <p className="text-[28px] font-display tabular-nums font-semibold text-[#0a0a0a]">
             {pendingQuotes?.length || 0}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">完了した注文</p>
           <p className="text-[28px] font-display tabular-nums font-semibold text-[#0a0a0a]">
             {completedCount || 0}
@@ -91,7 +105,7 @@ export default async function PortalDashboardPage() {
       </div>
 
       {/* Active Orders */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             進行中の注文
@@ -146,7 +160,7 @@ export default async function PortalDashboardPage() {
 
       {/* Pending Quotes */}
       {pendingQuotes && pendingQuotes.length > 0 && (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
             確認待ちの見積もり
           </h2>
@@ -209,7 +223,7 @@ export default async function PortalDashboardPage() {
       </div>
 
       {/* Inventory Summary - Placeholder for Phase 3 */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
           在庫状況
         </h2>

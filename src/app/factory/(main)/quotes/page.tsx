@@ -55,7 +55,7 @@ export default async function FactoryQuotesPage() {
       </h1>
 
       {/* Pending Requests */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             未回答 ({pending.length})
@@ -109,7 +109,7 @@ export default async function FactoryQuotesPage() {
       </div>
 
       {/* Responded */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             回答済み ({responded.length})

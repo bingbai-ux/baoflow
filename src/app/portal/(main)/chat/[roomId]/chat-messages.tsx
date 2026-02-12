@@ -134,7 +134,7 @@ export function ChatMessages({ roomId, currentUserId, initialMessages }: ChatMes
   return (
     <>
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-4">
+      <div className="flex-1 overflow-y-auto bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-4">
         {groupedMessages.length > 0 ? (
           <div className="space-y-4">
             {groupedMessages.map((group, groupIndex) => (

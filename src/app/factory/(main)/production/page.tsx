@@ -63,7 +63,7 @@ export default async function FactoryProductionPage() {
       </h1>
 
       {/* In Progress */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             製造・発送準備中 ({inProgress.length})
@@ -113,7 +113,7 @@ export default async function FactoryProductionPage() {
       </div>
 
       {/* Shipped */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             発送済み ({shipped.length})

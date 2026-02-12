@@ -47,8 +47,8 @@ export default async function PortalOrdersPage() {
     <div className="space-y-5">
       {/* Page Title */}
       <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-          Orders
+        <h1 className="text-[22px] font-display font-semibold text-[#0a0a0a]">
+          ご注文一覧
         </h1>
         <Link
           href="/portal/request"
@@ -62,7 +62,7 @@ export default async function PortalOrdersPage() {
       </div>
 
       {/* Active Orders */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
           進行中の注文 ({activeDeals.length})
         </h2>
@@ -112,7 +112,7 @@ export default async function PortalOrdersPage() {
       </div>
 
       {/* Completed Orders */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
         <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
           完了した注文 ({completedDeals.length})
         </h2>

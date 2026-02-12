@@ -30,6 +30,15 @@ export default async function FactoryDashboardPage() {
 
   const factoryId = profile.factory_id
 
+  // Get factory name
+  const { data: factory } = await supabase
+    .from('factories')
+    .select('factory_name')
+    .eq('id', factoryId)
+    .single()
+
+  const factoryName = factory?.factory_name || ''
+
   // Get pending quote requests (status = 'requesting')
   const { data: pendingQuotes } = await supabase
     .from('deal_factory_assignments')
@@ -80,25 +89,30 @@ export default async function FactoryDashboardPage() {
   return (
     <div className="space-y-5">
       {/* Page Title */}
-      <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-        Dashboard
-      </h1>
+      <div className="py-2">
+        <h1 className="text-[22px] font-display font-semibold text-[#0a0a0a]">
+          {factoryName ? `${factoryName}様` : 'ようこそ'}
+        </h1>
+        <p className="text-[13px] text-[#888] font-body mt-1">
+          本日もよろしくお願いいたします
+        </p>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">未回答の見積もり依頼</p>
           <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
             {pendingQuotes?.length || 0}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">製造中の案件</p>
           <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
             {inProduction.length}
           </p>
         </div>
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
           <p className="text-[11px] text-[#888] font-body mb-1">今月の成約</p>
           <p className="text-[28px] font-display font-semibold text-[#0a0a0a] tabular-nums">
             {productionDeals?.length || 0}
@@ -107,7 +121,7 @@ export default async function FactoryDashboardPage() {
       </div>
 
       {/* Pending Quote Requests */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-between p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             見積もり依頼（未回答）
@@ -155,7 +169,7 @@ export default async function FactoryDashboardPage() {
       </div>
 
       {/* In Production */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)]">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-between p-5 border-b border-[rgba(0,0,0,0.06)]">
           <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a]">
             製造中の案件

@@ -158,7 +158,7 @@ export default function PortalRequestPage() {
         {items.map((item, index) => (
           <div
             key={index}
-            className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5"
+            className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5"
           >
             {/* Item Header */}
             <div className="flex items-center justify-between mb-4">

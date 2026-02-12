@@ -31,8 +31,8 @@ export default async function PortalCatalogPage() {
     <div className="space-y-5">
       {/* Page Title */}
       <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-          Catalog
+        <h1 className="text-[22px] font-display font-semibold text-[#0a0a0a]">
+          商品カタログ
         </h1>
         <Link
           href="/portal/request"
@@ -71,7 +71,7 @@ export default async function PortalCatalogPage() {
                 {categories[category]?.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] overflow-hidden"
+                    className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] overflow-hidden"
                   >
                     {/* Image */}
                     <div className="aspect-square bg-[#f2f2f0] flex items-center justify-center">
@@ -136,7 +136,7 @@ export default async function PortalCatalogPage() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
           <p className="text-[13px] text-[#888] font-body mb-4">
             カタログ商品はまだ登録されていません
           </p>

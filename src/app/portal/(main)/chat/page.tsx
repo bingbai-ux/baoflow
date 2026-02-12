@@ -67,12 +67,12 @@ export default async function PortalChatListPage() {
     <div className="space-y-5">
       {/* Page Title */}
       <h1 className="text-[20px] font-display font-semibold text-[#0a0a0a]">
-        Chat
+        チャット
       </h1>
 
       {/* Chat Rooms List */}
       {roomsWithMessages && roomsWithMessages.length > 0 ? (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] divide-y divide-[rgba(0,0,0,0.06)]">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] divide-y divide-[rgba(0,0,0,0.06)]">
           {roomsWithMessages.map((room) => {
             const dealData = room.deal
             const deal = Array.isArray(dealData) ? dealData[0] : dealData
@@ -110,7 +110,7 @@ export default async function PortalChatListPage() {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-10 text-center">
           <p className="text-[13px] text-[#888] font-body mb-4">
             チャットルームはありません
           </p>

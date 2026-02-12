@@ -153,7 +153,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-6">
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-6">
         <ClientProgressBar status={deal.master_status} size="large" />
       </div>
 
@@ -171,7 +171,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
         {/* Left Column */}
         <div className="space-y-2">
           {/* Product Specifications */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
               商品仕様
             </h2>
@@ -253,7 +253,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
           </div>
 
           {/* Order Info */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
               注文情報
             </h2>
@@ -303,7 +303,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
         {/* Right Column */}
         <div className="space-y-2">
           {/* Design Files */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
               デザインデータ
             </h2>
@@ -366,7 +366,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
 
           {/* Tracking Info */}
           {currentStep >= 5 && (
-            <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+            <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
               <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
                 配送情報
               </h2>
@@ -402,7 +402,7 @@ export default async function PortalOrderDetailPage({ params }: Props) {
           )}
 
           {/* Documents */}
-          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
             <h2 className="text-[14px] font-display font-semibold text-[#0a0a0a] mb-4">
               帳票ダウンロード
             </h2>

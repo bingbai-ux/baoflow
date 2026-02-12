@@ -69,7 +69,7 @@ export function FactoryProgressBar({ status, className = '' }: FactoryProgressBa
   const currentStepData = FACTORY_STEPS.find(s => s.id === currentStep)
 
   return (
-    <div className={`bg-white rounded-[20px] border border-[rgba(0,0,0,0.06)] p-5 ${className}`}>
+    <div className={`bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 ${className}`}>
       {/* Progress Steps */}
       <div className="flex items-center justify-between mb-4">
         {FACTORY_STEPS.map((step, index) => {
