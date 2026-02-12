@@ -123,14 +123,31 @@ export default async function DashboardPage() {
   // Action items count
   const actionItemsCount = staleDeals.length + (pendingPayments?.length || 0)
 
+  // Fetch current exchange rate
+  const { data: settings } = await supabase
+    .from('system_settings')
+    .select('default_exchange_rate')
+    .limit(1)
+    .single()
+
+  const currentExchangeRate = settings?.default_exchange_rate || 150
+
   return (
     <>
       {/* Greeting Section */}
-      <div className="py-5">
-        <p className="text-[13px] text-[#888] font-body mb-1">{greeting}、</p>
-        <h1 className="text-[24px] font-display font-semibold text-[#0a0a0a]">
-          {profile?.display_name || 'User'}さん
-        </h1>
+      <div className="py-5 flex justify-between items-end">
+        <div>
+          <p className="text-[13px] text-[#888] font-body mb-1">{greeting}、</p>
+          <h1 className="text-[24px] font-display font-semibold text-[#0a0a0a]">
+            {profile?.display_name || 'User'}さん
+          </h1>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-[#888] font-body">USD/JPY</p>
+          <p className="text-[16px] font-display font-semibold tabular-nums text-[#0a0a0a]">
+            ¥{Number(currentExchangeRate).toFixed(1)}
+          </p>
+        </div>
       </div>
 
       {/* Action Required Card */}

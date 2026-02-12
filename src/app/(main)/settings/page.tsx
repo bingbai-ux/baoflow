@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface Settings {
   company: {
@@ -59,13 +60,61 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('company')
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [dbExchangeRate, setDbExchangeRate] = useState<number>(150)
+  const [autoExchangeRate, setAutoExchangeRate] = useState(true)
+  const [rateLoading, setRateLoading] = useState(false)
+  const [rateSource, setRateSource] = useState<string>('system_settings')
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('baoflow_settings')
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings))
     }
+
+    // Fetch exchange rate from database
+    const fetchDbSettings = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('system_settings')
+        .select('default_exchange_rate')
+        .limit(1)
+        .single()
+      if (data?.default_exchange_rate) {
+        setDbExchangeRate(Number(data.default_exchange_rate))
+      }
+    }
+    fetchDbSettings()
   }, [])
+
+  const fetchLatestRate = async () => {
+    setRateLoading(true)
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD')
+      const data = await res.json()
+      if (data.result === 'success' && data.rates?.JPY) {
+        setDbExchangeRate(data.rates.JPY)
+        setRateSource('ExchangeRate-API')
+        // Save to database
+        const supabase = createClient()
+        await supabase
+          .from('system_settings')
+          .update({ default_exchange_rate: data.rates.JPY })
+          .neq('id', '00000000-0000-0000-0000-000000000000') // Update all rows
+      }
+    } catch (err) {
+      console.error('Failed to fetch rate:', err)
+    } finally {
+      setRateLoading(false)
+    }
+  }
+
+  const saveDbExchangeRate = async () => {
+    const supabase = createClient()
+    await supabase
+      .from('system_settings')
+      .update({ default_exchange_rate: dbExchangeRate })
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+  }
 
   const handleSave = () => {
     setIsSaving(true)
@@ -191,6 +240,34 @@ export default function SettingsPage() {
             {activeSection === 'exchange' && (
               <>
                 <h2 className="text-[16px] font-semibold text-[#0a0a0a] mb-5 font-body">為替設定</h2>
+
+                {/* USD/JPY Exchange Rate - from database */}
+                <div className="mb-6 p-4 bg-[#f2f2f0] rounded-[12px]">
+                  <h3 className="text-[13px] font-medium text-[#555] mb-3 font-body">USD/JPY 為替レート</h3>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={dbExchangeRate}
+                      onChange={(e) => setDbExchangeRate(parseFloat(e.target.value) || 150)}
+                      onBlur={saveDbExchangeRate}
+                      className={inputClassName}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={fetchLatestRate}
+                      disabled={rateLoading}
+                      className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[12px] font-medium font-body whitespace-nowrap disabled:opacity-50 cursor-pointer border-none"
+                    >
+                      {rateLoading ? '取得中...' : '今すぐ更新'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#888] font-body">
+                    出典: {rateSource} | 見積もり作成時に自動適用されます
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
                     <label className="block text-[12px] font-medium text-[#555] mb-[6px] font-body">基準通貨</label>

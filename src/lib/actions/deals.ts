@@ -9,6 +9,15 @@ import type {
   CreateDealInput,
   UpdateDealInput,
 } from '@/lib/types'
+import { sendEmail } from '@/lib/utils/email'
+import {
+  quoteReadyEmail,
+  orderConfirmEmail,
+  shippingNotifyEmail,
+  deliveryCompleteEmail,
+  paymentReceivedEmail,
+} from '@/lib/utils/email-templates'
+import { formatJPY } from '@/lib/utils/format'
 
 // System message templates for status changes
 const STATUS_MESSAGES: Partial<Record<MasterStatus, { client?: string; factory?: string }>> = {
@@ -64,6 +73,82 @@ async function postStatusChangeMessages(dealId: string, newStatus: MasterStatus,
 
   if (messages.factory) {
     await postSystemMessage(dealId, 'sales_factory', messages.factory)
+  }
+}
+
+// Send email notifications on status changes
+async function sendStatusChangeEmails(
+  dealId: string,
+  newStatus: MasterStatus,
+  options?: { trackingNumber?: string; trackingUrl?: string }
+) {
+  const supabase = await createClient()
+
+  // Fetch deal with client and spec info
+  const { data: deal } = await supabase
+    .from('deals')
+    .select(`
+      deal_code,
+      client:clients(company_name, email),
+      specifications:deal_specifications(product_name),
+      quotes:deal_quotes(total_billing_tax_jpy, status)
+    `)
+    .eq('id', dealId)
+    .single()
+
+  if (!deal) return
+
+  const client = Array.isArray(deal.client) ? deal.client[0] : deal.client
+  if (!client?.email) return // No email to send to
+
+  const clientName = client.company_name || 'お客様'
+  const spec = deal.specifications?.[0]
+  const productName = spec?.product_name || '商品'
+  const approvedQuote = deal.quotes?.find((q: { status?: string }) => q.status === 'approved')
+  const amount = approvedQuote?.total_billing_tax_jpy
+    ? formatJPY(approvedQuote.total_billing_tax_jpy)
+    : ''
+
+  // Send emails based on status
+  switch (newStatus) {
+    case 'M06': {
+      // Quote presented to client
+      const email = quoteReadyEmail(clientName, deal.deal_code, productName)
+      await sendEmail({ to: client.email, ...email })
+      break
+    }
+    case 'M11': {
+      // Order confirmed
+      const email = orderConfirmEmail(clientName, deal.deal_code, productName)
+      await sendEmail({ to: client.email, ...email })
+      break
+    }
+    case 'M14': {
+      // Payment received
+      if (amount) {
+        const email = paymentReceivedEmail(clientName, deal.deal_code, amount)
+        await sendEmail({ to: client.email, ...email })
+      }
+      break
+    }
+    case 'M22': {
+      // Shipping notification
+      const email = shippingNotifyEmail(
+        clientName,
+        deal.deal_code,
+        productName,
+        options?.trackingNumber,
+        options?.trackingUrl
+      )
+      await sendEmail({ to: client.email, ...email })
+      break
+    }
+    case 'M25': {
+      // Delivery complete
+      const email = deliveryCompleteEmail(clientName, deal.deal_code, productName)
+      await sendEmail({ to: client.email, ...email })
+      break
+    }
   }
 }
 
@@ -291,6 +376,12 @@ export async function updateDealStatus(
 
   // Post system messages to chat rooms
   await postStatusChangeMessages(id, newStatus, options?.trackingNumber)
+
+  // Send email notifications to client
+  await sendStatusChangeEmails(id, newStatus, {
+    trackingNumber: options?.trackingNumber,
+    trackingUrl: undefined, // Add trackingUrl to options if needed
+  })
 
   revalidatePath('/deals')
   revalidatePath(`/deals/${id}`)

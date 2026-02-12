@@ -46,6 +46,8 @@ export default function NewQuotePage() {
   const [priceRecords, setPriceRecords] = useState<PriceRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rateLoading, setRateLoading] = useState(false)
+  const [rateSource, setRateSource] = useState<string>('system_settings')
 
   // Form state
   const [factoryId, setFactoryId] = useState('')
@@ -94,6 +96,25 @@ export default function NewQuotePage() {
 
     fetchData()
   }, [])
+
+  // Fetch latest exchange rate from API
+  const fetchLatestRate = async () => {
+    setRateLoading(true)
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD')
+      const data = await res.json()
+      if (data.result === 'success' && data.rates?.JPY) {
+        setExchangeRate(data.rates.JPY)
+        setRateSource('ExchangeRate-API')
+      } else {
+        setError('為替レートの取得に失敗しました')
+      }
+    } catch {
+      setError('為替レートAPIへの接続に失敗しました')
+    } finally {
+      setRateLoading(false)
+    }
+  }
 
   // Calculate results
   const calculationResults = useMemo(() => {
@@ -376,13 +397,26 @@ export default function NewQuotePage() {
               {/* Exchange Rate */}
               <div className="mb-4">
                 <label style={labelStyle}>為替レート (USD/JPY)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 150)}
-                  style={inputStyle}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 150)}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchLatestRate}
+                    disabled={rateLoading}
+                    className="bg-[#22c55e] text-white rounded-[8px] px-3 py-2 text-[11px] font-medium font-body whitespace-nowrap disabled:opacity-50"
+                  >
+                    {rateLoading ? '取得中...' : '最新レート取得'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#888] font-body mt-1">
+                  出典: {rateSource}
+                </p>
               </div>
             </div>
 
