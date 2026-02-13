@@ -98,7 +98,7 @@ async function runLifecycleTest() {
 
   if (dealError || !deal) {
     log('M01 案件作成', 'FAIL', `Error: ${dealError?.message}`);
-    return;
+    return { passed: 0, failed: 1 };
   }
   log('M01 案件作成', 'PASS', `Deal: ${deal.deal_code} (${deal.id})`);
 
