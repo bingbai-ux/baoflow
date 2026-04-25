@@ -11,7 +11,11 @@ import {
   getFactoryRollup,
 } from '@/lib/actions/factories'
 import { listStaff, getStaff, getStaffRollup } from '@/lib/actions/staff'
-import { MasterShell } from '@/components/master/master-shell'
+import dynamic from 'next/dynamic'
+
+const MasterShell = dynamic(
+  () => import('@/components/master/master-shell').then((m) => m.MasterShell)
+)
 
 interface Props {
   searchParams: Promise<{ tab?: string; id?: string }>
