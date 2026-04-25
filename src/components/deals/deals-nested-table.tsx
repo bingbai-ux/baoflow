@@ -511,12 +511,16 @@ function ClientGroupRows({
   forceCollapsed: boolean
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [docModalDealId, setDocModalDealId] = useState<string | null>(null)
   const visible = forceCollapsed ? false : expanded
   const inProgress = group.deals.filter((d) => d.simple_status !== 'delivered').length
   const totalApproved = group.deals.reduce(
     (s, d) => s + approvedTotalForDeal(quotesByDeal.get(d.id) || []),
     0
   )
+
+  // 帳票ボタン: 1案件なら直接、複数なら最新案件 (group.deals は last_activity_at desc)
+  const primaryDealId = group.deals[0]?.id || null
 
   return (
     <>
@@ -532,10 +536,32 @@ function ClientGroupRows({
           )}
         </td>
         <td colSpan={8} className="px-2.5 py-1.5">
-          <span className="text-[12px] font-body font-semibold text-[#0a0a0a]">{group.clientName}</span>
-          <span className="ml-2 text-[10px] text-[#888]">
-            {group.deals.length} 件 · 進行中 {inProgress}
-          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[12px] font-body font-semibold text-[#0a0a0a] truncate">
+              {group.clientName}
+            </span>
+            <span className="text-[10px] text-[#888] flex-shrink-0">
+              {group.deals.length} 件 · 進行中 {inProgress}
+            </span>
+            {primaryDealId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDocModalDealId(primaryDealId)
+                }}
+                className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-body text-[#0a0a0a] bg-white border border-[#e8e8e6] rounded-[4px] px-1.5 py-0.5 hover:bg-[#fafaf8]"
+                title={
+                  group.deals.length > 1
+                    ? `見積書 / 請求書 / 納品書 / RFQ (最新案件: ${group.deals[0].deal_name || group.deals[0].deal_code})`
+                    : '見積書 / 請求書 / 納品書 / RFQ'
+                }
+              >
+                <FileText className="w-2.5 h-2.5" />
+                帳票
+              </button>
+            )}
+          </div>
         </td>
         <td colSpan={2} className="px-2.5 py-1.5 text-right">
           <span className="text-[11px] font-display tabular-nums text-[#22c55e]">
@@ -555,6 +581,9 @@ function ClientGroupRows({
             forceCollapsed={forceCollapsed}
           />
         ))}
+      {docModalDealId && (
+        <DocumentModal dealId={docModalDealId} onClose={() => setDocModalDealId(null)} />
+      )}
     </>
   )
 }
@@ -575,7 +604,6 @@ function DealRowItem({
   forceCollapsed: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [docModalOpen, setDocModalOpen] = useState(false)
   const visible = forceCollapsed ? false : expanded
   const cfg = SIMPLE_STATUS_CONFIG[deal.simple_status]
   const approvedTax = approvedTotalForDeal(quotes)
@@ -613,21 +641,7 @@ function DealRowItem({
           </Link>
         </td>
         <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate flex-1">{deal.client_name_text || '-'}</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setDocModalOpen(true)
-              }}
-              className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] font-body text-[#0a0a0a] bg-white border border-[#e8e8e6] rounded-[3px] px-1.5 py-0.5 hover:bg-[#fafaf8]"
-              title="見積書 / 請求書 / 納品書 / RFQ"
-            >
-              <FileText className="w-2.5 h-2.5" />
-              帳票
-            </button>
-          </div>
+          {deal.client_name_text || '-'}
         </td>
         <td className="px-2.5 py-1">
           <span className="inline-flex items-center gap-1 text-[10px] text-[#555]">
@@ -652,7 +666,6 @@ function DealRowItem({
           </Link>
         </td>
       </tr>
-      {docModalOpen && <DocumentModal dealId={deal.id} onClose={() => setDocModalOpen(false)} />}
       {visible && (
         <tr>
           <td colSpan={11} className="bg-[#fafaf9] px-3.5 py-2 border-b border-[rgba(0,0,0,0.04)]">
