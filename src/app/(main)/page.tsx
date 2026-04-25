@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { StatusDot } from '@/components/status-dot'
-import { PipelineBar } from '@/components/dashboard/pipeline-bar'
+// Phase 1: PipelineBar moved to components/_unused/. Dashboard is rebuilt in Sprint 4-2.
+const PipelineBar = (_props: { data: unknown }) => null
 import { formatJPY, formatDate } from '@/lib/utils/format'
 import { type MasterStatus } from '@/lib/types'
 import { ChevronRight } from 'lucide-react'

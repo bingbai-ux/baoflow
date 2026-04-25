@@ -23,5 +23,12 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/app/(main)/_archive/**",
+    "src/app/_archive_factory/**",
+    "src/app/_archive_portal/**",
+    "src/lib/actions/_unused/**",
+    "src/components/_unused/**"
+  ]
 }

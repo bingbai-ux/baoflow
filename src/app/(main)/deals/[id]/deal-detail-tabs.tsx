@@ -5,9 +5,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { StatusDot } from '@/components/status-dot'
 import { formatJPY, formatUSD, formatDate } from '@/lib/utils/format'
-import { selectWinningFactory } from '@/lib/actions/factory-assignments'
-import { receiveSample, approveSample, requestSampleRevision, createSample } from '@/lib/actions/samples'
-import { submitDesignToClient, approveDesign, requestDesignRevision } from '@/lib/actions/designs'
+// Phase 1: actions moved to _unused/ — these tabs are slated for rewrite in Sprint 2-3
+// Stubs keep this file compiling until the deal detail page is rebuilt.
+const notImplemented = async (..._args: unknown[]) => ({ success: false, error: 'Phase 2' })
+const selectWinningFactory = notImplemented
+const receiveSample = notImplemented
+const approveSample = notImplemented
+const requestSampleRevision = notImplemented
+const createSample = notImplemented
+const submitDesignToClient = notImplemented
+const approveDesign = notImplemented
+const requestDesignRevision = notImplemented
 
 interface DealDetailTabsProps {
   deal: {
