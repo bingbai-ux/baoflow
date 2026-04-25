@@ -42,27 +42,33 @@ export default async function DealDetailPage({ params }: Props) {
   if (!deal) notFound()
 
   const [
-    { data: specifications },
+    { data: products },
+    { data: variantsRaw },
     { data: quotes },
     { data: fees },
     { data: designFiles },
     { data: statusHistory },
   ] = await Promise.all([
     supabase
-      .from('deal_specifications')
-      .select(
-        'id, product_name, product_category, height_mm, width_mm, depth_mm, material_category, print_colors, printing_method, processing_list, specification_memo'
-      )
+      .from('deal_products')
+      .select('*')
       .eq('deal_id', id)
-      .order('created_at', { ascending: true }),
+      .order('product_no', { ascending: true }),
+    supabase
+      .from('deal_product_variants')
+      .select('*, deal_products!inner(deal_id)')
+      .eq('deal_products.deal_id', id)
+      .order('variant_order', { ascending: true }),
     supabase
       .from('deal_quotes')
-      .select('id, spec_id, version, quantity, total_billing_tax_jpy, status, created_at')
+      .select(
+        'id, spec_id, variant_id, version, quantity, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, created_at'
+      )
       .eq('deal_id', id)
       .order('created_at', { ascending: false }),
     supabase
       .from('deal_fees')
-      .select('id, spec_id, fee_type, amount_jpy, is_initial_only, note')
+      .select('id, spec_id, variant_id, fee_type, amount_jpy, is_initial_only, note')
       .eq('deal_id', id)
       .order('created_at', { ascending: true }),
     supabase
@@ -79,12 +85,11 @@ export default async function DealDetailPage({ params }: Props) {
       .order('changed_at', { ascending: false }),
   ])
 
-  const approvedQuotes = (quotes || []).filter((q) => q.status === 'approved')
-  const approvedTotalTax = approvedQuotes.reduce(
-    (sum, q) => sum + (Number(q.total_billing_tax_jpy) || 0),
-    0
-  )
-  const feesTotal = (fees || []).reduce((sum, f) => sum + (Number(f.amount_jpy) || 0), 0)
+  // strip the joined deal_products from variants
+  const variants = (variantsRaw || []).map((v) => {
+    const { deal_products: _omit, ...rest } = v as Record<string, unknown>
+    return rest
+  })
 
   const dealLite = {
     ...deal,
@@ -95,6 +100,13 @@ export default async function DealDetailPage({ params }: Props) {
     ...h,
     changer: Array.isArray(h.changer) ? h.changer[0] : h.changer,
   }))
+
+  const approvedQuotes = (quotes || []).filter((q) => q.status === 'approved')
+  const approvedTotalTax = approvedQuotes.reduce(
+    (sum, q) => sum + (Number(q.total_billing_tax_jpy) || 0),
+    0
+  )
+  const feesTotal = (fees || []).reduce((sum, f) => sum + (Number(f.amount_jpy) || 0), 0)
 
   return (
     <>
@@ -136,8 +148,8 @@ export default async function DealDetailPage({ params }: Props) {
       {(approvedQuotes.length > 0 || feesTotal > 0) && (
         <div className="mb-4 bg-white rounded-[14px] border border-[#22c55e] p-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="text-[12px] font-body text-[#555]">
-            採用見積 <span className="text-[#0a0a0a] font-semibold">{approvedQuotes.length}</span> 件 ·
-            別途費用 <span className="text-[#0a0a0a] font-semibold tabular-nums">{formatJPY(feesTotal)}</span>
+            採用見積 <span className="text-[#0a0a0a] font-semibold">{approvedQuotes.length}</span> 件 · 別途費用{' '}
+            <span className="text-[#0a0a0a] font-semibold tabular-nums">{formatJPY(feesTotal)}</span>
           </div>
           <div className="text-right">
             <p className="text-[10px] text-[#888] font-body">採用合計 (税込) + 別途費用</p>
@@ -149,12 +161,16 @@ export default async function DealDetailPage({ params }: Props) {
       )}
 
       <div className="mb-4">
-        <DealProgressBar dealId={id} currentStatus={(deal.simple_status || 'quoting') as SimpleStatus} />
+        <DealProgressBar
+          dealId={id}
+          currentStatus={(deal.simple_status || 'quoting') as SimpleStatus}
+        />
       </div>
 
       <DealDetailTabs
         deal={dealLite as never}
-        specifications={specifications || []}
+        products={(products || []) as never}
+        variants={variants as never}
         quotes={(quotes || []) as never}
         fees={(fees || []) as never}
         designFiles={designFiles || []}

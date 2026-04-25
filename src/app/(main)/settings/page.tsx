@@ -24,6 +24,11 @@ export default async function SettingsPage() {
     default_exchange_rate: Number(settings?.default_exchange_rate) || 155,
     default_tax_rate: Number(settings?.default_tax_rate) || 10,
     default_cost_ratio: Number(settings?.default_cost_ratio) || 0.55,
+    default_china_freight_rate_yuan_per_kg:
+      Number(settings?.default_china_freight_rate_yuan_per_kg) || 7.0,
+    default_yuan_to_usd_rate: Number(settings?.default_yuan_to_usd_rate) || 7.2,
+    default_pantone_color_fee_yuan:
+      Number(settings?.default_pantone_color_fee_yuan) || 11775,
     company_info_phase1: settings?.company_info_phase1 || null,
     bank_accounts_phase1: settings?.bank_accounts_phase1 || null,
     default_shipping_address: settings?.default_shipping_address || null,

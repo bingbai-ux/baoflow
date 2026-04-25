@@ -85,6 +85,25 @@ export default async function DashboardPage() {
   const inProgressTotal = allDeals.length - counts.delivered
   const greeting = getGreeting(new Date().getHours())
   const displayName = profile?.display_name || user.email?.split('@')[0] || ''
+  const uniqueClientCount = new Set(
+    allDeals.map((d) => d.client_name_text || '').filter(Boolean)
+  ).size
+
+  // 直近案件の商品/バリエーション情報を併記
+  const recentIds = allDeals.slice(0, 5).map((d) => d.id)
+  const { data: recentProducts } = recentIds.length
+    ? await supabase
+        .from('deal_products')
+        .select('id, deal_id, description')
+        .in('deal_id', recentIds)
+        .order('product_no', { ascending: true })
+    : { data: [] as Array<{ id: string; deal_id: string; description: string }> }
+  const productsByDealRecent = new Map<string, string[]>()
+  for (const p of recentProducts || []) {
+    const arr = productsByDealRecent.get(p.deal_id) || []
+    arr.push(p.description)
+    productsByDealRecent.set(p.deal_id, arr)
+  }
 
   return (
     <>
@@ -94,6 +113,7 @@ export default async function DashboardPage() {
           {greeting}{displayName ? `、${displayName}さん` : ''}
         </h1>
         <p className="text-[12px] text-[#888] font-body mt-1">
+          クライアント <span className="tabular-nums text-[#0a0a0a] font-semibold">{uniqueClientCount}</span> 社 ·
           進行中 <span className="tabular-nums text-[#0a0a0a] font-semibold">{inProgressTotal}</span> 件 ·
           納品完了 <span className="tabular-nums text-[#0a0a0a] font-semibold">{counts.delivered}</span> 件 ·
           総 <span className="tabular-nums text-[#0a0a0a] font-semibold">{allDeals.length}</span> 件
@@ -168,6 +188,13 @@ export default async function DashboardPage() {
                       <p className="text-[12px] text-[#555] font-body truncate">
                         {deal.client_name_text || '(クライアント未設定)'}
                       </p>
+                      {productsByDealRecent.get(deal.id)?.length ? (
+                        <p className="text-[10px] text-[#888] font-body truncate mt-0.5">
+                          商品: {productsByDealRecent.get(deal.id)!.slice(0, 3).join(' / ')}
+                          {productsByDealRecent.get(deal.id)!.length > 3 &&
+                            ` ほか${productsByDealRecent.get(deal.id)!.length - 3}件`}
+                        </p>
+                      ) : null}
                     </div>
                     <p className="text-[11px] text-[#888] font-body tabular-nums whitespace-nowrap">
                       {formatDate(deal.last_activity_at)}
