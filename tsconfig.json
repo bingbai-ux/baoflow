@@ -29,6 +29,8 @@
     "src/app/_archive_factory/**",
     "src/app/_archive_portal/**",
     "src/lib/actions/_unused/**",
-    "src/components/_unused/**"
+    "src/components/_unused/**",
+    "src/components/deals/_unused/**",
+    "src/app/(main)/deals/[id]/_unused/**"
   ]
 }
