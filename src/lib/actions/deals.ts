@@ -8,7 +8,9 @@ import type {
   MasterStatus,
   CreateDealInput,
   UpdateDealInput,
+  SimpleStatus,
 } from '@/lib/types'
+import { SIMPLE_STATUS_ORDER } from '@/lib/types'
 import { sendEmail } from '@/lib/utils/email'
 import {
   quoteReadyEmail,
@@ -641,4 +643,75 @@ export async function getStaleDeals(thresholdDays: number = 7): Promise<Deal[]> 
     .order('last_activity_at', { ascending: true })
 
   return (data || []) as Deal[]
+}
+
+// ============================================================================
+// Phase 1: simple_status (7 段階) 更新
+// ============================================================================
+
+export async function updateSimpleStatus(
+  dealId: string,
+  newStatus: SimpleStatus
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('deals')
+    .select('simple_status')
+    .eq('id', dealId)
+    .single()
+
+  if (fetchError || !current) {
+    return { success: false, error: '案件が見つかりません' }
+  }
+
+  const fromStatus = current.simple_status as SimpleStatus
+
+  const { error: updateError } = await supabase
+    .from('deals')
+    .update({
+      simple_status: newStatus,
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq('id', dealId)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  await supabase.from('deal_status_history').insert({
+    deal_id: dealId,
+    from_simple_status: fromStatus,
+    to_simple_status: newStatus,
+    changed_at: new Date().toISOString(),
+  })
+
+  revalidatePath(`/deals/${dealId}`)
+  revalidatePath('/deals')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function advanceSimpleStatus(
+  dealId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('deals')
+    .select('simple_status')
+    .eq('id', dealId)
+    .single()
+
+  if (fetchError || !current) {
+    return { success: false, error: '案件が見つかりません' }
+  }
+
+  const currentIndex = SIMPLE_STATUS_ORDER.indexOf(current.simple_status as SimpleStatus)
+  if (currentIndex === -1 || currentIndex === SIMPLE_STATUS_ORDER.length - 1) {
+    return { success: false, error: 'これ以上進められません' }
+  }
+
+  const nextStatus = SIMPLE_STATUS_ORDER[currentIndex + 1]
+  return updateSimpleStatus(dealId, nextStatus)
 }

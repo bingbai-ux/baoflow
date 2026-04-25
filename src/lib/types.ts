@@ -158,6 +158,12 @@ export interface Deal {
   last_activity_at: string
   created_at: string
   updated_at: string
+  // Phase 1
+  simple_status: SimpleStatus
+  visibility: 'internal' | 'client_shared' | 'factory_shared'
+  client_name_text: string | null
+  desired_delivery_date: string | null
+  memo: string | null
 }
 
 export interface DealSpecification {
@@ -613,3 +619,84 @@ export interface PaymentAlertData {
   factory?: Factory
   daysUntilDue: number
 }
+
+// ============================================================================
+// Phase 1: Simple Status (7 段階)
+// ============================================================================
+
+export type SimpleStatus =
+  | 'quoting'
+  | 'quote_confirmed'
+  | 'paid'
+  | 'data_confirmed'
+  | 'in_production'
+  | 'shipped'
+  | 'delivered'
+
+export interface SimpleStatusConfig {
+  label: string
+  step: number
+  color: 'pending' | 'confirmed' | 'warning' | 'active' | 'shipping'
+  nextLabel?: string
+  nextAction?: string
+}
+
+export const SIMPLE_STATUS_CONFIG: Record<SimpleStatus, SimpleStatusConfig> = {
+  quoting: {
+    label: '見積中',
+    step: 1,
+    color: 'pending',
+    nextLabel: '見積確定',
+    nextAction: '見積書を確定する',
+  },
+  quote_confirmed: {
+    label: '見積確定',
+    step: 2,
+    color: 'confirmed',
+    nextLabel: '入金完了',
+    nextAction: '請求書を発行し入金を確認',
+  },
+  paid: {
+    label: '入金完了',
+    step: 3,
+    color: 'warning',
+    nextLabel: '最終入稿データ確認完了',
+    nextAction: '最終入稿データを確認',
+  },
+  data_confirmed: {
+    label: '最終入稿データ確認完了',
+    step: 4,
+    color: 'active',
+    nextLabel: '製作中',
+    nextAction: '工場へ製作開始指示',
+  },
+  in_production: {
+    label: '製作中',
+    step: 5,
+    color: 'active',
+    nextLabel: '工場発送完了',
+    nextAction: '工場発送を待つ',
+  },
+  shipped: {
+    label: '工場発送完了',
+    step: 6,
+    color: 'shipping',
+    nextLabel: '納品完了',
+    nextAction: '到着を追跡',
+  },
+  delivered: {
+    label: '納品完了',
+    step: 7,
+    color: 'confirmed',
+  },
+}
+
+export const SIMPLE_STATUS_ORDER: SimpleStatus[] = [
+  'quoting',
+  'quote_confirmed',
+  'paid',
+  'data_confirmed',
+  'in_production',
+  'shipped',
+  'delivered',
+]

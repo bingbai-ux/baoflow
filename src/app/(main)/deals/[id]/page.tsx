@@ -7,7 +7,7 @@ import { StatusChanger } from './status-changer'
 import { RepeatButton } from './repeat-button'
 import { DealDetailTabs } from './deal-detail-tabs'
 import { DealActionPanel } from './deal-action-panel'
-import { MASTER_STATUS_CONFIG, type MasterStatus } from '@/lib/types'
+import { MASTER_STATUS_CONFIG, type MasterStatus, type SimpleStatus } from '@/lib/types'
 import { ChevronLeft } from 'lucide-react'
 
 interface Props {
@@ -119,7 +119,7 @@ export default async function DealDetailPage({ params }: Props) {
 
       {/* Progress Bar */}
       <div className="mb-4">
-        <DealProgressBar currentStatus={currentStatus} />
+        <DealProgressBar dealId={id} currentStatus={(deal.simple_status || 'quoting') as SimpleStatus} />
       </div>
 
       {/* Action Panel */}
