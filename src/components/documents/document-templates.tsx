@@ -119,7 +119,7 @@ const TYPE_TITLE_SUB: Record<DocumentType, string> = {
   quotation: 'Quotation',
   invoice: 'Invoice',
   delivery_note: 'Delivery Note',
-  rfq: '见积询价书 / 見積依頼書',
+  rfq: '见积询价书',
 }
 
 export function DocumentTemplate(props: TemplateProps) {
@@ -141,6 +141,42 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
   const taxableSubtotal = subtotal + feesTotal
   const tax = Math.ceil(taxableSubtotal * 0.10)
   const grandTotal = taxableSubtotal + tax
+
+  // 同じ fee_type は1行にまとめる (型代・食品検査などが variant ごとに重複表示されないように)
+  // is_initial_only も同じ key で集約 (どれか1つでも初回限定なら表示)
+  type FeeGroup = {
+    fee_type: FeeType
+    total: number
+    targets: string[] // バリエ/spec 名のリスト
+    notes: string[]
+    initialOnly: boolean
+  }
+  const feeGroups = (() => {
+    const map = new Map<FeeType, FeeGroup>()
+    for (const f of fees) {
+      const key = f.fee_type
+      if (!map.has(key)) {
+        map.set(key, {
+          fee_type: f.fee_type,
+          total: 0,
+          targets: [],
+          notes: [],
+          initialOnly: false,
+        })
+      }
+      const g = map.get(key)!
+      g.total += Number(f.amount_jpy) || 0
+      const target = f.variant_id
+        ? variantMap.get(f.variant_id)?.variant_label
+        : f.spec_id
+          ? specMap.get(f.spec_id)?.product_name
+          : null
+      if (target && !g.targets.includes(target)) g.targets.push(target)
+      if (f.note && !g.notes.includes(f.note)) g.notes.push(f.note)
+      if (f.is_initial_only) g.initialOnly = true
+    }
+    return Array.from(map.values())
+  })()
 
   const describeQuote = (q: QuoteLite): { name: string; spec: string } => {
     if (q.variant_id) {
@@ -247,27 +283,32 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
                 </tr>
               )
             })}
-            {fees.map((f, idx) => {
-              const where = f.variant_id
-                ? variantMap.get(f.variant_id)?.variant_label
-                : f.spec_id
-                  ? specMap.get(f.spec_id)?.product_name
-                  : null
+            {feeGroups.map((g, idx) => {
+              const targetSummary =
+                g.targets.length === 0
+                  ? null
+                  : g.targets.length <= 3
+                    ? g.targets.join(' / ')
+                    : `${g.targets.slice(0, 3).join(' / ')} ほか ${g.targets.length - 3}件`
               return (
-                <tr key={f.id} className="border-b border-[#e8e8e6]">
+                <tr key={g.fee_type} className="border-b border-[#e8e8e6]">
                   <td className="py-2 pr-2 tabular-nums text-[#888]">{lineItems.length + idx + 1}</td>
                   <td className="py-2 pr-2">
-                    {FEE_TYPE_LABELS[f.fee_type]}
-                    {f.is_initial_only && <span className="text-[10px] text-[#888] ml-1">(初回のみ)</span>}
+                    {FEE_TYPE_LABELS[g.fee_type]}
+                    {g.initialOnly && <span className="text-[10px] text-[#888] ml-1">(初回のみ)</span>}
                   </td>
                   <td className="py-2 pr-2 text-[10px] text-[#555]">
-                    {where && <span>{where}</span>}
-                    {f.note && <span className="text-[#888]"> / {f.note}</span>}
+                    {targetSummary && <span>{targetSummary}</span>}
+                    {g.notes.length > 0 && (
+                      <span className="text-[#888]">
+                        {targetSummary ? ' / ' : ''}{g.notes.join(' / ')}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 pr-2 text-right text-[#888]">-</td>
                   <td className="py-2 pr-2 text-right text-[#888]">-</td>
                   <td className="py-2 text-right tabular-nums font-semibold">
-                    {f.amount_jpy != null ? formatJPY(f.amount_jpy) : '-'}
+                    {formatJPY(g.total)}
                   </td>
                 </tr>
               )
@@ -342,32 +383,32 @@ function RfqTemplate({ deal, products, variants, meta, company }: TemplateProps)
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-[28px] font-display font-semibold tracking-tight">Request for Quotation</h1>
-            <p className="text-[12px] text-[#555] font-body mt-0.5">见积询价书 / 見積依頼書</p>
+            <p className="text-[12px] text-[#555] font-body mt-0.5">见积询价书</p>
             <p className="text-[11px] text-[#555] mt-2 tabular-nums">No. {meta.documentNumber}</p>
           </div>
           <div className="text-right text-[11px] text-[#555]">
-            <p>Date / 发出日 / 発出日: <span className="tabular-nums text-[#0a0a0a]">{today}</span></p>
+            <p>Date / 发出日: <span className="tabular-nums text-[#0a0a0a]">{today}</span></p>
             {deal.desired_delivery_date && (
-              <p className="mt-1">Required Delivery: <span className="tabular-nums text-[#0a0a0a]">{formatDate(deal.desired_delivery_date)}</span></p>
+              <p className="mt-1">Required Delivery / 期望交期: <span className="tabular-nums text-[#0a0a0a]">{formatDate(deal.desired_delivery_date)}</span></p>
             )}
           </div>
         </div>
       </header>
 
       <section className="mb-5 text-[11px] text-[#0a0a0a] font-body">
-        <p className="font-semibold mb-1">Dear Supplier / 致供应商各位 / お取引先各位</p>
+        <p className="font-semibold mb-1">Dear Supplier / 致供应商各位</p>
         <p className="text-[#555] leading-relaxed">
           Please review the product specifications below and provide your quotation including unit price (USD/FOB),
           MOQ, lead time, packaging, and payment terms.
         </p>
         <p className="text-[#555] leading-relaxed mt-1">
-          以下の商品仕様をご確認いただき、単価 (USD/FOB)、最小ロット、リードタイム、梱包、支払条件をご回答ください。
+          请确认以下产品规格，并提供报价（单价 USD/FOB、起订量、交期、包装、付款条件）。
         </p>
       </section>
 
       <section className="mb-5 grid grid-cols-2 gap-6 text-[11px]">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.08em] text-[#888] mb-1">From / 依頼元</p>
+          <p className="text-[10px] uppercase tracking-[0.08em] text-[#888] mb-1">From / 委托方</p>
           {company?.name ? (
             <>
               <p className="font-body font-semibold">{company.name}</p>
@@ -376,20 +417,20 @@ function RfqTemplate({ deal, products, variants, meta, company }: TemplateProps)
               {company.phone && <p className="text-[#555]">TEL: {company.phone}</p>}
             </>
           ) : (
-            <p className="text-[#888]">(会社情報を設定してください)</p>
+            <p className="text-[#888]">(Please set company info)</p>
           )}
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.08em] text-[#888] mb-1">Project / 案件</p>
-          <p className="font-body font-semibold">{deal.deal_name || '(案件名未設定)'}</p>
+          <p className="text-[10px] uppercase tracking-[0.08em] text-[#888] mb-1">Project / 项目</p>
+          <p className="font-body font-semibold">{deal.deal_name || '(Untitled project)'}</p>
           <p className="text-[#888] tabular-nums mt-0.5">Code: {deal.deal_code}</p>
         </div>
       </section>
 
       <section className="mb-5">
-        <p className="text-[10px] uppercase tracking-wider text-[#888] mb-2">Items / 商品仕様</p>
+        <p className="text-[10px] uppercase tracking-wider text-[#888] mb-2">Items / 产品规格</p>
         {products.length === 0 ? (
-          <p className="text-[11px] text-[#888]">商品が登録されていません。</p>
+          <p className="text-[11px] text-[#888]">No products registered.</p>
         ) : (
           <div className="space-y-3">
             {products.map((p) => {
@@ -400,16 +441,16 @@ function RfqTemplate({ deal, products, variants, meta, company }: TemplateProps)
                     #{p.product_no} {p.description}
                   </p>
                   {vs.length === 0 ? (
-                    <p className="text-[11px] text-[#888] mt-1">No variants</p>
+                    <p className="text-[11px] text-[#888] mt-1">No variants / 无规格</p>
                   ) : (
                     <table className="w-full text-[10px] font-body mt-2">
                       <thead>
                         <tr className="border-b border-[#e8e8e6] text-[#555]">
-                          <th className="text-left py-1 pr-2">Variant</th>
-                          <th className="text-left py-1 pr-2">Size (mm)</th>
-                          <th className="text-left py-1 pr-2">Material</th>
-                          <th className="text-left py-1 pr-2">Print</th>
-                          <th className="text-left py-1">Carton (cm) / G.W</th>
+                          <th className="text-left py-1 pr-2">Variant / 规格</th>
+                          <th className="text-left py-1 pr-2">Size (mm) / 尺寸</th>
+                          <th className="text-left py-1 pr-2">Material / 材质</th>
+                          <th className="text-left py-1 pr-2">Print / 印刷</th>
+                          <th className="text-left py-1">Carton (cm) / 外箱 / G.W</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -442,26 +483,26 @@ function RfqTemplate({ deal, products, variants, meta, company }: TemplateProps)
       </section>
 
       <section className="mb-5 border border-[#0a0a0a] rounded-[8px] p-3 text-[11px]">
-        <p className="font-body font-semibold text-[#0a0a0a] mb-2">Please provide / 回答事項</p>
+        <p className="font-body font-semibold text-[#0a0a0a] mb-2">Please provide / 请提供</p>
         <ol className="list-decimal list-inside space-y-1 text-[#555]">
-          <li>Unit price (USD, FOB Shanghai or other Incoterm) / 単価 (USD, FOB 上海等)</li>
-          <li>MOQ / 最小ロット</li>
-          <li>Lead time after PO / 受注後リードタイム</li>
-          <li>Packaging method (PCS/CTN, CARTONMEAS, G.W) / 梱包仕様</li>
-          <li>Payment terms / 支払条件</li>
-          <li>Sample lead time and cost / サンプル製作期間と費用</li>
+          <li>Unit price (USD, FOB Shanghai or other Incoterm) / 单价 (USD, FOB 上海等)</li>
+          <li>MOQ / 最小起订量</li>
+          <li>Lead time after PO / 下单后交期</li>
+          <li>Packaging method (PCS/CTN, CARTONMEAS, G.W) / 包装规格</li>
+          <li>Payment terms / 付款条件</li>
+          <li>Sample lead time and cost / 样品制作周期和费用</li>
         </ol>
       </section>
 
       {meta.notes && (
         <section className="mb-5 text-[11px]">
-          <p className="text-[10px] uppercase tracking-wider text-[#888] mb-1">備考 / Notes</p>
+          <p className="text-[10px] uppercase tracking-wider text-[#888] mb-1">Notes / 备注</p>
           <p className="text-[#555] whitespace-pre-line">{meta.notes}</p>
         </section>
       )}
 
       <section className="mb-5 text-[11px] text-[#555]">
-        <p>We appreciate your prompt response. / お早めのご回答をお願い申し上げます。 / 期待您的回复。</p>
+        <p>We appreciate your prompt response. / 期待您的回复。</p>
       </section>
 
       <footer className="text-center text-[9px] text-[#bbb] mt-8 pt-4 border-t border-[#f0f0ed]">
