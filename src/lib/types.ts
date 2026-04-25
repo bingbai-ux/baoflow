@@ -117,6 +117,14 @@ export interface Client {
   total_transaction_amount: number
   total_order_count: number
   notes: string | null
+  // Sprint 5 v2 拡張
+  short_name: string | null
+  contact_phone: string | null
+  billing_to: string | null
+  tax_id: string | null
+  payment_terms: string | null
+  tax_rate: number | null
+  since: string | null
   created_at: string
   updated_at: string
 }
@@ -139,6 +147,18 @@ export interface Factory {
   excel_template_id: string | null
   avg_response_days: number | null
   notes: string | null
+  // Sprint 5 v2 拡張
+  name_cn: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  wechat: string | null
+  payment_terms: string | null
+  incoterm: string | null
+  lead_time_range: string | null
+  quality_stars: number | null
+  delivery_stars: number | null
+  price_stars: number | null
+  since: string | null
   created_at: string
   updated_at: string
 }

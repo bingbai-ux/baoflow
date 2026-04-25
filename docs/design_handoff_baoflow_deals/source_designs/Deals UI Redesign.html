@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BAOFlow / 案件管理 リデザイン案</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#f2f2f0; font-family:'Zen Kaku Gothic New', system-ui, sans-serif; color:#0a0a0a; }
+  .num { font-family:'Fraunces', serif; font-variant-numeric: tabular-nums; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:#dcdcd8; border-radius:5px; border:2px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-thumb:hover { background:#bbb; border:2px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-track { background:transparent; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="shared-data.jsx"></script>
+<script type="text/babel" src="v1-spreadsheet.jsx"></script>
+<script type="text/babel" src="v2-hybrid.jsx"></script>
+<script type="text/babel" src="v3-kanban.jsx"></script>
+<script type="text/babel" src="v4-grouped.jsx"></script>
+<script type="text/babel" src="v5-nested.jsx"></script>
+<script type="text/babel" src="deal-detail-modal.jsx"></script>
+<script type="text/babel" src="new-client-modal.jsx"></script>
+<script type="text/babel" src="doc-generator-modal.jsx"></script>
+<script type="text/babel" src="status-changer.jsx"></script>
+<script type="text/babel" src="inline-cell.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="mobile-deals.jsx"></script>
+<script type="text/babel" src="dashboard.jsx"></script>
+<script type="text/babel" src="master-screen.jsx"></script>
+<script type="text/babel" src="print-docs.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  function App() {
+    return (
+      <DesignCanvas
+        title="案件管理 / 一覧UI 4案"
+        subtitle="エクセル管理表をベースに、入力のしやすさ・一覧性・網羅性を再設計"
+      >
+        <DCSection id="dashboard" title="ダッシュボード — 全体サマリ">
+          <DCArtboard id="dashboard" label="ダッシュボード / サマリ画面" width={1320} height={920}>
+            <window.Dashboard />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="master" title="取引先マスタ — クライアント + 工場">
+          <DCArtboard id="master-b" label="メールUI風 分割パネル — 左リスト + 右常時詳細" width={1320} height={820}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>取引先マスタ</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  詳細を常時表示。左リストから案件を選んで連続で見ていくワークフロー。タブでクライアント/工場を切替。
+                </div>
+              </div>
+              <window.MasterScreen defaultTab="clients" />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="print" title="印刷／PDF レイアウト — 見積書・請求書・納品書・見積依頼書">
+          <DCArtboard id="print-flow" label="帳票発行フロー — 案件選択 → 編集プレビュー → 印刷" width={1320} height={960}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>帳票発行センター</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  4種類（見積 / 請求 / 納品 / 見積依頼書）。取引先別にチェックボックスで複数選択 → 同じ取引先なら<b>一括請求書</b>として1枚にまとまります。
+                  プレビュー上の<b>すべてのテキスト・数値が直接編集可能</b>（黄色い箇所をクリック）。A4縦、ミニマルデザイン、電子発行スタンプ付き。
+                </div>
+              </div>
+              <div style={{ height:820, background:'#fff', borderRadius:14, overflow:'hidden', border:'1px solid rgba(0,0,0,0.06)' }}>
+                <window.PrintCenter />
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="mobile" title="モバイル — スマホで確認・更新">
+          <DCArtboard id="mobile" label="モバイル版 (iPhone)" width={460} height={920}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%', display:'flex', justifyContent:'center', alignItems:'center' }}>
+              <IOSDevice width={390} height={844}>
+                <window.MobileDeals />
+              </IOSDevice>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="recommended" title="案 5 — 入れ子展開（おすすめ・案4ベース＋スプレッドシート密度＋数量バリエ展開）">
+          <DCArtboard id="v5" label="案 5 — 入れ子展開テーブル" width={1480} height={900}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>入れ子展開テーブル</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  3階層構造：<b>クライアント</b> ▸ <b>案件</b>（▶ で開閉）▸ <b>数量・価格バリエーション</b>。
+                  案4のクライアント別ロールアップを保ちつつ、スプレッドシート並みの全カラム表示。
+                  同じ仕様で数量・価格違いの見積（500個 / 1000個 / 3000個…）を案件行の下に折り畳み収納。
+                  「採用中」のバリエーションには ● マーク。「+ バリエーションを追加」で増やせる。
+                </div>
+              </div>
+              <V5Nested />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="overview" title="参考 — 当初の4方向">
+          <DCArtboard id="v1" label="案 1 — スプレッドシート (エクセル忠実)" width={1320} height={840}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>スプレッドシート</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  ヘッダ＋ID/案件名列を固定。全カラムを横スクロールで一望。セルを直接クリック編集（数量・単価）。
+                  クライアント別グルーピングON/OFF。停滞・納期迫り行は淡いオレンジでハイライト。
+                </div>
+              </div>
+              <V1Spreadsheet />
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="v2" label="案 2 — ハイブリッド (一覧 + 詳細パネル)" width={1320} height={860}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>ハイブリッド</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  左に超コンパクトなリスト（28pxの行）、右に選択中の案件の全項目をフォーム形式で編集。
+                  ↑↓キーで瞬時に切替、自動計算欄（USD・JPY・粗利）はリアルタイム反映。網羅性 + 詳細編集の両立。
+                </div>
+              </div>
+              <V2Hybrid />
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="v3" label="案 3 — カンバン (ステータス7列)" width={1480} height={820}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>カンバン</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  ステータス7段階を列にして全案件を一望。各列にクライアント名で小グルーピング、列ヘッダに件数と合計金額。
+                  進捗の偏り・ボトルネックを視覚的に把握しやすい。
+                </div>
+              </div>
+              <V3Kanban />
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="v4" label="案 4 — クライアント別グルーピング (Notion DB風)" width={1320} height={840}>
+            <div style={{ padding: 18, background:'#f2f2f0', minHeight:'100%' }}>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:18 }}>グループ化テーブル</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:4, lineHeight:1.6 }}>
+                  クライアントを大見出し化し、件数・進行中数・累計請求額・平均粗利をロールアップ表示。
+                  グループは折り畳み可能。「クライアント別 一覧性」を最も忠実に再現。
+                </div>
+              </div>
+              <V4Grouped />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="design-notes" title="設計メモ">
+          <DCArtboard id="notes" label="共通仕様" width={900} height={560}>
+            <div style={{ padding:'24px 28px', background:'#fff', height:'100%', fontSize:12, lineHeight:1.8, color:'#0a0a0a' }}>
+              <div style={{ fontFamily:"'Fraunces', serif", fontWeight:600, fontSize:16, marginBottom:14 }}>4案に共通する設計</div>
+
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>表示密度</div>
+                <div>1行 30px、フォント 11–12px、Fraunces tabular-nums で数値整列。エクセル感のあるハイライン区切り。</div>
+              </div>
+
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>カラム</div>
+                <div>ID / 案件名 / 仕様 / 数量 / 単価USD / 請求合計JPY（ホバーでUSD・CNY） / 粗利% / ステータス / 希望納期 / 工場 / 担当 / Ver / 更新 / メモ</div>
+              </div>
+
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>自動計算</div>
+                <div>合計、JPY換算、粗利率は数量・単価・FX・掛け率から自動再計算。手入力は仕様・メモなど定性項目のみ。</div>
+              </div>
+
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>アラート</div>
+                <div>納期 ≤14日 → オレンジドット ●、5日以上更新なし → 停滞ドット ●。行背景は淡いオレンジ #fffaf2。</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>新規案件入力</div>
+                <div>
+                  案1 = 末尾行をクリック / 案2-4 = 右上ボタン or グループ末尾の「+ 追加」<br/>
+                  どの案でも「クライアントを選んでEnter → 案件名を入れてTab → 数量入れてTab…」だけで作成可能（仕様・金額は後から）。
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
