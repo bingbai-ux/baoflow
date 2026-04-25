@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Home, FileText, Settings } from 'lucide-react'
+import { Home, FileText, Settings, Users } from 'lucide-react'
 
 interface MenuItem {
   label: string
@@ -23,6 +23,9 @@ const menuStructure: MenuCategory[] = [
   },
   {
     items: [{ label: '案件', href: '/deals', icon: FileText }],
+  },
+  {
+    items: [{ label: 'マスター', href: '/master', icon: Users }],
   },
   {
     items: [{ label: '設定', href: '/settings', icon: Settings }],

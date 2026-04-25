@@ -7,14 +7,18 @@ import {
   uploadDesignImage,
   deleteDesignImage,
   updateDesignComment,
+  updateDesignCategory,
   type DesignFileRow,
 } from '@/lib/actions/designs'
+import { type FileCategory, FILE_CATEGORY_LABELS } from '@/lib/types'
 import { formatDate } from '@/lib/utils/format'
 
 interface DesignGalleryProps {
   dealId: string
   initial: DesignFileRow[]
 }
+
+const CATEGORIES: FileCategory[] = ['spec', 'quote', 'photo', 'contract', 'other']
 
 export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
   const router = useRouter()
@@ -24,15 +28,21 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
   const [isDragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lightboxId, setLightboxId] = useState<string | null>(null)
+  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [uploadCategory, setUploadCategory] = useState<FileCategory>('photo')
 
   const lightbox = lightboxId ? initial.find((f) => f.id === lightboxId) : null
+
+  const filtered = filterCategory === 'all'
+    ? initial
+    : initial.filter((f) => (f.category || 'other') === filterCategory)
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return
     setError(null)
     startUpload(async () => {
       for (const file of Array.from(files)) {
-        const result = await uploadDesignImage(dealId, file)
+        const result = await uploadDesignImage(dealId, file, null, uploadCategory)
         if (result.error) {
           setError(`${file.name}: ${result.error}`)
           break
@@ -63,6 +73,41 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
           {error}
         </div>
       )}
+
+      {/* Category filter */}
+      <div className="flex flex-wrap gap-1 mb-3">
+        <button
+          type="button"
+          onClick={() => setFilterCategory('all')}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
+            filterCategory === 'all'
+              ? 'bg-[#0a0a0a] text-white'
+              : 'bg-white text-[#555] border border-[#e8e8e6]'
+          }`}
+        >
+          すべて <span className="tabular-nums opacity-70">{initial.length}</span>
+        </button>
+        {CATEGORIES.map((c) => {
+          const cnt = initial.filter((f) => (f.category || 'other') === c).length
+          if (cnt === 0) return null
+          const cfg = FILE_CATEGORY_LABELS[c]
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setFilterCategory(c)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
+                filterCategory === c
+                  ? 'bg-[#0a0a0a] text-white'
+                  : 'bg-white text-[#555] border border-[#e8e8e6]'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
+              {cfg.label} <span className="tabular-nums opacity-70">{cnt}</span>
+            </button>
+          )
+        })}
+      </div>
 
       {/* Dropzone */}
       <div
@@ -95,6 +140,19 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
         <p className="mt-1 text-[11px] font-body text-[#888]">
           JPEG / PNG / WebP / GIF · 1 ファイル最大 10MB · 複数枚対応
         </p>
+        <div className="mt-2 inline-flex items-center gap-1.5">
+          <span className="text-[10px] text-[#888]">アップロード時カテゴリ:</span>
+          <select
+            value={uploadCategory}
+            onChange={(e) => setUploadCategory(e.target.value as FileCategory)}
+            className="text-[11px] font-body bg-white border border-[#e8e8e6] rounded-[4px] px-1.5 py-0.5 focus:outline-none"
+            disabled={isUploading}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{FILE_CATEGORY_LABELS[c].label}</option>
+            ))}
+          </select>
+        </div>
         <input
           ref={inputRef}
           type="file"
@@ -109,13 +167,13 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
       </div>
 
       {/* Grid */}
-      {initial.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="mt-6 text-center text-[13px] font-body text-[#888]">
-          まだ画像が登録されていません。
+          {filterCategory === 'all' ? 'まだ画像が登録されていません。' : 'このカテゴリの画像はまだありません。'}
         </p>
       ) : (
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {initial.map((f) => (
+          {filtered.map((f) => (
             <DesignCard
               key={f.id}
               file={f}
@@ -167,9 +225,19 @@ function DesignCard({
         />
       </button>
       <div className="p-2">
-        <p className="text-[11px] font-body text-[#0a0a0a] truncate" title={file.file_name || ''}>
-          {file.file_name || '(無題)'}
-        </p>
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <p className="text-[11px] font-body text-[#0a0a0a] truncate flex-1" title={file.file_name || ''}>
+            {file.file_name || '(無題)'}
+          </p>
+          {file.category && (
+            <span
+              className="text-[8px] uppercase tracking-wider px-1 py-0.5 rounded text-white"
+              style={{ backgroundColor: FILE_CATEGORY_LABELS[file.category as FileCategory]?.color || '#888' }}
+            >
+              {FILE_CATEGORY_LABELS[file.category as FileCategory]?.label || file.category}
+            </span>
+          )}
+        </div>
         {file.comment && (
           <p className="text-[10px] font-body text-[#555] mt-0.5 line-clamp-2">{file.comment}</p>
         )}

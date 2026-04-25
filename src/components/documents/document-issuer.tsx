@@ -8,6 +8,8 @@ import {
   type DocumentType,
   type DocumentMeta,
   type SpecLite,
+  type ProductLite,
+  type VariantLite,
   type QuoteLite,
   type FeeLite,
 } from './document-templates'
@@ -26,6 +28,8 @@ interface DealLite {
 interface DocumentIssuerProps {
   deal: DealLite
   specs: SpecLite[]
+  products: ProductLite[]
+  variants: VariantLite[]
   quotes: QuoteLite[]
   fees: FeeLite[]
   company: CompanyInfoPhase1 | null
@@ -39,11 +43,14 @@ const TABS: Array<{ id: DocumentType; label: string }> = [
   { id: 'quotation', label: '見積書' },
   { id: 'invoice', label: '請求書' },
   { id: 'delivery_note', label: '納品書' },
+  { id: 'rfq', label: 'RFQ (工場用)' },
 ]
 
 export function DocumentIssuer({
   deal,
   specs,
+  products,
+  variants,
   quotes,
   fees,
   company,
@@ -100,21 +107,17 @@ export function DocumentIssuer({
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex gap-1 mb-3 no-print">
+      <div className="flex flex-wrap gap-1 mb-3 no-print">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setActive(t.id)}
-            className={`
-              px-4 py-2 rounded-[8px] text-[13px] font-body transition-colors
-              ${
-                active === t.id
-                  ? 'bg-[#0a0a0a] text-white'
-                  : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#f5f5f4]'
-              }
-            `}
+            className={`px-4 py-2 rounded-[8px] text-[13px] font-body transition-colors ${
+              active === t.id
+                ? 'bg-[#0a0a0a] text-white'
+                : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#f5f5f4]'
+            }`}
           >
             {t.label}
             {docsByType(t.id).length > 0 && (
@@ -124,7 +127,6 @@ export function DocumentIssuer({
         ))}
       </div>
 
-      {/* Controls */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-4 mb-3 space-y-3 no-print">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {active === 'invoice' && (
@@ -157,12 +159,12 @@ export function DocumentIssuer({
               </Field>
             </>
           )}
-          <Field label="備考" className={active === 'delivery_note' ? 'md:col-span-2' : ''}>
+          <Field label="備考" className={active === 'delivery_note' || active === 'rfq' ? 'md:col-span-2' : ''}>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="(任意)"
+              placeholder={active === 'rfq' ? '工場への補足事項 (任意)' : '(任意)'}
               className={`${inputClass} resize-y`}
             />
           </Field>
@@ -204,12 +206,13 @@ export function DocumentIssuer({
         )}
       </div>
 
-      {/* Preview */}
       <div className="document-frame">
         <DocumentTemplate
           type={active}
           deal={deal}
           specs={specs}
+          products={products}
+          variants={variants}
           quotes={quotes}
           fees={fees}
           company={company}

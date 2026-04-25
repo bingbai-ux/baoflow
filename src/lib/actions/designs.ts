@@ -13,6 +13,7 @@ export interface DesignFileRow {
   file_name: string | null
   file_type: string | null
   comment: string | null
+  category: string | null
   created_at: string
 }
 
@@ -20,7 +21,7 @@ export async function listDesignFiles(dealId: string): Promise<DesignFileRow[]> 
   const supabase = await createClient()
   const { data } = await supabase
     .from('deal_design_files')
-    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, created_at')
+    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at')
     .eq('deal_id', dealId)
     .order('created_at', { ascending: false })
   return (data || []) as DesignFileRow[]
@@ -29,7 +30,8 @@ export async function listDesignFiles(dealId: string): Promise<DesignFileRow[]> 
 export async function uploadDesignImage(
   dealId: string,
   file: File,
-  comment?: string | null
+  comment?: string | null,
+  category?: string | null
 ): Promise<{ data: DesignFileRow | null; error: string | null }> {
   const supabase = await createClient()
 
@@ -76,9 +78,10 @@ export async function uploadDesignImage(
       file_type: file.type || null,
       version_number: nextVersion,
       comment: comment?.trim() || null,
+      category: category || null,
       uploaded_by_user_id: user.id,
     })
-    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, created_at')
+    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at')
     .single()
 
   if (insertError) {
@@ -131,6 +134,25 @@ export async function updateDesignComment(
     .select('deal_id')
     .single()
 
+  if (error) return { success: false, error: error.message }
+  if (data?.deal_id) {
+    revalidatePath(`/deals/${data.deal_id}`)
+    revalidatePath(`/deals/${data.deal_id}/designs`)
+  }
+  return { success: true }
+}
+
+export async function updateDesignCategory(
+  fileId: string,
+  category: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('deal_design_files')
+    .update({ category: category || null })
+    .eq('id', fileId)
+    .select('deal_id')
+    .single()
   if (error) return { success: false, error: error.message }
   if (data?.deal_id) {
     revalidatePath(`/deals/${data.deal_id}`)

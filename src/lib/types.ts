@@ -834,3 +834,69 @@ export interface DealProductVariant {
   created_at: string
   updated_at: string
 }
+
+// ============================================================================
+// Sprint 6: コミュニケーション・履歴・添付カテゴリ・RFQ
+// ============================================================================
+
+export type CommChannel = 'email' | 'wechat' | 'phone' | 'memo' | 'meeting'
+export type CommAuthorRole = 'staff' | 'client' | 'factory'
+
+export interface DealCommunication {
+  id: string
+  deal_id: string
+  author_user_id: string | null
+  author_role: CommAuthorRole | null
+  channel: CommChannel
+  subject: string | null
+  body: string
+  is_read: boolean
+  needs_followup: boolean
+  followup_date: string | null
+  occurred_at: string
+  created_at: string
+  updated_at: string
+}
+
+export const COMM_CHANNEL_LABELS: Record<CommChannel, { label: string; emoji: string }> = {
+  email: { label: 'メール', emoji: '✉' },
+  wechat: { label: 'WeChat', emoji: '💬' },
+  phone: { label: '電話', emoji: '📞' },
+  memo: { label: '内部メモ', emoji: '📝' },
+  meeting: { label: '打合せ', emoji: '🤝' },
+}
+
+export type FileCategory = 'spec' | 'quote' | 'photo' | 'contract' | 'other'
+
+export const FILE_CATEGORY_LABELS: Record<FileCategory, { label: string; color: string }> = {
+  spec: { label: '仕様書/入稿', color: '#0a0a0a' },
+  quote: { label: '見積', color: '#22c55e' },
+  photo: { label: '写真/サンプル', color: '#e5a32e' },
+  contract: { label: '契約', color: '#7c3aed' },
+  other: { label: 'その他', color: '#888' },
+}
+
+export type HistoryKind = 'status' | 'edit' | 'variant' | 'attachment' | 'comm' | 'fee'
+
+export const HISTORY_KIND_LABELS: Record<HistoryKind, string> = {
+  status: 'ステータス',
+  edit: '編集',
+  variant: 'バリエーション',
+  attachment: '添付',
+  comm: '通信',
+  fee: '費用',
+}
+
+export interface FactoryRfqResponse {
+  id: string
+  rfq_document_id: string
+  factory_id: string | null
+  factory_name: string | null
+  unit_price_usd: number | null
+  moq: number | null
+  lead_time_days: number | null
+  payment_terms: string | null
+  notes: string | null
+  responded_at: string
+  created_at: string
+}

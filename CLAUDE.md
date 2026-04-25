@@ -497,6 +497,34 @@ quoting → quote_confirmed → paid → data_confirmed → in_production → sh
 
 ---
 
+## Sprint 6 作業ルール (マスター画面 / 帳票拡張 / コミュニケーション / モバイル)
+
+### スコープ
+- マスター画面 `/master` (clients / factories の split-pane CRUD、売上ロールアップ)
+- 帳票 4 種統合 + RFQ 新規 + 既存帳票の `variant_id` 対応 (Sprint 5 の負債解消)
+- コミュニケーションタブ (案件単位の通信履歴、フォローアップ)
+- 履歴タイムライン完全版 (フィルタチップ + 統合ビュー)
+- 添付ファイル カテゴリ拡張 (5 カテゴリ: spec/quote/photo/contract/other)
+- モバイル対応 (読取中心、< 768px レスポンシブ)
+
+### 新規テーブル
+- `deal_communications`: 通信履歴 (channel: email/wechat/phone/memo/meeting)
+- `factory_rfq_responses`: RFQ 工場回答 (Phase 2 工場画面の伏線)
+
+### 既存テーブル拡張
+- `deal_design_files.category`: ファイル分類
+- `deal_status_history.kind`: 履歴フィルタ用 (status/edit/variant/attachment/comm/fee)
+- `document_type` ENUM に `'rfq'` 追加
+
+### migration 番号
+- 022〜024 適用済 → Sprint 6 は **025 から**
+
+### Sprint 6 で扱わない (Phase 2 送り)
+- インライン編集完全版、案件詳細モーダル化、既読管理 profile 別、メール通知、
+  ファイルバージョン実装、自動テスト整備
+
+---
+
 ## Sprint 5 v2 作業ルール (Claude Design 採用、見た目刷新)
 
 ### 方針 (B 案)

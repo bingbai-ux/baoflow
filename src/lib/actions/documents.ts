@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export type DocumentType = 'quotation' | 'invoice' | 'delivery_note'
+export type DocumentType = 'quotation' | 'invoice' | 'delivery_note' | 'rfq'
 
 export interface DocumentRow {
   id: string
@@ -20,6 +20,7 @@ const PREFIX_BY_TYPE: Record<DocumentType, string> = {
   quotation: 'QUO',
   invoice: 'INV',
   delivery_note: 'DLV',
+  rfq: 'RFQ',
 }
 
 async function nextDocumentNumber(supabase: Awaited<ReturnType<typeof createClient>>, type: DocumentType): Promise<string> {
