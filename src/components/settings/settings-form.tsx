@@ -10,6 +10,9 @@ interface SettingsFormProps {
     default_exchange_rate: number
     default_tax_rate: number
     default_cost_ratio: number
+    default_china_freight_rate_yuan_per_kg: number
+    default_yuan_to_usd_rate: number
+    default_pantone_color_fee_yuan: number
     company_info_phase1: CompanyInfoPhase1 | null
     bank_accounts_phase1: BankAccountPhase1[] | null
     default_shipping_address: string | null
@@ -29,6 +32,9 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
   const [exchangeRate, setExchangeRate] = useState(String(initial.default_exchange_rate))
   const [taxRate, setTaxRate] = useState(String(initial.default_tax_rate))
   const [costRatio, setCostRatio] = useState(String(initial.default_cost_ratio))
+  const [yuanRate, setYuanRate] = useState(String(initial.default_yuan_to_usd_rate))
+  const [freightRate, setFreightRate] = useState(String(initial.default_china_freight_rate_yuan_per_kg))
+  const [pantoneFee, setPantoneFee] = useState(String(initial.default_pantone_color_fee_yuan))
 
   const [company, setCompany] = useState<CompanyInfoPhase1>(
     initial.company_info_phase1 || {}
@@ -51,11 +57,21 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
     if (!Number.isFinite(cr) || cr <= 0 || cr > 1)
       return setMessage({ type: 'error', text: '掛け率は 0 < x ≦ 1 で入力してください' })
 
+    const yr = Number(yuanRate)
+    const fr = Number(freightRate)
+    const pf = Number(pantoneFee)
+    if (!Number.isFinite(yr) || yr <= 0) return setMessage({ type: 'error', text: '元/USD レートは正の数で入力してください' })
+    if (!Number.isFinite(fr) || fr < 0) return setMessage({ type: 'error', text: '中国運賃 元/kg は 0 以上で入力してください' })
+    if (!Number.isFinite(pf) || pf < 0) return setMessage({ type: 'error', text: 'パントン指定料 元 は 0 以上で入力してください' })
+
     startTransition(async () => {
       const result = await updateSettings({
         default_exchange_rate: er,
         default_tax_rate: tr,
         default_cost_ratio: cr,
+        default_yuan_to_usd_rate: yr,
+        default_china_freight_rate_yuan_per_kg: fr,
+        default_pantone_color_fee_yuan: pf,
         company_info_phase1: company,
         bank_accounts_phase1: banks.filter((b) => b.bank_name?.trim()),
         default_shipping_address: shippingAddress.trim() || null,
@@ -145,6 +161,39 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
               max="1"
               value={costRatio}
               onChange={(e) => setCostRatio(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#f0f0ed]">
+          <Field label="元/USD レート" hint="例: 7.2">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={yuanRate}
+              onChange={(e) => setYuanRate(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="中国運賃 (元/kg)" hint="例: 7.0">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={freightRate}
+              onChange={(e) => setFreightRate(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="パントン指定料 (元/color)" hint="例: 11775">
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={pantoneFee}
+              onChange={(e) => setPantoneFee(e.target.value)}
               className={inputClass}
             />
           </Field>

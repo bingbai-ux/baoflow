@@ -416,6 +416,10 @@ export interface SystemSettings {
   company_info_phase1: CompanyInfoPhase1 | null
   bank_accounts_phase1: BankAccountPhase1[] | null
   default_shipping_address: string | null
+  // Sprint 5: 物流計算用
+  default_china_freight_rate_yuan_per_kg: number  // 中国運賃 元/kg
+  default_yuan_to_usd_rate: number                // 元/USD レート
+  default_pantone_color_fee_yuan: number          // パントン指定料 元/color
   invoice_notes_template: string | null
   stale_alert_threshold_days: number
   food_inspection_config: Record<string, unknown> | null
@@ -759,4 +763,54 @@ export interface BankAccountPhase1 {
   account_number?: string
   account_holder?: string
   swift_code?: string
+}
+
+// ============================================================================
+// Sprint 5: 4 階層構造 (deal_products / deal_product_variants)
+// ============================================================================
+
+export type FoodGradeStatus = '*' | '●' | '同' | null
+
+export interface DealProduct {
+  id: string
+  deal_id: string
+  product_no: number
+  description: string
+  factory_staff_code: string | null
+  production_process: string | null
+  food_grade_status: FoodGradeStatus
+  food_inspection_status: FoodGradeStatus
+  product_memo: string | null
+  is_selected: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DealProductVariant {
+  id: string
+  product_id: string
+  variant_label: string
+  variant_order: number
+  width_mm: number | null
+  height_mm: number | null
+  depth_mm: number | null
+  material: string | null
+  color_description: string | null
+  pantone_colors: string | null
+  processing: string | null
+  other_notes: string | null
+  print_color_count: string | null
+  print_method: string | null
+  pcs_per_carton: number | null
+  carton_width_cm: number | null
+  carton_height_cm: number | null
+  carton_depth_cm: number | null
+  gross_weight_kg: number | null
+  production_lead_days: number | null
+  shipping_lead_days: number | null
+  food_inspection_days: number | null
+  shipping_address: string | null
+  is_selected: boolean
+  created_at: string
+  updated_at: string
 }

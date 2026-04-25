@@ -494,3 +494,25 @@ quoting → quote_confirmed → paid → data_confirmed → in_production → sh
 - 全体仕様: `docs/Phase1_実装仕様書.md`
 - 背景: `docs/Phase1_企画書_v1.1.md`
 - 旧リポの状況: `docs/旧BAOFlow_分析結果.md`
+
+---
+
+## Sprint 5 作業ルール (Phase 1.5: 4 階層構造)
+
+### 階層構造
+```
+clients (クライアント) — 既存
+  └─ deals (案件) — 既存
+       └─ deal_products (商品) — 新規
+            └─ deal_product_variants (バリエーション) — 新規
+                 └─ deal_quotes (見積) — variant_id を持つ
+```
+
+### 重要ルール
+- **旧 `deal_specifications` テーブルは DROP しない** (Phase 2 用に温存)
+- **新規挿入は `deal_products` + `deal_product_variants` に対して**実施 (deal_specifications には書き込まない)
+- 計算ロジックは `src/lib/calc/logistics-engine.ts` (容積重量・送料) と
+  `src/lib/calc/quote-engine.ts` (統合見積) に集約
+- 既存 Phase 1.5 の `deal_quotes.spec_id` は残す (NULL 許容)、新規見積は `variant_id` を使う
+- 帳票発行 (`/documents`) は 4 階層対応に書き換え (variant 経由)
+- migration 番号: 022 は Phase 1.5 で取得済み、Sprint 5 は **023 から**
