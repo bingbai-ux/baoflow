@@ -497,6 +497,28 @@ quoting → quote_confirmed → paid → data_confirmed → in_production → sh
 
 ---
 
+## Sprint 5 v2 作業ルール (Claude Design 採用、見た目刷新)
+
+### 方針 (B 案)
+- Sprint 5 v1 の **4 階層データモデル** (`deals → deal_products → deal_product_variants → deal_quotes`) は**温存**
+- Claude Design (`docs/design_handoff_baoflow_deals/`) のデザインを取り込む
+- inline style ではなく **Tailwind 化** (既存 codebase と統一)
+- 「1 商品 1 案件」方針は**採用しない** (現在の階層構造で表現)
+
+### 取り込み対象
+- `dashboard.jsx` → `/page.tsx` 再設計 (KPI 4 タイル / パイプライン / 要対応 / トップクライアント / アクティビティ)
+- `v5-nested.jsx` → `/deals/page.tsx` の見た目寄せ (30px 行 / フォント 11-12px / ホバー色)
+- `deal-detail-modal.jsx` → `/deals/[id]/page.tsx` 4 タブ化 (詳細 / 履歴 / 添付 / コミ準備中)
+
+### 追加で拡張するテーブル
+- `clients`: short_name / billing_to / tax_id / payment_terms / since / industry 等
+- `factories`: name_cn / specialties[] / 各 stars / lead_time_range 等
+
+### migration 番号
+- 022 (Phase 1.5) と 023 (Sprint 5 v1) は適用済 → Sprint 5 v2 は **024 から**
+
+---
+
 ## Sprint 5 作業ルール (Phase 1.5: 4 階層構造)
 
 ### 階層構造
