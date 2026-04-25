@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Plus } from 'lucide-react'
-import { DealsNestedTable } from '@/components/deals/deals-nested-table'
+import { DealsExcelTable } from '@/components/deals/deals-excel-table'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
 
 interface Props {
@@ -28,7 +28,7 @@ export default async function DealsPage({ searchParams }: Props) {
   let dealsQuery = supabase
     .from('deals')
     .select(
-      'id, deal_code, deal_name, client_name_text, desired_delivery_date, simple_status, last_activity_at'
+      'id, deal_code, deal_name, client_name_text, desired_delivery_date, simple_status, last_activity_at, sales_user_id'
     )
     .order('last_activity_at', { ascending: false })
 
@@ -57,6 +57,13 @@ export default async function DealsPage({ searchParams }: Props) {
     id: string
     product_id: string
     variant_label: string
+    width_mm: number | null
+    height_mm: number | null
+    depth_mm: number | null
+    material: string | null
+    print_color_count: string | null
+    pcs_per_carton: number | null
+    gross_weight_kg: number | null
     is_selected: boolean
   }> = []
   let quotes: Array<{
@@ -66,8 +73,14 @@ export default async function DealsPage({ searchParams }: Props) {
     spec_id: string | null
     version: number | null
     quantity: number | null
+    moq: number | null
+    factory_unit_price_usd: number | null
+    exchange_rate: number | null
+    cost_ratio: number | null
+    selling_price_jpy: number | null
     total_billing_jpy: number | null
     total_billing_tax_jpy: number | null
+    shipping_weight_kg: number | null
     status: string | null
   }> = []
 
@@ -80,13 +93,15 @@ export default async function DealsPage({ searchParams }: Props) {
         .order('product_no', { ascending: true }),
       supabase
         .from('deal_product_variants')
-        .select('id, product_id, variant_label, is_selected, deal_products!inner(deal_id)')
+        .select(
+          'id, product_id, variant_label, width_mm, height_mm, depth_mm, material, print_color_count, pcs_per_carton, gross_weight_kg, is_selected, deal_products!inner(deal_id)'
+        )
         .in('deal_products.deal_id', dealIds)
         .order('variant_order', { ascending: true }),
       supabase
         .from('deal_quotes')
         .select(
-          'id, deal_id, variant_id, spec_id, version, quantity, total_billing_jpy, total_billing_tax_jpy, status'
+          'id, deal_id, variant_id, spec_id, version, quantity, moq, factory_unit_price_usd, exchange_rate, cost_ratio, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, shipping_weight_kg, status'
         )
         .in('deal_id', dealIds)
         .order('version', { ascending: false }),
@@ -103,9 +118,9 @@ export default async function DealsPage({ searchParams }: Props) {
     <>
       <div className="flex justify-between items-center py-[18px]">
         <div>
-          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">案件</h1>
-          <p className="text-[12px] text-[#888] font-body mt-0.5">
-            クライアントごとに案件・商品・バリエーションを展開できます。
+          <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a] tracking-tight">案件</h1>
+          <p className="text-[11px] text-[#888] font-body mt-0.5">
+            Excel 風一覧 — セルをクリックして直接編集 · 横スクロールで全項目表示
           </p>
         </div>
         <Link
@@ -117,7 +132,7 @@ export default async function DealsPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <DealsNestedTable
+      <DealsExcelTable
         deals={deals || []}
         products={products}
         variants={variants}

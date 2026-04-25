@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { ChevronDown, ChevronRight, Search, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide-react'
+import { DocumentModal } from '@/components/documents/document-modal'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -425,6 +426,7 @@ function DealRowItem({
   forceCollapsed: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [docModalOpen, setDocModalOpen] = useState(false)
   const visible = forceCollapsed ? false : expanded
   const cfg = SIMPLE_STATUS_CONFIG[deal.simple_status]
   const approvedTax = approvedTotalForDeal(quotes)
@@ -461,7 +463,23 @@ function DealRowItem({
             {deal.deal_name || '(未設定)'}
           </Link>
         </td>
-        <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">{deal.client_name_text || '-'}</td>
+        <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="truncate flex-1">{deal.client_name_text || '-'}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDocModalOpen(true)
+              }}
+              className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] font-body text-[#0a0a0a] bg-white border border-[#e8e8e6] rounded-[3px] px-1.5 py-0.5 hover:bg-[#fafaf8]"
+              title="見積書 / 請求書 / 納品書 / RFQ"
+            >
+              <FileText className="w-2.5 h-2.5" />
+              帳票
+            </button>
+          </div>
+        </td>
         <td className="px-2.5 py-1">
           <span className="inline-flex items-center gap-1 text-[10px] text-[#555]">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STEP_COLOR_MAP[cfg.color] }} />
@@ -485,6 +503,7 @@ function DealRowItem({
           </Link>
         </td>
       </tr>
+      {docModalOpen && <DocumentModal dealId={deal.id} onClose={() => setDocModalOpen(false)} />}
       {visible && (
         <tr>
           <td colSpan={11} className="bg-[#fafaf9] px-3.5 py-2 border-b border-[rgba(0,0,0,0.04)]">
