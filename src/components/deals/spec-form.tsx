@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSpec, updateSpec, deleteSpec } from '@/lib/actions/specifications'
+import { type FeeType, FEE_TYPE_LABELS } from '@/lib/types'
 
 export interface SpecFormInitial {
   id?: string
@@ -19,11 +20,27 @@ export interface SpecFormInitial {
   specification_memo?: string | null
 }
 
+export interface InitialFee {
+  fee_type: FeeType
+  amount_jpy?: number | null
+  is_initial_only?: boolean
+  note?: string | null
+}
+
 interface SpecFormProps {
   dealId: string
   initial?: SpecFormInitial
+  initialFees?: InitialFee[]
   cancelHref: string
 }
+
+const FEE_FIELDS: Array<{ key: string; type: FeeType }> = [
+  { key: 'plate', type: 'plate' },
+  { key: 'pantone', type: 'pantone' },
+  { key: 'sample_make', type: 'sample_make' },
+  { key: 'sample_ship', type: 'sample_ship' },
+  { key: 'food_inspection', type: 'food_inspection' },
+]
 
 const PROCESSING_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'deboss', label: '型押し (deboss)' },
@@ -35,7 +52,10 @@ const PROCESSING_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'window', label: '窓抜き' },
 ]
 
-export function SpecForm({ dealId, initial, cancelHref }: SpecFormProps) {
+export function SpecForm({ dealId, initial, initialFees, cancelHref }: SpecFormProps) {
+  const initialFeeMap = new Map<FeeType, InitialFee>()
+  for (const f of initialFees || []) initialFeeMap.set(f.fee_type, f)
+
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDelete] = useTransition()
@@ -180,6 +200,50 @@ export function SpecForm({ dealId, initial, cancelHref }: SpecFormProps) {
           className={`${inputClass} resize-y`}
         />
       </Field>
+
+      <fieldset className="border border-[#e8e8e6] rounded-[8px] p-3">
+        <legend className="text-[11px] font-body text-[#888] px-1">
+          ワンショット費用 (任意 - 帳票の別途費用に表示)
+        </legend>
+        <div className="space-y-2 mt-1">
+          {FEE_FIELDS.map((f) => {
+            const init = initialFeeMap.get(f.type)
+            return (
+              <div key={f.key} className="grid grid-cols-12 gap-2 items-center">
+                <span className="col-span-3 text-[12px] font-body text-[#0a0a0a]">
+                  {FEE_TYPE_LABELS[f.type]}
+                </span>
+                <div className="col-span-3 flex items-center gap-1">
+                  <span className="text-[11px] text-[#888]">¥</span>
+                  <input
+                    type="number"
+                    name={`fee_${f.key}_jpy`}
+                    min="0"
+                    step="1"
+                    defaultValue={init?.amount_jpy ?? ''}
+                    className={`${inputClass} tabular-nums`}
+                    placeholder="0"
+                  />
+                </div>
+                <label className="col-span-2 inline-flex items-center gap-1 text-[11px] text-[#555]">
+                  <input type="checkbox" name={`fee_${f.key}_initial`} defaultChecked={init?.is_initial_only ?? false} className="w-3 h-3" />
+                  初回のみ
+                </label>
+                <input
+                  type="text"
+                  name={`fee_${f.key}_note`}
+                  defaultValue={init?.note || ''}
+                  placeholder="備考 (任意)"
+                  className={`col-span-4 ${inputClass}`}
+                />
+              </div>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-[10px] text-[#bbb] font-body">
+          金額または備考のどちらかを入れた行のみ保存されます。空欄の行は無視されます。
+        </p>
+      </fieldset>
 
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex gap-2">

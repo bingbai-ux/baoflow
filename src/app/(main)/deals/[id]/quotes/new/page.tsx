@@ -7,10 +7,12 @@ import { getQuoteCalculationDefaults } from '@/lib/actions/quotes'
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ spec_id?: string }>
 }
 
-export default async function NewQuotePage({ params }: Props) {
+export default async function NewQuotePage({ params, searchParams }: Props) {
   const { id } = await params
+  const sp = searchParams ? await searchParams : {}
   const supabase = await createClient()
 
   const {
@@ -18,11 +20,18 @@ export default async function NewQuotePage({ params }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: deal } = await supabase
-    .from('deals')
-    .select('id, deal_code, deal_name')
-    .eq('id', id)
-    .single()
+  const [{ data: deal }, { data: specs }] = await Promise.all([
+    supabase
+      .from('deals')
+      .select('id, deal_code, deal_name')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('deal_specifications')
+      .select('id, product_name')
+      .eq('deal_id', id)
+      .order('created_at', { ascending: true }),
+  ])
   if (!deal) notFound()
 
   const defaults = await getQuoteCalculationDefaults()
@@ -46,7 +55,13 @@ export default async function NewQuotePage({ params }: Props) {
       </div>
 
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mt-2">
-        <QuoteForm dealId={id} defaults={defaults} cancelHref={`/deals/${id}/quote`} />
+        <QuoteForm
+          dealId={id}
+          defaults={defaults}
+          specs={specs || []}
+          defaultSpecId={sp?.spec_id}
+          cancelHref={`/deals/${id}/quote`}
+        />
       </div>
     </>
   )

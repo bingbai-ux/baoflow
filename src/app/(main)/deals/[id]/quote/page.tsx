@@ -25,7 +25,14 @@ export default async function DealQuoteListPage({ params }: Props) {
     .single()
   if (!deal) notFound()
 
-  const quotes = await getQuotesForDeal(id)
+  const [quotes, { data: specs }] = await Promise.all([
+    getQuotesForDeal(id),
+    supabase
+      .from('deal_specifications')
+      .select('id, product_name')
+      .eq('deal_id', id)
+      .order('created_at', { ascending: true }),
+  ])
 
   return (
     <>
@@ -64,7 +71,7 @@ export default async function DealQuoteListPage({ params }: Props) {
           </Link>
         </div>
       ) : (
-        <QuoteList quotes={quotes} />
+        <QuoteList dealId={id} quotes={quotes} specs={specs || []} />
       )}
     </>
   )

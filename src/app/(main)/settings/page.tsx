@@ -24,6 +24,9 @@ export default async function SettingsPage() {
     default_exchange_rate: Number(settings?.default_exchange_rate) || 155,
     default_tax_rate: Number(settings?.default_tax_rate) || 10,
     default_cost_ratio: Number(settings?.default_cost_ratio) || 0.55,
+    company_info_phase1: settings?.company_info_phase1 || null,
+    bank_accounts_phase1: settings?.bank_accounts_phase1 || null,
+    default_shipping_address: settings?.default_shipping_address || null,
   }
 
   return (

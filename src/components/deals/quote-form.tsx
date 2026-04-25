@@ -7,6 +7,12 @@ import { calculateQuote } from '@/lib/calc/cost-engine'
 import { createQuote } from '@/lib/actions/quotes'
 import { formatJPY, formatUSD } from '@/lib/utils/format'
 
+interface SpecOption {
+  id: string
+  product_name: string | null
+  size_label?: string | null
+}
+
 interface QuoteFormProps {
   dealId: string
   defaults: {
@@ -14,14 +20,17 @@ interface QuoteFormProps {
     cost_ratio: number
     tax_rate: number
   }
+  specs: SpecOption[]
+  defaultSpecId?: string | null
   cancelHref: string
 }
 
-export function QuoteForm({ dealId, defaults, cancelHref }: QuoteFormProps) {
+export function QuoteForm({ dealId, defaults, specs, defaultSpecId, cancelHref }: QuoteFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
+  const [specId, setSpecId] = useState<string>(defaultSpecId || '')
   const [quantity, setQuantity] = useState<string>('1000')
   const [unitPrice, setUnitPrice] = useState<string>('1.00')
   const [plateFee, setPlateFee] = useState<string>('0')
@@ -59,6 +68,8 @@ export function QuoteForm({ dealId, defaults, cancelHref }: QuoteFormProps) {
     setError(null)
     const formData = new FormData(e.currentTarget)
     formData.set('deal_id', dealId)
+    if (specId) formData.set('spec_id', specId)
+    else formData.delete('spec_id')
     startTransition(async () => {
       const result = await createQuote(formData)
       if (result.error || !result.data) {
@@ -79,6 +90,21 @@ export function QuoteForm({ dealId, defaults, cancelHref }: QuoteFormProps) {
             {error}
           </div>
         )}
+
+        <Field label="対応する商品仕様" hint={specs.length === 0 ? '先に商品仕様を追加してください' : '任意'}>
+          <select
+            value={specId}
+            onChange={(e) => setSpecId(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">— 案件全体 (商品選択しない) —</option>
+            {specs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.product_name || '(商品名未設定)'}
+              </option>
+            ))}
+          </select>
+        </Field>
 
         <Field label="数量" required>
           <input

@@ -36,11 +36,21 @@ interface SpecLite {
 
 interface QuoteLite {
   id: string
+  spec_id: string | null
   version: number | null
   quantity: number | null
   total_billing_tax_jpy: number | null
   status: string | null
   created_at: string
+}
+
+interface FeeLite {
+  id: string
+  spec_id: string | null
+  fee_type: string
+  amount_jpy: number | null
+  is_initial_only: boolean
+  note: string | null
 }
 
 interface DesignFileLite {
@@ -63,6 +73,7 @@ interface DealDetailTabsProps {
   deal: DealLite
   specifications: SpecLite[]
   quotes: QuoteLite[]
+  fees: FeeLite[]
   designFiles: DesignFileLite[]
   statusHistory: StatusHistoryLite[]
 }
@@ -78,6 +89,7 @@ export function DealDetailTabs({
   deal,
   specifications,
   quotes,
+  fees,
   designFiles,
   statusHistory,
 }: DealDetailTabsProps) {
@@ -118,9 +130,9 @@ export function DealDetailTabs({
       {/* Tab Content */}
       {active === 'basic' && <BasicTab deal={deal} statusHistory={statusHistory} />}
       {active === 'specifications' && (
-        <SpecsTab dealId={deal.id} specifications={specifications} />
+        <SpecsTab dealId={deal.id} specifications={specifications} fees={fees} />
       )}
-      {active === 'quotes' && <QuotesTab dealId={deal.id} quotes={quotes} />}
+      {active === 'quotes' && <QuotesTab dealId={deal.id} quotes={quotes} specs={specifications} />}
       {active === 'images' && <ImagesTab dealId={deal.id} designFiles={designFiles} />}
     </div>
   )
@@ -213,7 +225,24 @@ function BasicTab({
   )
 }
 
-function SpecsTab({ dealId, specifications }: { dealId: string; specifications: SpecLite[] }) {
+function SpecsTab({
+  dealId,
+  specifications,
+  fees,
+}: {
+  dealId: string
+  specifications: SpecLite[]
+  fees: FeeLite[]
+}) {
+  const FEE_LABELS: Record<string, string> = {
+    plate: '型代/版代',
+    pantone: 'パントン色指定料',
+    sample_make: 'サンプル製作',
+    sample_ship: 'サンプル取寄せ',
+    food_inspection: '食品検査',
+    other: 'その他費用',
+  }
+
   return (
     <Section title="商品仕様">
       {specifications.length === 0 ? (
@@ -232,6 +261,7 @@ function SpecsTab({ dealId, specifications }: { dealId: string; specifications: 
                   : null
               const summary = [s.product_category, s.material_category, sizeStr].filter(Boolean).join(' / ')
               const printSummary = [s.printing_method, s.print_colors].filter(Boolean).join(' · ')
+              const specFees = fees.filter((f) => f.spec_id === s.id)
               return (
                 <li
                   key={s.id}
@@ -248,6 +278,22 @@ function SpecsTab({ dealId, specifications }: { dealId: string; specifications: 
                         <p className="text-[#888] mt-0.5 text-[12px]">
                           加工: {s.processing_list.join(', ')}
                         </p>
+                      )}
+                      {specFees.length > 0 && (
+                        <ul className="mt-2 pt-2 border-t border-[#f0f0ed] space-y-0.5">
+                          {specFees.map((f) => (
+                            <li key={f.id} className="text-[11px] text-[#555] flex items-baseline gap-2">
+                              <span className="text-[#888]">
+                                {FEE_LABELS[f.fee_type] || f.fee_type}
+                                {f.is_initial_only && ' (初回のみ)'}:
+                              </span>
+                              <span className="tabular-nums text-[#0a0a0a]">
+                                {f.amount_jpy != null ? formatJPY(f.amount_jpy) : '-'}
+                              </span>
+                              {f.note && <span className="text-[#bbb]">{f.note}</span>}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                     <Link
@@ -273,9 +319,19 @@ function SpecsTab({ dealId, specifications }: { dealId: string; specifications: 
   )
 }
 
-function QuotesTab({ dealId, quotes }: { dealId: string; quotes: QuoteLite[] }) {
-  const visible = quotes.slice(0, 3)
-  const hidden = quotes.length - visible.length
+function QuotesTab({
+  dealId,
+  quotes,
+  specs,
+}: {
+  dealId: string
+  quotes: QuoteLite[]
+  specs: SpecLite[]
+}) {
+  const approved = quotes.filter((q) => q.status === 'approved')
+  const drafting = quotes.filter((q) => q.status !== 'approved').slice(0, 3)
+  const specMap = new Map(specs.map((s) => [s.id, s]))
+  const specName = (id: string | null) => (id ? specMap.get(id)?.product_name || '(商品)' : '案件全体')
 
   return (
     <Section title="見積">
@@ -287,24 +343,55 @@ function QuotesTab({ dealId, quotes }: { dealId: string; quotes: QuoteLite[] }) 
         />
       ) : (
         <>
-          <ul className="space-y-2">
-            {visible.map((q) => (
-              <li
-                key={q.id}
-                className="border border-[#e8e8e6] rounded-[8px] p-3 flex items-center justify-between text-[13px] font-body"
-              >
-                <div>
-                  <p className="text-[#0a0a0a] font-semibold tabular-nums">
-                    v{q.version || 1} · {q.quantity?.toLocaleString() || '-'} 個
-                  </p>
-                  <p className="text-[11px] text-[#888]">{formatDate(q.created_at)}</p>
-                </div>
-                <p className="text-[#0a0a0a] tabular-nums font-semibold">
-                  {q.total_billing_tax_jpy != null ? formatJPY(q.total_billing_tax_jpy) : '-'}
-                </p>
-              </li>
-            ))}
-          </ul>
+          {approved.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] text-[#888] font-body mb-1.5">採用された見積</p>
+              <ul className="space-y-1.5">
+                {approved.map((q) => (
+                  <li
+                    key={q.id}
+                    className="border border-[#22c55e] bg-[#f0fdf4] rounded-[8px] p-3 flex items-center justify-between text-[13px] font-body"
+                  >
+                    <div>
+                      <p className="text-[#0a0a0a]">
+                        <span className="text-[10px] text-white bg-[#22c55e] px-1.5 py-0.5 rounded-full mr-2">採用</span>
+                        {specName(q.spec_id)}
+                      </p>
+                      <p className="text-[11px] text-[#555] mt-0.5 tabular-nums">
+                        v{q.version || 1} · {q.quantity?.toLocaleString() || '-'} 個
+                      </p>
+                    </div>
+                    <p className="text-[#0a0a0a] tabular-nums font-semibold">
+                      {q.total_billing_tax_jpy != null ? formatJPY(q.total_billing_tax_jpy) : '-'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {drafting.length > 0 && (
+            <>
+              <p className="text-[11px] text-[#888] font-body mb-1.5">下書き</p>
+              <ul className="space-y-2">
+                {drafting.map((q) => (
+                  <li
+                    key={q.id}
+                    className="border border-[#e8e8e6] rounded-[8px] p-3 flex items-center justify-between text-[13px] font-body"
+                  >
+                    <div>
+                      <p className="text-[#0a0a0a]">{specName(q.spec_id)}</p>
+                      <p className="text-[11px] text-[#888] tabular-nums mt-0.5">
+                        v{q.version || 1} · {q.quantity?.toLocaleString() || '-'} 個 · {formatDate(q.created_at)}
+                      </p>
+                    </div>
+                    <p className="text-[#0a0a0a] tabular-nums font-semibold">
+                      {q.total_billing_tax_jpy != null ? formatJPY(q.total_billing_tax_jpy) : '-'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           <div className="mt-3 flex items-center gap-4">
             <Link
               href={`/deals/${dealId}/quotes/new`}
@@ -312,14 +399,12 @@ function QuotesTab({ dealId, quotes }: { dealId: string; quotes: QuoteLite[] }) 
             >
               + 別バージョンを追加
             </Link>
-            {(hidden > 0 || quotes.length > 0) && (
-              <Link
-                href={`/deals/${dealId}/quote`}
-                className="text-[12px] font-body text-[#555] no-underline hover:underline"
-              >
-                {hidden > 0 ? `他 ${hidden} 件を見る →` : 'すべての見積を見る →'}
-              </Link>
-            )}
+            <Link
+              href={`/deals/${dealId}/quote`}
+              className="text-[12px] font-body text-[#555] no-underline hover:underline"
+            >
+              すべての見積を見る ({quotes.length}) →
+            </Link>
           </div>
         </>
       )}
