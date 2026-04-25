@@ -8,10 +8,8 @@ import { formatJPY } from '@/lib/utils/format'
 import { ClientDetail } from './client-detail'
 import { FactoryDetail } from './factory-detail'
 import { StaffDetail } from './staff-detail'
-import { createClientRecord } from '@/lib/actions/clients'
-import { createFactoryRecord } from '@/lib/actions/factories'
-import type { ClientRollup } from '@/lib/actions/clients'
-import type { FactoryRollup } from '@/lib/actions/factories'
+import { createClientRecord, type ClientRollup } from '@/lib/actions/clients'
+import { createFactoryRecord, type FactoryRollup } from '@/lib/actions/factories'
 import type { StaffRollup } from '@/lib/actions/staff'
 
 interface ClientWithTotal extends Client {
