@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { DesignFilesList } from './designs-list'
+import { ChevronLeft } from 'lucide-react'
+import { DesignGallery } from '@/components/deals/design-gallery'
+import { listDesignFiles } from '@/lib/actions/designs'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -11,61 +13,39 @@ export default async function DesignsPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: deal } = await supabase
     .from('deals')
-    .select('id, deal_number, product_name')
+    .select('id, deal_code, deal_name')
     .eq('id', id)
     .single()
+  if (!deal) notFound()
 
-  if (!deal) {
-    notFound()
-  }
-
-  // Get design files
-  const { data: designFiles } = await supabase
-    .from('design_files')
-    .select(`
-      *,
-      profiles (id, display_name)
-    `)
-    .eq('deal_id', id)
-    .order('version', { ascending: false })
+  const files = await listDesignFiles(id)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f2f2f0', padding: '24px 26px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#888888', marginBottom: 2 }}>
-            {deal.deal_number}
-          </div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600 }}>
-            デザインデータ管理
-          </h1>
-        </div>
-        <Link
-          href={`/deals/${id}`}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#888888',
-            border: '1px solid #e8e8e6',
-            borderRadius: 8,
-            padding: '8px 16px',
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: 'none',
-          }}
-        >
-          案件に戻る
-        </Link>
+    <>
+      <Link
+        href={`/deals/${id}`}
+        className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        案件詳細に戻る
+      </Link>
+
+      <div className="py-3">
+        <p className="text-[11px] text-[#888] font-body tabular-nums">{deal.deal_code}</p>
+        <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">画像</h1>
+        <p className="text-[12px] font-body text-[#888] mt-1">
+          商品やデザインの画像をアップロードして案件と紐付けます。
+        </p>
       </div>
 
-      <DesignFilesList dealId={id} initialFiles={designFiles || []} userId={user.id} />
-    </div>
+      <DesignGallery dealId={id} initial={files} />
+    </>
   )
 }

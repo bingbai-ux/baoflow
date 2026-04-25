@@ -411,6 +411,7 @@ export interface SystemSettings {
   company_stamp_image: string | null
   bank_accounts: Record<string, unknown>[] | null
   default_sample_cost_rate: number
+  default_cost_ratio: number  // Phase 1: デフォルト掛け率 (例: 0.55)
   invoice_notes_template: string | null
   stale_alert_threshold_days: number
   food_inspection_config: Record<string, unknown> | null
