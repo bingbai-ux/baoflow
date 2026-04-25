@@ -11,7 +11,7 @@ import {
   getFactoryRollup,
 } from '@/lib/actions/factories'
 import { listStaff, getStaff, getStaffRollup } from '@/lib/actions/staff'
-import { MasterShell } from '@/components/master/master-shell'
+import { MasterTabs } from '@/components/master/master-tabs'
 
 interface Props {
   searchParams: Promise<{ tab?: string; id?: string }>
@@ -130,7 +130,7 @@ export default async function MasterPage({ searchParams }: Props) {
         <p className="text-[11px] text-[#888] font-body mt-1">クライアント・工場・担当者の登録、編集、取引履歴管理</p>
       </div>
 
-      <MasterShell
+      <MasterTabs
         tab={tab}
         clients={clientsWithTotal}
         factories={factoriesWithStats}

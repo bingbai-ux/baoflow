@@ -42,7 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
   sales: '営業',
 }
 
-export function MasterShell({
+export function MasterTabs({
   tab,
   clients,
   factories,
