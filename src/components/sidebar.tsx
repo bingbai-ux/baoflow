@@ -4,22 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import {
-  Home,
-  FileText,
-  Zap,
-  Truck,
-  Package,
-  Users,
-  Factory,
-  Ship,
-  UserCircle,
-  Grid,
-  BookOpen,
-  BarChart3,
-  Wallet,
-  Settings,
-} from 'lucide-react'
+import { Home, FileText, Settings } from 'lucide-react'
 
 interface MenuItem {
   label: string
@@ -37,32 +22,10 @@ const menuStructure: MenuCategory[] = [
     items: [{ label: 'ホーム', href: '/', icon: Home }],
   },
   {
-    label: '案件管理',
-    items: [
-      { label: '案件一覧', href: '/deals', icon: FileText },
-      { label: 'Smart Quote', href: '/smart-quote', icon: Zap },
-      { label: '出荷管理', href: '/shipments', icon: Truck },
-      { label: '在庫管理', href: '/inventory', icon: Package },
-    ],
+    items: [{ label: '案件', href: '/deals', icon: FileText }],
   },
   {
-    label: 'マスター',
-    items: [
-      { label: '顧客', href: '/clients', icon: Users },
-      { label: '工場', href: '/factories', icon: Factory },
-      { label: '物流エージェント', href: '/logistics', icon: Ship },
-      { label: 'スタッフ', href: '/staff', icon: UserCircle },
-      { label: 'カタログ', href: '/catalog', icon: Grid },
-      { label: '品目台帳', href: '/registry', icon: BookOpen },
-    ],
-  },
-  {
-    label: '分析・設定',
-    items: [
-      { label: '経営分析', href: '/analytics', icon: BarChart3 },
-      { label: '入出金管理', href: '/payments', icon: Wallet },
-      { label: '設定', href: '/settings', icon: Settings },
-    ],
+    items: [{ label: '設定', href: '/settings', icon: Settings }],
   },
 ]
 

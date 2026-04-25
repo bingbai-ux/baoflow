@@ -454,3 +454,43 @@ API ルート:    kebab-case     (/api/deals, /api/quote-calc)
 - ❌ border-radius を 20px 以外にする（ボタン・入力・ピルは例外）
 - ❌ フォントサイズを 14px 以上にする（ページタイトルと KPI 大数字は例外）
 - ❌ emoji をUIに使う
+
+---
+
+## Phase 1 作業ルール（v2.0）
+
+### 触らないディレクトリ
+以下は Phase 1 のスコープ外。読まない・修正しない・参照しない：
+- `src/app/(main)/_archive/`
+- `src/app/_archive_factory/`
+- `src/app/_archive_portal/`
+- `src/lib/actions/_unused/`
+- `src/components/_unused/`
+
+これらは過去の v1.0 のコードで、Phase 2 以降で復活させる可能性があるため
+削除せず保管している。Phase 1 では存在しないものとして扱う。
+
+### Phase 1 のスコープ（5 機能のみ）
+1. 案件基本情報（案件名・クライアント名・希望納期・担当・メモ）
+2. 商品仕様（サイズ・素材・色・加工・印刷）
+3. 見積計算（数量別単価・送料・掛け率・税）
+4. ステータス管理（7 段階の simple_status）
+5. 画像管理（高画質・複数画像）
+
+### Phase 1 のステータス（7 段階）
+quoting → quote_confirmed → paid → data_confirmed → in_production → shipped → delivered
+
+旧 master_status（M01-M25）は温存して触らない。simple_status のみ使用。
+
+### Phase 1 で使うテーブル
+- `deals`（simple_status, visibility, client_name_text, desired_delivery_date, memo を追加）
+- `deal_specifications`（既存、UI で出すカラムを絞る）
+- `deal_quotes`（既存）
+- `deal_status_history`（from_simple_status, to_simple_status を追加）
+- `profiles`（既存）
+- `documents`（画像管理用、流用）
+
+### 詳細
+- 全体仕様: `docs/Phase1_実装仕様書.md`
+- 背景: `docs/Phase1_企画書_v1.1.md`
+- 旧リポの状況: `docs/旧BAOFlow_分析結果.md`

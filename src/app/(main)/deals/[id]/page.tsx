@@ -1,14 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { StatusDot } from '@/components/status-dot'
-import { DealProgressBar } from '@/components/deal-progress-bar'
-import { StatusChanger } from './status-changer'
-import { RepeatButton } from './repeat-button'
-import { DealDetailTabs } from './deal-detail-tabs'
-import { DealActionPanel } from './deal-action-panel'
-import { MASTER_STATUS_CONFIG, type MasterStatus } from '@/lib/types'
 import { ChevronLeft } from 'lucide-react'
+import { DealProgressBar } from '@/components/deal-progress-bar'
+import { DealDetailTabs } from './deal-detail-tabs'
+import { type SimpleStatus } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,55 +14,72 @@ export default async function DealDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single()
-
-  // Fetch deal with all relations
   const { data: deal } = await supabase
     .from('deals')
-    .select(`
-      *,
-      client:clients(id, company_name, contact_name, email, phone),
-      sales_user:profiles!deals_sales_user_id_fkey(id, display_name),
-      specifications:deal_specifications(*),
-      factory_assignments:deal_factory_assignments(*, factory:factories(*)),
-      quotes:deal_quotes(*, factory:factories(*), shipping_options:deal_shipping_options(*)),
-      samples:deal_samples(*),
-      payments:deal_factory_payments(*),
-      design_files:deal_design_files(*),
-      shipping:deal_shipping(*)
-    `)
+    .select(
+      `
+      id,
+      deal_code,
+      deal_name,
+      client_name_text,
+      desired_delivery_date,
+      memo,
+      simple_status,
+      created_at,
+      last_activity_at,
+      sales_user:profiles!deals_sales_user_id_fkey(display_name)
+    `
+    )
     .eq('id', id)
     .single()
 
-  if (!deal) {
-    notFound()
+  if (!deal) notFound()
+
+  const [{ data: specifications }, { data: quotes }, { data: designFiles }, { data: statusHistory }] =
+    await Promise.all([
+      supabase
+        .from('deal_specifications')
+        .select(
+          'id, product_name, product_category, height_mm, width_mm, depth_mm, material_category, print_colors, printing_method, processing_list, specification_memo'
+        )
+        .eq('deal_id', id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('deal_quotes')
+        .select('id, version, quantity, total_billing_tax_jpy, status, created_at')
+        .eq('deal_id', id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('deal_design_files')
+        .select('id, storage_url, file_name, created_at')
+        .eq('deal_id', id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('deal_status_history')
+        .select(
+          'id, from_simple_status, to_simple_status, changed_at, note, changer:profiles!deal_status_history_changed_by_fkey(display_name)'
+        )
+        .eq('deal_id', id)
+        .order('changed_at', { ascending: false }),
+    ])
+
+  const dealLite = {
+    ...deal,
+    sales_user: Array.isArray(deal.sales_user) ? deal.sales_user[0] : deal.sales_user,
   }
 
-  const { data: statusHistory } = await supabase
-    .from('deal_status_history')
-    .select(`
-      *,
-      changer:profiles!deal_status_history_changed_by_fkey(id, display_name)
-    `)
-    .eq('deal_id', id)
-    .order('changed_at', { ascending: false })
-
-  const currentStatus = (deal.master_status || 'M01') as MasterStatus
-  const statusConfig = MASTER_STATUS_CONFIG[currentStatus]
-  const spec = deal.specifications?.[0]
+  const historyLite = (statusHistory || []).map((h) => ({
+    ...h,
+    changer: Array.isArray(h.changer) ? h.changer[0] : h.changer,
+  }))
 
   return (
     <>
-      {/* Back Link */}
       <Link
         href="/deals"
         className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2"
@@ -75,91 +88,34 @@ export default async function DealDetailPage({ params }: Props) {
         案件一覧
       </Link>
 
-      {/* Page Header */}
-      <div className="flex justify-between items-start py-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">
-              {deal.deal_code}
-            </h1>
-            <StatusDot status={currentStatus} size={6} />
-          </div>
-          {deal.deal_name && (
-            <p className="text-[13px] text-[#888] font-body mt-1">{deal.deal_name}</p>
-          )}
+      <div className="flex justify-between items-start py-3 gap-4">
+        <div className="min-w-0">
+          <p className="text-[11px] text-[#888] font-body tabular-nums">{deal.deal_code}</p>
+          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a] truncate">
+            {deal.deal_name || '(案件名未設定)'}
+          </h1>
+          <p className="text-[13px] text-[#555] font-body mt-1 truncate">
+            {deal.client_name_text || '(クライアント未設定)'}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/deals/${id}/quotes/new`}
-            className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            見積もり作成
-          </Link>
-          <Link
-            href={`/deals/${id}/excel-import`}
-            className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            Excel取込
-          </Link>
-          <Link
-            href={`/deals/${id}/documents`}
-            className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            帳票出力
-          </Link>
-          <RepeatButton dealId={id} />
-          <Link
-            href={`/deals/${id}/edit`}
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline"
-          >
-            編集
-          </Link>
-        </div>
+        <Link
+          href={`/deals/${id}/edit`}
+          className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline whitespace-nowrap"
+        >
+          編集
+        </Link>
       </div>
 
-      {/* Progress Bar */}
       <div className="mb-4">
-        <DealProgressBar currentStatus={currentStatus} />
+        <DealProgressBar dealId={id} currentStatus={(deal.simple_status || 'quoting') as SimpleStatus} />
       </div>
 
-      {/* Action Panel */}
-      <div className="mb-4">
-        <DealActionPanel
-          dealId={id}
-          currentStatus={currentStatus}
-          hasFactoryAssignment={deal.factory_assignments && deal.factory_assignments.length > 0}
-          hasQuote={deal.quotes && deal.quotes.length > 0}
-        />
-      </div>
-
-      {/* Info Bar */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-4 mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div>
-            <span className="text-[11px] text-[#888] font-body">クライアント</span>
-            <p className="text-[13px] text-[#0a0a0a] font-body">{deal.client?.company_name || '-'}</p>
-          </div>
-          <div>
-            <span className="text-[11px] text-[#888] font-body">担当営業</span>
-            <p className="text-[13px] text-[#0a0a0a] font-body">{deal.sales_user?.display_name || '-'}</p>
-          </div>
-          {statusConfig?.nextAction && (
-            <div>
-              <span className="text-[11px] text-[#888] font-body">次のアクション</span>
-              <p className="text-[13px] text-[#22c55e] font-body">{statusConfig.nextAction}</p>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusChanger dealId={id} currentStatus={currentStatus} />
-        </div>
-      </div>
-
-      {/* Tabbed Content */}
       <DealDetailTabs
-        deal={deal}
-        spec={spec}
-        statusHistory={statusHistory || []}
+        deal={dealLite as never}
+        specifications={specifications || []}
+        quotes={quotes || []}
+        designFiles={designFiles || []}
+        statusHistory={historyLite as never}
       />
     </>
   )

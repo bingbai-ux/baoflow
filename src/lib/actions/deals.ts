@@ -6,9 +6,9 @@ import type {
   Deal,
   DealWithRelations,
   MasterStatus,
-  CreateDealInput,
-  UpdateDealInput,
+  SimpleStatus,
 } from '@/lib/types'
+import { SIMPLE_STATUS_ORDER } from '@/lib/types'
 import { sendEmail } from '@/lib/utils/email'
 import {
   quoteReadyEmail,
@@ -177,15 +177,27 @@ async function generateDealCode(): Promise<string> {
   return `${prefix}${String(nextNumber).padStart(3, '0')}`
 }
 
-export async function createDeal(input: CreateDealInput | FormData): Promise<{ data: Deal | null; error: string | null }> {
+export interface CreatePhase1DealInput {
+  deal_name: string
+  client_name_text: string
+  desired_delivery_date?: string | null
+  sales_user_id?: string | null
+  memo?: string | null
+}
+
+export async function createDeal(
+  input: CreatePhase1DealInput | FormData
+): Promise<{ data: Deal | null; error: string | null }> {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     return { data: null, error: 'Unauthorized' }
   }
 
-  // Ensure profile exists (handles cases where trigger didn't create one)
+  // Ensure profile exists
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('id')
@@ -201,31 +213,27 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
     })
   }
 
-  // Handle FormData input
-  let dealData: {
-    deal_name?: string | null
-    client_id: string
-    delivery_type?: 'direct' | 'logistics_center'
-    ai_mode?: 'auto' | 'assist' | 'manual'
-  }
+  let dealData: CreatePhase1DealInput
 
   if (input instanceof FormData) {
-    const clientId = input.get('client_id') as string
-    if (!clientId) {
-      return { data: null, error: 'クライアントは必須です' }
-    }
+    const deal_name = (input.get('deal_name') as string)?.trim()
+    const client_name_text = (input.get('client_name_text') as string)?.trim()
+    if (!deal_name) return { data: null, error: '案件名は必須です' }
+    if (!client_name_text) return { data: null, error: 'クライアント名は必須です' }
+
     dealData = {
-      deal_name: (input.get('deal_name') as string) || null,
-      client_id: clientId,
-      delivery_type: (input.get('delivery_type') as 'direct' | 'logistics_center') || 'direct',
-      ai_mode: (input.get('ai_mode') as 'auto' | 'assist' | 'manual') || 'assist',
+      deal_name,
+      client_name_text,
+      desired_delivery_date: (input.get('desired_delivery_date') as string) || null,
+      sales_user_id: (input.get('sales_user_id') as string) || user.id,
+      memo: (input.get('memo') as string) || null,
     }
   } else {
+    if (!input.deal_name?.trim()) return { data: null, error: '案件名は必須です' }
+    if (!input.client_name_text?.trim()) return { data: null, error: 'クライアント名は必須です' }
     dealData = {
-      deal_name: input.deal_name || null,
-      client_id: input.client_id,
-      delivery_type: input.delivery_type || 'direct',
-      ai_mode: input.ai_mode || 'assist',
+      ...input,
+      sales_user_id: input.sales_user_id || user.id,
     }
   }
 
@@ -236,12 +244,15 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
     .insert({
       deal_code: dealCode,
       deal_name: dealData.deal_name,
-      client_id: dealData.client_id,
-      sales_user_id: user.id,
-      master_status: 'M01',
+      client_id: null,
+      client_name_text: dealData.client_name_text,
+      desired_delivery_date: dealData.desired_delivery_date || null,
+      memo: dealData.memo || null,
+      sales_user_id: dealData.sales_user_id,
+      // master_status / simple_status は DB default に任せる (M01 / quoting)
       win_probability: 'medium',
-      delivery_type: dealData.delivery_type,
-      ai_mode: dealData.ai_mode,
+      delivery_type: 'direct',
+      ai_mode: 'assist',
       last_activity_at: new Date().toISOString(),
     })
     .select()
@@ -255,20 +266,10 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
     deal_id: data.id,
     from_status: null,
     to_status: 'M01',
+    from_simple_status: null,
+    to_simple_status: 'quoting',
     changed_by: user.id,
     note: '案件作成',
-  })
-
-  // Create chat room for client-sales communication
-  await supabase.from('chat_rooms').insert({
-    deal_id: data.id,
-    room_type: 'client_sales',
-  })
-
-  // Create chat room for sales-factory communication
-  await supabase.from('chat_rooms').insert({
-    deal_id: data.id,
-    room_type: 'sales_factory',
   })
 
   revalidatePath('/deals')
@@ -278,35 +279,33 @@ export async function createDeal(input: CreateDealInput | FormData): Promise<{ d
 
 export async function updateDeal(
   id: string,
-  input: UpdateDealInput | FormData
+  input: Partial<CreatePhase1DealInput> | FormData
 ): Promise<{ data: Deal | null; error: string | null }> {
   const supabase = await createClient()
 
-  // Handle FormData input
-  let updateData: UpdateDealInput
-  if (input instanceof FormData) {
-    updateData = {}
-    const deal_name = input.get('deal_name') as string
-    const client_id = input.get('client_id') as string
-    const delivery_type = input.get('delivery_type') as string
-    const ai_mode = input.get('ai_mode') as string
-    const win_probability = input.get('win_probability') as string
-    const expected_delivery = input.get('expected_delivery') as string
+  let patch: Record<string, unknown> = {}
 
-    if (deal_name) updateData.deal_name = deal_name
-    if (client_id) updateData.client_id = client_id
-    if (delivery_type) updateData.delivery_type = delivery_type as 'direct' | 'logistics_center'
-    if (ai_mode) updateData.ai_mode = ai_mode as 'auto' | 'assist' | 'manual'
-    if (win_probability) updateData.win_probability = win_probability as 'high' | 'medium' | 'low' | 'won' | 'lost'
-    if (expected_delivery) updateData.expected_delivery = expected_delivery
+  if (input instanceof FormData) {
+    const deal_name = (input.get('deal_name') as string)?.trim()
+    const client_name_text = (input.get('client_name_text') as string)?.trim()
+    const desired_delivery_date = input.get('desired_delivery_date') as string
+    const sales_user_id = input.get('sales_user_id') as string
+    const memo = input.get('memo') as string
+
+    if (deal_name !== undefined && deal_name !== '') patch.deal_name = deal_name
+    if (client_name_text !== undefined && client_name_text !== '')
+      patch.client_name_text = client_name_text
+    if (desired_delivery_date !== null) patch.desired_delivery_date = desired_delivery_date || null
+    if (sales_user_id !== null) patch.sales_user_id = sales_user_id || null
+    if (memo !== null) patch.memo = memo || null
   } else {
-    updateData = input
+    patch = { ...input }
   }
 
   const { data, error } = await supabase
     .from('deals')
     .update({
-      ...updateData,
+      ...patch,
       last_activity_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -641,4 +640,75 @@ export async function getStaleDeals(thresholdDays: number = 7): Promise<Deal[]> 
     .order('last_activity_at', { ascending: true })
 
   return (data || []) as Deal[]
+}
+
+// ============================================================================
+// Phase 1: simple_status (7 段階) 更新
+// ============================================================================
+
+export async function updateSimpleStatus(
+  dealId: string,
+  newStatus: SimpleStatus
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('deals')
+    .select('simple_status')
+    .eq('id', dealId)
+    .single()
+
+  if (fetchError || !current) {
+    return { success: false, error: '案件が見つかりません' }
+  }
+
+  const fromStatus = current.simple_status as SimpleStatus
+
+  const { error: updateError } = await supabase
+    .from('deals')
+    .update({
+      simple_status: newStatus,
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq('id', dealId)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  await supabase.from('deal_status_history').insert({
+    deal_id: dealId,
+    from_simple_status: fromStatus,
+    to_simple_status: newStatus,
+    changed_at: new Date().toISOString(),
+  })
+
+  revalidatePath(`/deals/${dealId}`)
+  revalidatePath('/deals')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function advanceSimpleStatus(
+  dealId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('deals')
+    .select('simple_status')
+    .eq('id', dealId)
+    .single()
+
+  if (fetchError || !current) {
+    return { success: false, error: '案件が見つかりません' }
+  }
+
+  const currentIndex = SIMPLE_STATUS_ORDER.indexOf(current.simple_status as SimpleStatus)
+  if (currentIndex === -1 || currentIndex === SIMPLE_STATUS_ORDER.length - 1) {
+    return { success: false, error: 'これ以上進められません' }
+  }
+
+  const nextStatus = SIMPLE_STATUS_ORDER[currentIndex + 1]
+  return updateSimpleStatus(dealId, nextStatus)
 }
