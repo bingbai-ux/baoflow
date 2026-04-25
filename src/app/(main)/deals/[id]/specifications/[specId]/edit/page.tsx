@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { SpecForm } from '@/components/deals/spec-form'
+import { listFeesForSpec } from '@/lib/actions/fees'
 
 interface Props {
   params: Promise<{ id: string; specId: string }>
@@ -27,6 +28,14 @@ export default async function EditSpecPage({ params }: Props) {
     .single()
   if (!spec) notFound()
 
+  const fees = await listFeesForSpec(specId)
+  const initialFees = fees.map((f) => ({
+    fee_type: f.fee_type,
+    amount_jpy: f.amount_jpy,
+    is_initial_only: f.is_initial_only,
+    note: f.note,
+  }))
+
   return (
     <>
       <Link
@@ -42,7 +51,7 @@ export default async function EditSpecPage({ params }: Props) {
       </div>
 
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mt-2">
-        <SpecForm dealId={id} initial={spec} cancelHref={`/deals/${id}`} />
+        <SpecForm dealId={id} initial={spec} initialFees={initialFees} cancelHref={`/deals/${id}`} />
       </div>
     </>
   )

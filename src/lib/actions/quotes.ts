@@ -6,6 +6,7 @@ import { calculateQuote } from '@/lib/calc/cost-engine'
 
 export interface CreatePhase1QuoteInput {
   deal_id: string
+  spec_id?: string | null
   quantity: number
   factory_unit_price_usd: number
   plate_fee_usd?: number | null
@@ -17,6 +18,7 @@ export interface CreatePhase1QuoteInput {
 export interface QuoteRow {
   id: string
   deal_id: string
+  spec_id: string | null
   version: number | null
   quantity: number | null
   factory_unit_price_usd: number | null
@@ -63,6 +65,7 @@ function parseFormData(input: CreatePhase1QuoteInput | FormData): CreatePhase1Qu
   }
   return {
     deal_id: (input.get('deal_id') as string) || '',
+    spec_id: (input.get('spec_id') as string) || null,
     quantity: num('quantity') || 0,
     factory_unit_price_usd: num('factory_unit_price_usd') || 0,
     plate_fee_usd: num('plate_fee_usd'),
@@ -115,6 +118,7 @@ export async function createQuote(
     .from('deal_quotes')
     .insert({
       deal_id: data.deal_id,
+      spec_id: data.spec_id || null,
       factory_id: null,
       version: nextVersion,
       quantity: data.quantity,
@@ -168,11 +172,73 @@ export async function getQuotesForDeal(dealId: string): Promise<QuoteRow[]> {
   const { data } = await supabase
     .from('deal_quotes')
     .select(
-      'id, deal_id, version, quantity, factory_unit_price_usd, plate_fee_usd, other_fees_usd, total_cost_usd, unit_cost_usd, cost_ratio, exchange_rate, selling_price_usd, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, created_at'
+      'id, deal_id, spec_id, version, quantity, factory_unit_price_usd, plate_fee_usd, other_fees_usd, total_cost_usd, unit_cost_usd, cost_ratio, exchange_rate, selling_price_usd, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, created_at'
     )
     .eq('deal_id', dealId)
     .order('version', { ascending: false })
   return (data || []) as QuoteRow[]
+}
+
+export async function selectQuote(
+  quoteId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('deal_quotes')
+    .select('deal_id, spec_id')
+    .eq('id', quoteId)
+    .single()
+  if (!existing) return { success: false, error: '見積が見つかりません' }
+
+  // 同 spec_id (NULL 含む) の他の quote を 'rejected' に戻し、本人を 'approved' に
+  if (existing.spec_id) {
+    await supabase
+      .from('deal_quotes')
+      .update({ status: 'rejected' })
+      .eq('deal_id', existing.deal_id)
+      .eq('spec_id', existing.spec_id)
+      .eq('status', 'approved')
+  } else {
+    await supabase
+      .from('deal_quotes')
+      .update({ status: 'rejected' })
+      .eq('deal_id', existing.deal_id)
+      .is('spec_id', null)
+      .eq('status', 'approved')
+  }
+
+  const { error } = await supabase
+    .from('deal_quotes')
+    .update({ status: 'approved' })
+    .eq('id', quoteId)
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath(`/deals/${existing.deal_id}`)
+  revalidatePath(`/deals/${existing.deal_id}/quote`)
+  return { success: true }
+}
+
+export async function unselectQuote(
+  quoteId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('deal_quotes')
+    .select('deal_id')
+    .eq('id', quoteId)
+    .single()
+  if (!existing) return { success: false, error: '見積が見つかりません' }
+
+  const { error } = await supabase
+    .from('deal_quotes')
+    .update({ status: 'drafting' })
+    .eq('id', quoteId)
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath(`/deals/${existing.deal_id}`)
+  revalidatePath(`/deals/${existing.deal_id}/quote`)
+  return { success: true }
 }
 
 export async function getQuoteCalculationDefaults(): Promise<CalcDefaults> {

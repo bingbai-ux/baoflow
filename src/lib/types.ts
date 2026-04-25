@@ -412,6 +412,10 @@ export interface SystemSettings {
   bank_accounts: Record<string, unknown>[] | null
   default_sample_cost_rate: number
   default_cost_ratio: number  // Phase 1: デフォルト掛け率 (例: 0.55)
+  // Phase 1.5: 帳票発行
+  company_info_phase1: CompanyInfoPhase1 | null
+  bank_accounts_phase1: BankAccountPhase1[] | null
+  default_shipping_address: string | null
   invoice_notes_template: string | null
   stale_alert_threshold_days: number
   food_inspection_config: Record<string, unknown> | null
@@ -701,3 +705,58 @@ export const SIMPLE_STATUS_ORDER: SimpleStatus[] = [
   'shipped',
   'delivered',
 ]
+
+// ============================================================================
+// Phase 1.5: Deal Fees (型代/版代/パントン/サンプル/食品検査などのワンショット費用)
+// ============================================================================
+
+export type FeeType = 'plate' | 'pantone' | 'sample_make' | 'sample_ship' | 'food_inspection' | 'other'
+
+export const FEE_TYPE_LABELS: Record<FeeType, string> = {
+  plate: '型代/版代',
+  pantone: 'パントン色指定料',
+  sample_make: 'サンプル製作',
+  sample_ship: 'サンプル取寄せ',
+  food_inspection: '食品検査',
+  other: 'その他費用',
+}
+
+export interface DealFee {
+  id: string
+  deal_id: string
+  spec_id: string | null
+  fee_type: FeeType
+  label: string | null
+  amount_jpy: number | null
+  amount_usd: number | null
+  amount_cny: number | null
+  is_one_time: boolean
+  is_initial_only: boolean
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ============================================================================
+// Phase 1.5: Company info / Bank accounts (帳票発行用)
+// ============================================================================
+
+export interface CompanyInfoPhase1 {
+  name?: string
+  name_en?: string
+  address?: string
+  address_en?: string
+  phone?: string
+  email?: string
+  registration_number?: string  // インボイス登録番号
+  representative?: string
+}
+
+export interface BankAccountPhase1 {
+  bank_name: string
+  branch_name?: string
+  account_type?: string  // '普通' | '当座'
+  account_number?: string
+  account_holder?: string
+  swift_code?: string
+}

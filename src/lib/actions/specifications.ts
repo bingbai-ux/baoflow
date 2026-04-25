@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { upsertSpecFees, type FeeInput } from './fees'
 
 export interface SpecInput {
   product_name: string
@@ -59,6 +60,31 @@ function parseFormData(input: SpecInput | FormData): SpecInput {
   }
 }
 
+function parseFeesFromFormData(formData: FormData): FeeInput[] {
+  const types: Array<{ key: string; type: FeeInput['fee_type'] }> = [
+    { key: 'plate', type: 'plate' },
+    { key: 'pantone', type: 'pantone' },
+    { key: 'sample_make', type: 'sample_make' },
+    { key: 'sample_ship', type: 'sample_ship' },
+    { key: 'food_inspection', type: 'food_inspection' },
+  ]
+  const fees: FeeInput[] = []
+  for (const t of types) {
+    const jpy = Number(formData.get(`fee_${t.key}_jpy`))
+    const note = (formData.get(`fee_${t.key}_note`) as string)?.trim() || null
+    const initialOnly = formData.get(`fee_${t.key}_initial`) === 'on'
+    if ((Number.isFinite(jpy) && jpy > 0) || note) {
+      fees.push({
+        fee_type: t.type,
+        amount_jpy: Number.isFinite(jpy) && jpy > 0 ? jpy : null,
+        is_initial_only: initialOnly,
+        note,
+      })
+    }
+  }
+  return fees
+}
+
 export async function createSpec(
   dealId: string,
   input: SpecInput | FormData
@@ -77,6 +103,11 @@ export async function createSpec(
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  if (input instanceof FormData && row) {
+    const fees = parseFeesFromFormData(input)
+    if (fees.length > 0) await upsertSpecFees(dealId, row.id, fees)
+  }
 
   revalidatePath(`/deals/${dealId}`)
   return { data: row as SpecRow, error: null }
@@ -98,6 +129,11 @@ export async function updateSpec(
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  if (input instanceof FormData && row?.deal_id) {
+    const fees = parseFeesFromFormData(input)
+    await upsertSpecFees(row.deal_id, specId, fees)
+  }
 
   if (row?.deal_id) revalidatePath(`/deals/${row.deal_id}`)
   return { data: row as SpecRow, error: null }
