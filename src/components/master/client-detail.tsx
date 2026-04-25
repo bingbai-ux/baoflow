@@ -4,11 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Trash2, Edit2, Save, X, ExternalLink } from 'lucide-react'
-import {
-  updateClientRecord,
-  deleteClientRecord,
-  type ClientRollup,
-} from '@/lib/actions/clients'
+import { updateClientRecord, deleteClientRecord } from '@/lib/actions/clients'
+import type { ClientRollup } from '@/lib/actions/master-types'
 import type { Client } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 

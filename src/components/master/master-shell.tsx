@@ -8,9 +8,9 @@ import { formatJPY } from '@/lib/utils/format'
 import { ClientDetail } from './client-detail'
 import { FactoryDetail } from './factory-detail'
 import { StaffDetail } from './staff-detail'
-import { createClientRecord, type ClientRollup } from '@/lib/actions/clients'
-import { createFactoryRecord, type FactoryRollup } from '@/lib/actions/factories'
-import type { StaffRollup } from '@/lib/actions/master-types'
+import { createClientRecord } from '@/lib/actions/clients'
+import { createFactoryRecord } from '@/lib/actions/factories'
+import type { ClientRollup, FactoryRollup, StaffRollup } from '@/lib/actions/master-types'
 
 interface ClientWithTotal extends Client {
   approved_total_jpy: number
@@ -293,7 +293,6 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
       }
       onClose()
       router.push(`/master?tab=clients&id=${r.data.id}`)
-      router.refresh()
     })
   }
 
@@ -338,7 +337,6 @@ function NewFactoryModal({ onClose }: { onClose: () => void }) {
       }
       onClose()
       router.push(`/master?tab=factories&id=${r.data.id}`)
-      router.refresh()
     })
   }
 

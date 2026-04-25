@@ -287,6 +287,9 @@ export function DealsNestedTable({
     return Array.from(map.values()).sort((a, b) => a.clientName.localeCompare(b.clientName))
   }, [deals])
 
+  // 帳票モーダル: 表の外に持ち上げて HTML を <tbody> 構造に閉じ込めない (hydration 安全)
+  const [docModalDealId, setDocModalDealId] = useState<string | null>(null)
+
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[14px] overflow-hidden">
       {/* Toolbar */}
@@ -388,7 +391,7 @@ export function DealsNestedTable({
           <tbody>
             {clientGroups.length === 0 ? (
               <tr>
-                <td colSpan={11} className="text-center py-12 text-[12px] text-[#888]">
+                <td colSpan={DEFAULT_COLUMNS.length} className="text-center py-12 text-[12px] text-[#888]">
                   {currentStatus !== 'all' || currentSearch
                     ? '条件に合う案件がありません'
                     : 'まだ案件がありません'}
@@ -412,6 +415,7 @@ export function DealsNestedTable({
                   quotesByDeal={quotesByDeal}
                   quotesByVariant={quotesByVariant}
                   forceCollapsed={allCollapsed}
+                  onOpenDocModal={setDocModalDealId}
                 />
               ))
             )}
@@ -429,6 +433,11 @@ export function DealsNestedTable({
           {formatJPY(deals.reduce((s, d) => s + approvedTotalForDeal(quotesByDeal.get(d.id) || []), 0))}
         </span>
       </div>
+
+      {/* 帳票モーダル: 表の外で render し、tbody/tr 直下に div を入れない */}
+      {docModalDealId && (
+        <DocumentModal dealId={docModalDealId} onClose={() => setDocModalDealId(null)} />
+      )}
     </div>
   )
 }
@@ -502,6 +511,7 @@ function ClientGroupRows({
   quotesByDeal,
   quotesByVariant,
   forceCollapsed,
+  onOpenDocModal,
 }: {
   group: ClientGroup
   productsByDeal: Map<string, ProductRow[]>
@@ -509,9 +519,9 @@ function ClientGroupRows({
   quotesByDeal: Map<string, QuoteRow[]>
   quotesByVariant: Map<string, QuoteRow[]>
   forceCollapsed: boolean
+  onOpenDocModal: (dealId: string) => void
 }) {
   const [expanded, setExpanded] = useState(true)
-  const [docModalDealId, setDocModalDealId] = useState<string | null>(null)
   const visible = forceCollapsed ? false : expanded
   const inProgress = group.deals.filter((d) => d.simple_status !== 'delivered').length
   const totalApproved = group.deals.reduce(
@@ -548,7 +558,7 @@ function ClientGroupRows({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  setDocModalDealId(primaryDealId)
+                  onOpenDocModal(primaryDealId)
                 }}
                 className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-body text-[#0a0a0a] bg-white border border-[#e8e8e6] rounded-[4px] px-1.5 py-0.5 hover:bg-[#fafaf8]"
                 title={
@@ -581,9 +591,6 @@ function ClientGroupRows({
             forceCollapsed={forceCollapsed}
           />
         ))}
-      {docModalDealId && (
-        <DocumentModal dealId={docModalDealId} onClose={() => setDocModalDealId(null)} />
-      )}
     </>
   )
 }
@@ -668,7 +675,7 @@ function DealRowItem({
       </tr>
       {visible && (
         <tr>
-          <td colSpan={11} className="bg-[#fafaf9] px-3.5 py-2 border-b border-[rgba(0,0,0,0.04)]">
+          <td colSpan={DEFAULT_COLUMNS.length} className="bg-[#fafaf9] px-3.5 py-2 border-b border-[rgba(0,0,0,0.04)]">
             {products.length === 0 ? (
               <p className="text-[10px] text-[#888]">商品がまだありません</p>
             ) : (

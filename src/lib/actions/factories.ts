@@ -3,6 +3,7 @@
 import { createClient as createSupabase } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Factory } from '@/lib/types'
+import type { FactoryRollup } from './master-types'
 
 export interface FactoryInput {
   factory_name: string
@@ -123,13 +124,6 @@ export async function deleteFactoryRecord(
   if (error) return { success: false, error: error.message }
   revalidatePath('/master')
   return { success: true }
-}
-
-export interface FactoryRollup {
-  factory_id: string
-  quote_count: number
-  approved_quote_count: number
-  avg_lead_days: number | null
 }
 
 export async function getFactoryRollup(factoryId: string): Promise<FactoryRollup> {

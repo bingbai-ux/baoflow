@@ -3,6 +3,7 @@
 import { createClient as createSupabase } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Client } from '@/lib/types'
+import type { ClientRollup } from './master-types'
 
 export interface ClientInput {
   company_name: string
@@ -120,21 +121,6 @@ export async function deleteClientRecord(
   if (error) return { success: false, error: error.message }
   revalidatePath('/master')
   return { success: true }
-}
-
-export interface ClientRollup {
-  client_id: string
-  deal_count: number
-  in_progress_count: number
-  approved_total_jpy: number
-  recent_deals: Array<{
-    id: string
-    deal_code: string
-    deal_name: string | null
-    simple_status: string
-    last_activity_at: string
-    approved_total_jpy: number
-  }>
 }
 
 export async function getClientRollup(clientId: string): Promise<ClientRollup> {

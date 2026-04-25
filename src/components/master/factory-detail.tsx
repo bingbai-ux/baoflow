@@ -3,11 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2, Edit2, Save, X, Star } from 'lucide-react'
-import {
-  updateFactoryRecord,
-  deleteFactoryRecord,
-  type FactoryRollup,
-} from '@/lib/actions/factories'
+import { updateFactoryRecord, deleteFactoryRecord } from '@/lib/actions/factories'
+import type { FactoryRollup } from '@/lib/actions/master-types'
 import type { Factory } from '@/lib/types'
 import { formatDate } from '@/lib/utils/format'
 

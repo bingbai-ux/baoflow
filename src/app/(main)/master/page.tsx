@@ -11,11 +11,7 @@ import {
   getFactoryRollup,
 } from '@/lib/actions/factories'
 import { listStaff, getStaff, getStaffRollup } from '@/lib/actions/staff'
-import dynamic from 'next/dynamic'
-
-const MasterShell = dynamic(
-  () => import('@/components/master/master-shell').then((m) => m.MasterShell)
-)
+import { MasterShell } from '@/components/master/master-shell'
 
 interface Props {
   searchParams: Promise<{ tab?: string; id?: string }>
@@ -39,7 +35,7 @@ export default async function MasterPage({ searchParams }: Props) {
   ])
 
   // Aggregate per-client approved totals + in-progress counts
-  const dealIds = new Map<string, string[]>() // client_id → deal ids
+  const dealToClient = new Map<string, string>() // O(1) reverse lookup deal_id → client_id
   const inProgressByClient = new Map<string, number>()
   const inProgressByStaff = new Map<string, number>()
   const { data: deals } = await supabase
@@ -47,9 +43,7 @@ export default async function MasterPage({ searchParams }: Props) {
     .select('id, client_id, sales_user_id, simple_status')
   for (const d of deals || []) {
     if (d.client_id) {
-      const arr = dealIds.get(d.client_id) || []
-      arr.push(d.id)
-      dealIds.set(d.client_id, arr)
+      dealToClient.set(d.id, d.client_id)
       if (d.simple_status !== 'delivered') {
         inProgressByClient.set(d.client_id, (inProgressByClient.get(d.client_id) || 0) + 1)
       }
@@ -58,7 +52,7 @@ export default async function MasterPage({ searchParams }: Props) {
       inProgressByStaff.set(d.sales_user_id, (inProgressByStaff.get(d.sales_user_id) || 0) + 1)
     }
   }
-  const allDealIds = Array.from(dealIds.values()).flat()
+  const allDealIds = Array.from(dealToClient.keys())
   const approvedByClient = new Map<string, number>()
   if (allDealIds.length > 0) {
     const { data: quotes } = await supabase
@@ -67,11 +61,9 @@ export default async function MasterPage({ searchParams }: Props) {
       .in('deal_id', allDealIds)
       .eq('status', 'approved')
     for (const q of quotes || []) {
-      for (const [cid, ids] of dealIds.entries()) {
-        if (ids.includes(q.deal_id)) {
-          approvedByClient.set(cid, (approvedByClient.get(cid) || 0) + (Number(q.total_billing_tax_jpy) || 0))
-          break
-        }
+      const cid = dealToClient.get(q.deal_id)
+      if (cid) {
+        approvedByClient.set(cid, (approvedByClient.get(cid) || 0) + (Number(q.total_billing_tax_jpy) || 0))
       }
     }
   }
