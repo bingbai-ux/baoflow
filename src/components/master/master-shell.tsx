@@ -10,7 +10,7 @@ import { FactoryDetail } from './factory-detail'
 import { StaffDetail } from './staff-detail'
 import { createClientRecord, type ClientRollup } from '@/lib/actions/clients'
 import { createFactoryRecord, type FactoryRollup } from '@/lib/actions/factories'
-import type { StaffRollup } from '@/lib/actions/staff'
+import type { StaffRollup } from '@/lib/actions/master-types'
 
 interface ClientWithTotal extends Client {
   approved_total_jpy: number

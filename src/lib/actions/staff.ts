@@ -3,14 +3,9 @@
 import { createClient as createSupabase } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Profile, UserRole } from '@/lib/types'
+import type { StaffInput, StaffRollup } from './master-types'
 
 const STAFF_ROLES: UserRole[] = ['admin', 'sales']
-
-export interface StaffInput {
-  display_name?: string | null
-  role?: UserRole
-  language_preference?: string | null
-}
 
 function parseFormData(input: StaffInput | FormData): StaffInput {
   if (!(input instanceof FormData)) return input
@@ -62,21 +57,6 @@ export async function updateStaffRecord(
   if (error) return { data: null, error: error.message }
   revalidatePath('/master')
   return { data: row as Profile, error: null }
-}
-
-export interface StaffRollup {
-  staff_id: string
-  deal_count: number
-  in_progress_count: number
-  approved_total_jpy: number
-  recent_deals: Array<{
-    id: string
-    deal_code: string
-    deal_name: string | null
-    simple_status: string
-    last_activity_at: string
-    approved_total_jpy: number
-  }>
 }
 
 export async function getStaffRollup(staffId: string): Promise<StaffRollup> {
