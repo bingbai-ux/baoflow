@@ -48,6 +48,7 @@ export default async function DealDetailPage({ params }: Props) {
     { data: fees },
     { data: designFiles },
     { data: statusHistory },
+    { data: communications },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -79,10 +80,15 @@ export default async function DealDetailPage({ params }: Props) {
     supabase
       .from('deal_status_history')
       .select(
-        'id, from_simple_status, to_simple_status, changed_at, note, changer:profiles!deal_status_history_changed_by_fkey(display_name)'
+        'id, from_simple_status, to_simple_status, changed_at, note, kind, changer:profiles!deal_status_history_changed_by_fkey(display_name)'
       )
       .eq('deal_id', id)
       .order('changed_at', { ascending: false }),
+    supabase
+      .from('deal_communications')
+      .select('*')
+      .eq('deal_id', id)
+      .order('occurred_at', { ascending: false }),
   ])
 
   // strip the joined deal_products from variants
@@ -175,6 +181,7 @@ export default async function DealDetailPage({ params }: Props) {
         fees={(fees || []) as never}
         designFiles={designFiles || []}
         statusHistory={historyLite as never}
+        communications={(communications || []) as never}
       />
     </>
   )

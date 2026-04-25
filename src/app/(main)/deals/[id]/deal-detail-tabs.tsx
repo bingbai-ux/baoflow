@@ -14,8 +14,10 @@ import {
 } from '@/lib/types'
 import { markProductSelected } from '@/lib/actions/products'
 import { markVariantSelected } from '@/lib/actions/variants'
+import { DealCommunicationTab } from '@/components/deals/deal-communication-tab'
+import type { DealCommunication } from '@/lib/types'
 
-type TabId = 'basic' | 'products' | 'quotes' | 'images' | 'history'
+type TabId = 'basic' | 'products' | 'quotes' | 'images' | 'comm' | 'history'
 
 interface DealLite {
   id: string
@@ -66,6 +68,7 @@ interface StatusHistoryLite {
   to_simple_status: SimpleStatus | null
   changed_at: string
   note: string | null
+  kind: string | null
   changer?: { display_name: string | null } | null
 }
 
@@ -77,6 +80,7 @@ interface DealDetailTabsProps {
   fees: FeeLite[]
   designFiles: DesignFileLite[]
   statusHistory: StatusHistoryLite[]
+  communications: DealCommunication[]
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -84,6 +88,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'products', label: '商品 / バリエーション' },
   { id: 'quotes', label: '見積一覧' },
   { id: 'images', label: '画像' },
+  { id: 'comm', label: '通信' },
   { id: 'history', label: '履歴' },
 ]
 
@@ -104,8 +109,10 @@ export function DealDetailTabs({
   fees,
   designFiles,
   statusHistory,
+  communications,
 }: DealDetailTabsProps) {
   const [active, setActive] = useState<TabId>('basic')
+  const unreadComm = communications.filter((c) => !c.is_read).length
 
   return (
     <div>
@@ -131,6 +138,11 @@ export function DealDetailTabs({
             {tab.id === 'images' && designFiles.length > 0 && (
               <span className="ml-1.5 text-[10px] text-[#888]">{designFiles.length}</span>
             )}
+            {tab.id === 'comm' && communications.length > 0 && (
+              <span className={`ml-1.5 text-[10px] ${unreadComm > 0 ? 'text-[#22c55e] font-semibold' : 'text-[#888]'}`}>
+                {communications.length}{unreadComm > 0 ? ` · ${unreadComm} 未読` : ''}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -149,6 +161,9 @@ export function DealDetailTabs({
         <QuotesSummaryTab dealId={deal.id} products={products} variants={variants} quotes={quotes} />
       )}
       {active === 'images' && <ImagesTab dealId={deal.id} designFiles={designFiles} />}
+      {active === 'comm' && (
+        <DealCommunicationTab dealId={deal.id} initial={communications} />
+      )}
       {active === 'history' && <HistoryTab statusHistory={statusHistory} />}
     </div>
   )
@@ -196,32 +211,104 @@ function BasicTab({ deal }: { deal: DealLite }) {
 }
 
 function HistoryTab({ statusHistory }: { statusHistory: StatusHistoryLite[] }) {
+  const [kindFilter, setKindFilter] = useState<string>('all')
+  const HISTORY_KINDS: Array<{ id: string; label: string; color: string }> = [
+    { id: 'status', label: 'ステータス', color: '#0a0a0a' },
+    { id: 'edit', label: '編集', color: '#888' },
+    { id: 'variant', label: 'バリエーション', color: '#22c55e' },
+    { id: 'attachment', label: '添付', color: '#e5a32e' },
+    { id: 'comm', label: '通信', color: '#7c3aed' },
+    { id: 'fee', label: '費用', color: '#888' },
+  ]
+  const counts: Record<string, number> = {}
+  for (const h of statusHistory) {
+    const k = h.kind || 'status'
+    counts[k] = (counts[k] || 0) + 1
+  }
+  const filtered = kindFilter === 'all' ? statusHistory : statusHistory.filter((h) => (h.kind || 'status') === kindFilter)
+
+  // group by date
+  const byDate = new Map<string, StatusHistoryLite[]>()
+  for (const h of filtered) {
+    const date = formatDate(h.changed_at)
+    const arr = byDate.get(date) || []
+    arr.push(h)
+    byDate.set(date, arr)
+  }
+
   return (
-    <Section title="ステータス履歴">
-      {statusHistory.length === 0 ? (
-        <p className="text-[12px] text-[#888] font-body">まだ履歴がありません。</p>
+    <Section title="履歴タイムライン">
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-1 mb-3">
+        <button
+          type="button"
+          onClick={() => setKindFilter('all')}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
+            kindFilter === 'all' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-[#555] border border-[#e8e8e6]'
+          }`}
+        >
+          すべて <span className="tabular-nums opacity-70">{statusHistory.length}</span>
+        </button>
+        {HISTORY_KINDS.map((k) => {
+          if ((counts[k.id] || 0) === 0) return null
+          return (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => setKindFilter(k.id)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
+                kindFilter === k.id ? 'bg-[#0a0a0a] text-white' : 'bg-white text-[#555] border border-[#e8e8e6]'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: k.color }} />
+              {k.label}
+              <span className="tabular-nums opacity-70">{counts[k.id]}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-[12px] text-[#888] font-body text-center py-6">まだ履歴がありません</p>
       ) : (
-        <ul className="space-y-2">
-          {statusHistory.map((h) => {
-            const from = h.from_simple_status
-              ? SIMPLE_STATUS_CONFIG[h.from_simple_status]?.label
-              : null
-            const to = h.to_simple_status ? SIMPLE_STATUS_CONFIG[h.to_simple_status]?.label : null
-            return (
-              <li key={h.id} className="flex items-baseline gap-3 text-[12px] font-body">
-                <span className="text-[#888] tabular-nums w-32 flex-shrink-0">
-                  {formatDate(h.changed_at)}
-                </span>
-                <span className="text-[#0a0a0a]">
-                  {from ? `${from} → ${to || '-'}` : to ? `→ ${to}` : h.note || '-'}
-                </span>
-                {h.changer?.display_name && (
-                  <span className="text-[#888] ml-auto">{h.changer.display_name}</span>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+        <div className="space-y-3">
+          {Array.from(byDate.entries()).map(([date, items]) => (
+            <div key={date}>
+              <p className="text-[10px] font-body text-[#888] uppercase tracking-[0.06em] mb-1.5 tabular-nums">
+                {date}
+              </p>
+              <ul className="space-y-1.5 border-l-2 border-[#f0f0ed] pl-3">
+                {items.map((h) => {
+                  const k = h.kind || 'status'
+                  const kCfg = HISTORY_KINDS.find((x) => x.id === k)
+                  const from = h.from_simple_status
+                    ? SIMPLE_STATUS_CONFIG[h.from_simple_status]?.label
+                    : null
+                  const to = h.to_simple_status ? SIMPLE_STATUS_CONFIG[h.to_simple_status]?.label : null
+                  return (
+                    <li key={h.id} className="text-[11px] font-body relative -ml-[14px] pl-[14px]">
+                      <span
+                        className="absolute left-0 top-1.5 w-2 h-2 rounded-full ring-2 ring-white"
+                        style={{ backgroundColor: kCfg?.color || '#888' }}
+                      />
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-[9px] uppercase tracking-wider text-[#888]">
+                          {kCfg?.label || k}
+                        </span>
+                        <span className="text-[#0a0a0a]">
+                          {from && to ? `${from} → ${to}` : to ? to : h.note || '-'}
+                        </span>
+                        {h.changer?.display_name && (
+                          <span className="text-[10px] text-[#888]">by {h.changer.display_name}</span>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </Section>
   )
