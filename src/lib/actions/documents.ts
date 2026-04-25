@@ -93,3 +93,99 @@ export async function previewNextNumber(type: DocumentType): Promise<string> {
   const supabase = await createClient()
   return nextDocumentNumber(supabase, type)
 }
+
+// Sprint 6 fixes: 1 回で帳票モーダルに必要な全データを取得
+export async function fetchDocumentBundle(
+  dealId: string
+): Promise<{ data: Record<string, unknown> | null; error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Unauthorized' }
+
+  const [
+    { data: deal },
+    { data: specs },
+    { data: products },
+    { data: variantsRaw },
+    { data: quotes },
+    { data: fees },
+    docs,
+    { data: settings },
+    nextQuotation,
+    nextInvoice,
+    nextDelivery,
+    nextRfq,
+  ] = await Promise.all([
+    supabase
+      .from('deals')
+      .select('id, deal_code, deal_name, client_name_text, desired_delivery_date')
+      .eq('id', dealId)
+      .single(),
+    supabase
+      .from('deal_specifications')
+      .select(
+        'id, product_name, product_category, height_mm, width_mm, depth_mm, material_category, print_colors, printing_method, processing_list, specification_memo'
+      )
+      .eq('deal_id', dealId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('deal_products')
+      .select('id, product_no, description')
+      .eq('deal_id', dealId)
+      .order('product_no', { ascending: true }),
+    supabase
+      .from('deal_product_variants')
+      .select('*, deal_products!inner(deal_id)')
+      .eq('deal_products.deal_id', dealId)
+      .order('variant_order', { ascending: true }),
+    supabase
+      .from('deal_quotes')
+      .select(
+        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, cost_ratio'
+      )
+      .eq('deal_id', dealId)
+      .order('version', { ascending: false }),
+    supabase
+      .from('deal_fees')
+      .select('id, spec_id, variant_id, fee_type, amount_jpy, is_initial_only, note')
+      .eq('deal_id', dealId)
+      .order('created_at', { ascending: true }),
+    listDocumentsForDeal(dealId),
+    supabase.from('system_settings').select('*').limit(1).single(),
+    nextDocumentNumber(supabase, 'quotation'),
+    nextDocumentNumber(supabase, 'invoice'),
+    nextDocumentNumber(supabase, 'delivery_note'),
+    nextDocumentNumber(supabase, 'rfq'),
+  ])
+
+  if (!deal) return { data: null, error: '案件が見つかりません' }
+
+  const variants = (variantsRaw || []).map((v) => {
+    const { deal_products: _omit, ...rest } = v as Record<string, unknown>
+    return rest
+  })
+
+  return {
+    data: {
+      deal,
+      specs: specs || [],
+      products: products || [],
+      variants,
+      quotes: quotes || [],
+      fees: fees || [],
+      docs,
+      company: settings?.company_info_phase1 || null,
+      banks: settings?.bank_accounts_phase1 || null,
+      defaultShippingAddress: settings?.default_shipping_address || null,
+      nextNumbers: {
+        quotation: nextQuotation,
+        invoice: nextInvoice,
+        delivery_note: nextDelivery,
+        rfq: nextRfq,
+      },
+    },
+    error: null,
+  }
+}
