@@ -12,12 +12,16 @@ const ALLOWED_DEAL_FIELDS = new Set([
   'client_name_text',
   'desired_delivery_date',
   'memo',
+  'shipping_method_1',
+  'contract_number',
 ])
 
 const ALLOWED_PRODUCT_FIELDS = new Set([
   'description',
   'factory_staff_code',
   'production_process',
+  'food_grade_status',
+  'food_inspection_status',
   'product_memo',
 ])
 
@@ -27,6 +31,7 @@ const ALLOWED_VARIANT_FIELDS = new Set([
   'color_description',
   'pantone_colors',
   'processing',
+  'other_notes',
   'print_color_count',
   'print_method',
   'width_mm',
@@ -39,10 +44,21 @@ const ALLOWED_VARIANT_FIELDS = new Set([
   'gross_weight_kg',
   'production_lead_days',
   'shipping_lead_days',
+  'food_inspection_days',
   'shipping_address',
 ])
 
-// Quote の編集は再計算が必要なので別関数で
+// Quote 系: recalc が必要なものは calc 経由 (QUOTE_RECALC_FIELDS)
+// 計算に影響しない単純フィールドは ALLOWED_QUOTE_FIELDS で直接 update
+const ALLOWED_QUOTE_FIELDS = new Set([
+  'incoterm',
+  'packing_info_text',
+  'sample_production_days',
+  'sample_shipping_days',
+  'food_inspection_fee_yuan',
+  'factory_calculated_freight_usd',
+])
+
 const QUOTE_RECALC_FIELDS = new Set([
   'quantity',
   'factory_unit_price_usd',
@@ -131,6 +147,29 @@ export async function updateVariantField(
       .single()
     if (prod?.deal_id) revalidatePath(`/deals/${prod.deal_id}`)
   }
+  return { success: true }
+}
+
+export async function updateQuoteSimpleField(
+  quoteId: string,
+  field: string,
+  value: string | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!ALLOWED_QUOTE_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
+  const supabase = await createClient()
+  const cast = castValue(value)
+  const { data: existing } = await supabase
+    .from('deal_quotes')
+    .select('deal_id')
+    .eq('id', quoteId)
+    .single()
+  const { error } = await supabase
+    .from('deal_quotes')
+    .update({ [field]: cast, updated_at: new Date().toISOString() })
+    .eq('id', quoteId)
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/deals')
+  if (existing?.deal_id) revalidatePath(`/deals/${existing.deal_id}`)
   return { success: true }
 }
 

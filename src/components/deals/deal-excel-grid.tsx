@@ -1,0 +1,433 @@
+'use client'
+
+// Excel-density inline-editable grid for one deal's variants × all 管理表たたき columns.
+// Renders inside an expanded deal row (under DealsNestedTable). Each cell is
+// directly editable via InlineCell — no need to navigate into a deal detail page.
+
+import Link from 'next/link'
+import { InlineCell } from './inline-cell'
+import {
+  updateProductField,
+  updateVariantField,
+  updateQuoteField,
+  updateQuoteSimpleField,
+} from '@/lib/actions/inline-edit'
+import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
+
+interface Props {
+  dealId: string
+  products: ProductRow[]
+  variantsByProduct: Map<string, VariantRow[]>
+  quotesByVariant: Map<string, QuoteRow[]>
+}
+
+interface RowData {
+  product: ProductRow
+  variant: VariantRow
+  // Pick the approved quote if any, otherwise the latest version, otherwise null
+  quote: QuoteRow | null
+  quotes: QuoteRow[]
+}
+
+const NUM = (v: number | string | null) => (v == null || v === '' ? '' : Number(v).toLocaleString())
+const FIX = (n: number) => (v: number | string | null) =>
+  v == null || v === '' ? '' : Number(v).toFixed(n)
+
+export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVariant }: Props) {
+  // Flatten product × variant into rows
+  const rows: RowData[] = []
+  for (const p of products.sort((a, b) => a.product_no - b.product_no)) {
+    const variants = variantsByProduct.get(p.id) || []
+    if (variants.length === 0) {
+      rows.push({ product: p, variant: emptyVariant(p.id), quote: null, quotes: [] })
+      continue
+    }
+    for (const v of variants) {
+      const vQuotes = quotesByVariant.get(v.id) || []
+      const approved = vQuotes.find((q) => q.status === 'approved')
+      const latest = [...vQuotes].sort((a, b) => (b.version || 0) - (a.version || 0))[0] || null
+      rows.push({ product: p, variant: v, quote: approved || latest, quotes: vQuotes })
+    }
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-[#fafaf9] px-3.5 py-3 text-[11px] text-[#888]">
+        商品/バリエーションがまだありません ·{' '}
+        <Link
+          href={`/deals/${dealId}/products/new`}
+          className="text-[#22c55e] no-underline hover:underline"
+        >
+          + 追加
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-[#fafaf9] border-t border-b border-[rgba(0,0,0,0.06)]">
+      <div className="overflow-x-auto">
+        <table
+          className="border-collapse text-[10px] font-body"
+          style={{
+            fontVariantNumeric: 'tabular-nums',
+            tableLayout: 'fixed',
+            minWidth: 2800,
+          }}
+        >
+          <colgroup>
+            {COLS.map((c) => (
+              <col key={c.k} style={{ width: c.w }} />
+            ))}
+          </colgroup>
+          <thead>
+            {/* Group header row */}
+            <tr className="bg-[#f0f0ed] text-[#555]">
+              {GROUPS.map((g) => (
+                <th
+                  key={g.label}
+                  colSpan={g.span}
+                  className="px-2 py-1 text-[9px] uppercase tracking-[0.05em] font-medium border-b border-r border-[rgba(0,0,0,0.06)] text-center"
+                >
+                  {g.label}
+                </th>
+              ))}
+            </tr>
+            {/* Field header row */}
+            <tr className="bg-[#fafaf9] text-[#888]">
+              {COLS.map((c) => (
+                <th
+                  key={c.k}
+                  className={`px-1.5 py-1 text-[9px] font-medium uppercase tracking-[0.02em] border-b border-r border-[rgba(0,0,0,0.05)] whitespace-nowrap ${
+                    c.align === 'right' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={r.variant.id || `empty-${idx}`} className="bg-white hover:bg-[#fcfcfb]">
+                {COLS.map((c) => (
+                  <td
+                    key={c.k}
+                    className="border-b border-r border-[rgba(0,0,0,0.04)] p-0 align-middle"
+                  >
+                    <Cell col={c.k} row={r} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-3.5 py-1.5 border-t border-[rgba(0,0,0,0.04)] flex items-center gap-3 text-[10px]">
+        <Link
+          href={`/deals/${dealId}/products/new`}
+          className="text-[#22c55e] no-underline hover:underline"
+        >
+          + 商品を追加
+        </Link>
+        <Link
+          href={`/deals/${dealId}`}
+          className="text-[#888] no-underline hover:text-[#0a0a0a] ml-auto"
+        >
+          詳細ページを開く →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function emptyVariant(productId: string): VariantRow {
+  return {
+    id: '',
+    product_id: productId,
+    variant_label: '',
+    width_mm: null,
+    height_mm: null,
+    depth_mm: null,
+    material: null,
+    color_description: null,
+    pantone_colors: null,
+    processing: null,
+    other_notes: null,
+    print_color_count: null,
+    print_method: null,
+    pcs_per_carton: null,
+    carton_width_cm: null,
+    carton_height_cm: null,
+    carton_depth_cm: null,
+    gross_weight_kg: null,
+    production_lead_days: null,
+    shipping_lead_days: null,
+    food_inspection_days: null,
+    shipping_address: null,
+    is_selected: false,
+  }
+}
+
+function Cell({ col, row }: { col: ColKey; row: RowData }) {
+  const { product: p, variant: v, quote: q } = row
+
+  const productEdit = (field: string) => async (val: string) =>
+    updateProductField(p.id, field, val || null)
+  const variantEdit = (field: string) => async (val: string) =>
+    v.id
+      ? updateVariantField(v.id, field, val || null)
+      : { success: false, error: 'バリエ未作成' }
+  const quoteEdit = (field: string) => async (val: string) =>
+    q ? updateQuoteField(q.id, field, val || null) : { success: false, error: '見積未作成' }
+  const quoteSimpleEdit = (field: string) => async (val: string) =>
+    q ? updateQuoteSimpleField(q.id, field, val || null) : { success: false, error: '見積未作成' }
+
+  switch (col) {
+    case 'product_no':
+      return <Display>{`#${p.product_no}`}</Display>
+    case 'product_code':
+      return <InlineCell value={p.factory_staff_code} onSave={productEdit('factory_staff_code')} />
+    case 'process':
+      return <InlineCell value={p.production_process} onSave={productEdit('production_process')} />
+    case 'food_grade':
+      return <InlineCell value={p.food_grade_status} onSave={productEdit('food_grade_status')} />
+    case 'food_check':
+      return <InlineCell value={p.food_inspection_status} onSave={productEdit('food_inspection_status')} />
+    case 'description':
+      return <InlineCell value={p.description} onSave={productEdit('description')} />
+    case 'variant_label':
+      return <InlineCell value={v.variant_label} onSave={variantEdit('variant_label')} />
+    case 'w':
+      return <InlineCell type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
+    case 'h':
+      return <InlineCell type="number" align="right" value={v.height_mm} onSave={variantEdit('height_mm')} />
+    case 'd':
+      return <InlineCell type="number" align="right" value={v.depth_mm} onSave={variantEdit('depth_mm')} />
+    case 'material':
+      return <InlineCell value={v.material} onSave={variantEdit('material')} />
+    case 'color':
+      return <InlineCell value={v.color_description} onSave={variantEdit('color_description')} />
+    case 'pantone':
+      return <InlineCell value={v.pantone_colors} onSave={variantEdit('pantone_colors')} />
+    case 'processing':
+      return <InlineCell value={v.processing} onSave={variantEdit('processing')} />
+    case 'other':
+      return <InlineCell value={v.other_notes} onSave={variantEdit('other_notes')} />
+    case 'print_colors':
+      return <InlineCell value={v.print_color_count} onSave={variantEdit('print_color_count')} />
+    case 'print_method':
+      return <InlineCell value={v.print_method} onSave={variantEdit('print_method')} />
+    case 'moq':
+      return <InlineCell type="number" align="right" value={q?.moq ?? null} onSave={quoteEdit('moq')} format={NUM} />
+    case 'qty':
+      return <InlineCell type="number" align="right" value={q?.quantity ?? null} onSave={quoteEdit('quantity')} format={NUM} />
+    case 'unit_usd':
+      return <InlineCell type="number" align="right" value={q?.factory_unit_price_usd ?? null} onSave={quoteEdit('factory_unit_price_usd')} format={FIX(3)} />
+    case 'factory_freight':
+      return <InlineCell type="number" align="right" value={q?.factory_calculated_freight_usd ?? null} onSave={quoteSimpleEdit('factory_calculated_freight_usd')} format={FIX(2)} />
+    case 'pcs_ctn':
+      return <InlineCell type="number" align="right" value={v.pcs_per_carton} onSave={variantEdit('pcs_per_carton')} format={NUM} />
+    case 'ctns':
+      // derived: qty / pcs_per_carton
+      return <Display align="right">{q?.quantity && v.pcs_per_carton ? Math.ceil(q.quantity / v.pcs_per_carton).toLocaleString() : ''}</Display>
+    case 'cw':
+      return <InlineCell type="number" align="right" value={v.carton_width_cm} onSave={variantEdit('carton_width_cm')} format={FIX(0)} />
+    case 'ch':
+      return <InlineCell type="number" align="right" value={v.carton_height_cm} onSave={variantEdit('carton_height_cm')} format={FIX(0)} />
+    case 'cd':
+      return <InlineCell type="number" align="right" value={v.carton_depth_cm} onSave={variantEdit('carton_depth_cm')} format={FIX(0)} />
+    case 'gw':
+      return <InlineCell type="number" align="right" value={v.gross_weight_kg} onSave={variantEdit('gross_weight_kg')} format={FIX(2)} />
+    case 'volumetric':
+      return <Display align="right">{q?.china_freight_yuan && q.shipping_weight_kg ? FIX(2)(q.shipping_weight_kg) : ''}</Display>
+    case 'china_yuan':
+      return <Display align="right">{FIX(0)(q?.china_freight_yuan ?? null)}</Display>
+    case 'china_usd':
+      return <Display align="right">{FIX(2)(q?.china_freight_usd ?? null)}</Display>
+    case 'domestic_usd':
+      return <InlineCell type="number" align="right" value={q?.domestic_china_freight_usd ?? null} onSave={quoteEdit('domestic_china_freight_usd')} format={FIX(2)} />
+    case 'cost_ratio':
+      return <InlineCell type="number" align="right" value={q?.cost_ratio ?? null} onSave={quoteEdit('cost_ratio')} format={FIX(2)} />
+    case 'unit_cost':
+      return <Display align="right">{q?.unit_cost_usd ? `$${Number(q.unit_cost_usd).toFixed(3)}` : ''}</Display>
+    case 'total_pretax':
+      return <Display align="right">{q?.total_billing_jpy ? `¥${Number(q.total_billing_jpy).toLocaleString()}` : ''}</Display>
+    case 'total_tax':
+      return <Display align="right" green>{q?.total_billing_tax_jpy ? `¥${Number(q.total_billing_tax_jpy).toLocaleString()}` : ''}</Display>
+    case 'plate_fee':
+      return <InlineCell type="number" align="right" value={q?.plate_fee_usd ?? null} onSave={quoteEdit('plate_fee_usd')} format={FIX(2)} />
+    case 'pantone_fee':
+      return <InlineCell type="number" align="right" value={q?.pantone_color_fee_usd ?? null} onSave={quoteEdit('pantone_color_fee_usd')} format={FIX(2)} />
+    case 'sample_make':
+      return <InlineCell type="number" align="right" value={q?.sample_cost_usd ?? null} onSave={quoteEdit('sample_cost_usd')} format={FIX(2)} />
+    case 'sample_ship':
+      return <InlineCell type="number" align="right" value={q?.sample_shipping_usd ?? null} onSave={quoteEdit('sample_shipping_usd')} format={FIX(2)} />
+    case 'food_fee':
+      return <InlineCell type="number" align="right" value={q?.food_inspection_fee_yuan ?? null} onSave={quoteSimpleEdit('food_inspection_fee_yuan')} format={FIX(0)} />
+    case 'sample_make_days':
+      return <InlineCell type="number" align="right" value={q?.sample_production_days ?? null} onSave={quoteSimpleEdit('sample_production_days')} />
+    case 'sample_ship_days':
+      return <InlineCell type="number" align="right" value={q?.sample_shipping_days ?? null} onSave={quoteSimpleEdit('sample_shipping_days')} />
+    case 'prod_days':
+      return <InlineCell type="number" align="right" value={v.production_lead_days} onSave={variantEdit('production_lead_days')} />
+    case 'ship_days':
+      return <InlineCell type="number" align="right" value={v.shipping_lead_days} onSave={variantEdit('shipping_lead_days')} />
+    case 'food_days':
+      return <InlineCell type="number" align="right" value={v.food_inspection_days} onSave={variantEdit('food_inspection_days')} />
+    case 'lead_total': {
+      const n = (v.production_lead_days || 0) + (v.shipping_lead_days || 0) + (v.food_inspection_days || 0)
+      return <Display align="right">{n > 0 ? n : ''}</Display>
+    }
+    case 'incoterm':
+      return <InlineCell value={q?.incoterm ?? null} onSave={quoteSimpleEdit('incoterm')} />
+    case 'packing':
+      return <InlineCell value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
+    case 'address':
+      return <InlineCell value={v.shipping_address} onSave={variantEdit('shipping_address')} />
+    default:
+      return <Display>—</Display>
+  }
+}
+
+function Display({
+  children,
+  align = 'left',
+  green = false,
+}: {
+  children?: React.ReactNode
+  align?: 'left' | 'right'
+  green?: boolean
+}) {
+  return (
+    <span
+      className={`block px-1.5 py-0.5 text-[10px] ${align === 'right' ? 'text-right' : 'text-left'} ${
+        green ? 'text-[#22c55e] font-display tabular-nums' : 'text-[#555]'
+      }`}
+    >
+      {children || <span className="text-[#ccc]">—</span>}
+    </span>
+  )
+}
+
+type ColKey =
+  | 'product_no'
+  | 'product_code'
+  | 'process'
+  | 'food_grade'
+  | 'food_check'
+  | 'description'
+  | 'variant_label'
+  | 'w'
+  | 'h'
+  | 'd'
+  | 'material'
+  | 'color'
+  | 'pantone'
+  | 'processing'
+  | 'other'
+  | 'print_colors'
+  | 'print_method'
+  | 'moq'
+  | 'qty'
+  | 'unit_usd'
+  | 'factory_freight'
+  | 'pcs_ctn'
+  | 'ctns'
+  | 'cw'
+  | 'ch'
+  | 'cd'
+  | 'gw'
+  | 'volumetric'
+  | 'china_yuan'
+  | 'china_usd'
+  | 'domestic_usd'
+  | 'cost_ratio'
+  | 'unit_cost'
+  | 'total_pretax'
+  | 'total_tax'
+  | 'plate_fee'
+  | 'pantone_fee'
+  | 'sample_make'
+  | 'sample_ship'
+  | 'food_fee'
+  | 'sample_make_days'
+  | 'sample_ship_days'
+  | 'prod_days'
+  | 'ship_days'
+  | 'food_days'
+  | 'lead_total'
+  | 'incoterm'
+  | 'packing'
+  | 'address'
+
+interface ColumnDef {
+  k: ColKey
+  label: string
+  w: number
+  align?: 'left' | 'right'
+}
+
+const COLS: ColumnDef[] = [
+  { k: 'product_no', label: '#', w: 36, align: 'right' },
+  { k: 'product_code', label: 'code', w: 56 },
+  { k: 'process', label: '製作プロセス', w: 110 },
+  { k: 'food_grade', label: 'food grade', w: 70 },
+  { k: 'food_check', label: '食品検査', w: 70 },
+  { k: 'description', label: '商品名', w: 160 },
+  { k: 'variant_label', label: 'バリエ', w: 80 },
+  { k: 'w', label: 'W', w: 50, align: 'right' },
+  { k: 'h', label: 'H', w: 50, align: 'right' },
+  { k: 'd', label: 'D', w: 50, align: 'right' },
+  { k: 'material', label: '素材', w: 120 },
+  { k: 'color', label: '色', w: 100 },
+  { k: 'pantone', label: 'パントン', w: 90 },
+  { k: 'processing', label: '加工', w: 110 },
+  { k: 'other', label: 'その他', w: 80 },
+  { k: 'print_colors', label: '色数', w: 50, align: 'right' },
+  { k: 'print_method', label: '印刷方法', w: 100 },
+  { k: 'moq', label: 'MOQ', w: 70, align: 'right' },
+  { k: 'qty', label: '数量', w: 80, align: 'right' },
+  { k: 'unit_usd', label: '工場単価$', w: 80, align: 'right' },
+  { k: 'factory_freight', label: '工場送料$', w: 80, align: 'right' },
+  { k: 'pcs_ctn', label: 'PCS/CTN', w: 70, align: 'right' },
+  { k: 'ctns', label: 'CTNS', w: 60, align: 'right' },
+  { k: 'cw', label: 'CW', w: 50, align: 'right' },
+  { k: 'ch', label: 'CH', w: 50, align: 'right' },
+  { k: 'cd', label: 'CD', w: 50, align: 'right' },
+  { k: 'gw', label: 'G.W', w: 60, align: 'right' },
+  { k: 'volumetric', label: '容積重量', w: 70, align: 'right' },
+  { k: 'china_yuan', label: 'いーうー元', w: 80, align: 'right' },
+  { k: 'china_usd', label: 'いーうー$', w: 80, align: 'right' },
+  { k: 'domestic_usd', label: '中国国内$', w: 80, align: 'right' },
+  { k: 'cost_ratio', label: '掛率', w: 50, align: 'right' },
+  { k: 'unit_cost', label: '単価', w: 70, align: 'right' },
+  { k: 'total_pretax', label: '税抜合計', w: 100, align: 'right' },
+  { k: 'total_tax', label: '税込合計', w: 100, align: 'right' },
+  { k: 'plate_fee', label: '型代$', w: 70, align: 'right' },
+  { k: 'pantone_fee', label: 'パン代$', w: 70, align: 'right' },
+  { k: 'sample_make', label: 'サン製作$', w: 80, align: 'right' },
+  { k: 'sample_ship', label: 'サン取寄$', w: 80, align: 'right' },
+  { k: 'food_fee', label: '食検元', w: 70, align: 'right' },
+  { k: 'sample_make_days', label: 'サン日', w: 60, align: 'right' },
+  { k: 'sample_ship_days', label: '発送日', w: 60, align: 'right' },
+  { k: 'prod_days', label: '製造日', w: 60, align: 'right' },
+  { k: 'ship_days', label: '配送日', w: 60, align: 'right' },
+  { k: 'food_days', label: '検査日', w: 60, align: 'right' },
+  { k: 'lead_total', label: 'LT合計', w: 60, align: 'right' },
+  { k: 'incoterm', label: 'Incoterm', w: 70 },
+  { k: 'packing', label: '梱包メモ', w: 140 },
+  { k: 'address', label: '納品先', w: 200 },
+]
+
+const GROUPS: Array<{ label: string; span: number }> = [
+  { label: '商品', span: 6 },
+  { label: 'バリエ・サイズ', span: 4 },
+  { label: '素材・色・印刷', span: 7 },
+  { label: '数量・単価', span: 4 },
+  { label: 'カートン・物流', span: 11 },
+  { label: '価格', span: 4 },
+  { label: '別途費用', span: 5 },
+  { label: 'リードタイム', span: 6 },
+  { label: '配送', span: 3 },
+]

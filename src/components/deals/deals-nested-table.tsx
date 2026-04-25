@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide-react'
 import { DocumentModal } from '@/components/documents/document-modal'
+import { DealExcelGrid } from './deal-excel-grid'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -74,6 +75,10 @@ export interface ProductRow {
   product_no: number
   description: string
   factory_staff_code: string | null
+  production_process: string | null
+  food_grade_status: string | null
+  food_inspection_status: string | null
+  product_memo: string | null
   is_selected: boolean
 }
 
@@ -81,6 +86,25 @@ export interface VariantRow {
   id: string
   product_id: string
   variant_label: string
+  width_mm: number | null
+  height_mm: number | null
+  depth_mm: number | null
+  material: string | null
+  color_description: string | null
+  pantone_colors: string | null
+  processing: string | null
+  other_notes: string | null
+  print_color_count: string | null
+  print_method: string | null
+  pcs_per_carton: number | null
+  carton_width_cm: number | null
+  carton_height_cm: number | null
+  carton_depth_cm: number | null
+  gross_weight_kg: number | null
+  production_lead_days: number | null
+  shipping_lead_days: number | null
+  food_inspection_days: number | null
+  shipping_address: string | null
   is_selected: boolean
 }
 
@@ -91,8 +115,31 @@ export interface QuoteRow {
   spec_id: string | null
   version: number | null
   quantity: number | null
+  moq: number | null
+  factory_unit_price_usd: number | null
+  plate_fee_usd: number | null
+  pantone_color_fee_usd: number | null
+  sample_cost_usd: number | null
+  sample_shipping_usd: number | null
+  other_fees_usd: number | null
+  domestic_china_freight_usd: number | null
+  factory_calculated_freight_usd: number | null
+  food_inspection_fee_yuan: number | null
+  china_freight_yuan: number | null
+  china_freight_usd: number | null
+  exchange_rate: number | null
+  cost_ratio: number | null
+  selling_price_usd: number | null
+  selling_price_jpy: number | null
+  unit_cost_usd: number | null
+  total_cost_usd: number | null
   total_billing_jpy: number | null
   total_billing_tax_jpy: number | null
+  shipping_weight_kg: number | null
+  incoterm: string | null
+  packing_info_text: string | null
+  sample_production_days: number | null
+  sample_shipping_days: number | null
   status: string | null
 }
 
@@ -675,22 +722,13 @@ function DealRowItem({
       </tr>
       {visible && (
         <tr>
-          <td colSpan={DEFAULT_COLUMNS.length} className="bg-[#fafaf9] px-3.5 py-2 border-b border-[rgba(0,0,0,0.04)]">
-            {products.length === 0 ? (
-              <p className="text-[10px] text-[#888]">商品がまだありません</p>
-            ) : (
-              <ul className="space-y-1">
-                {products.map((p) => (
-                  <ProductRowItem
-                    key={p.id}
-                    dealId={deal.id}
-                    product={p}
-                    variants={variantsByProduct.get(p.id) || []}
-                    quotesByVariant={quotesByVariant}
-                  />
-                ))}
-              </ul>
-            )}
+          <td colSpan={DEFAULT_COLUMNS.length} className="p-0 border-b border-[rgba(0,0,0,0.04)]">
+            <DealExcelGrid
+              dealId={deal.id}
+              products={products}
+              variantsByProduct={variantsByProduct}
+              quotesByVariant={quotesByVariant}
+            />
           </td>
         </tr>
       )}
@@ -698,85 +736,3 @@ function DealRowItem({
   )
 }
 
-function ProductRowItem({
-  dealId,
-  product,
-  variants,
-  quotesByVariant,
-}: {
-  dealId: string
-  product: ProductRow
-  variants: VariantRow[]
-  quotesByVariant: Map<string, QuoteRow[]>
-}) {
-  const [expanded, setExpanded] = useState(false)
-  return (
-    <li
-      className={`rounded ${
-        product.is_selected
-          ? 'bg-[#f0fdf4] border-l-2 border-[#22c55e]'
-          : 'bg-white border-l-2 border-[#e8e8e6]'
-      } pl-2`}
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-2 py-1 text-left"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {expanded ? (
-            <ChevronDown className="w-2.5 h-2.5 text-[#888]" />
-          ) : (
-            <ChevronRight className="w-2.5 h-2.5 text-[#888]" />
-          )}
-          <span className="text-[10px] tabular-nums text-[#888]">#{product.product_no}</span>
-          <span className="text-[11px] font-body font-semibold text-[#0a0a0a] truncate">
-            {product.description}
-          </span>
-          {product.factory_staff_code && (
-            <span className="text-[9px] bg-[#0a0a0a] text-white px-1 py-0.5 rounded-full">
-              {product.factory_staff_code}
-            </span>
-          )}
-          <span className="text-[10px] text-[#888]">{variants.length} バリエ</span>
-        </div>
-      </button>
-      {expanded && variants.length > 0 && (
-        <ul className="border-t border-[#f0f0ed] py-1 space-y-0.5 ml-2">
-          {variants.map((v) => {
-            const vQuotes = quotesByVariant.get(v.id) || []
-            const approved = vQuotes.find((q) => q.status === 'approved')
-            return (
-              <li
-                key={v.id}
-                className="flex items-center justify-between gap-2 text-[10px] font-body py-0.5"
-              >
-                <span className="text-[#555]">
-                  <span
-                    className={`inline-block w-1.5 h-3 mr-1.5 align-middle ${
-                      v.is_selected ? 'bg-[#22c55e]' : 'bg-[#e8e8e6]'
-                    }`}
-                  />
-                  {v.variant_label}
-                  <span className="text-[#bbb] ml-1">({vQuotes.length} 見積)</span>
-                </span>
-                {approved ? (
-                  <span className="tabular-nums text-[#22c55e]">
-                    ★ {approved.quantity?.toLocaleString()}個 / {formatJPY(approved.total_billing_tax_jpy ?? 0)}
-                  </span>
-                ) : (
-                  <Link
-                    href={`/deals/${dealId}/products/${product.id}/variants/${v.id}/quotes/new`}
-                    className="text-[#22c55e] no-underline hover:underline"
-                  >
-                    + 見積追加
-                  </Link>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </li>
-  )
-}
