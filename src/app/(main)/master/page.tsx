@@ -10,6 +10,7 @@ import {
   getFactory,
   getFactoryRollup,
 } from '@/lib/actions/factories'
+import { listStaff, getStaff, getStaffRollup } from '@/lib/actions/staff'
 import { MasterShell } from '@/components/master/master-shell'
 
 interface Props {
@@ -18,7 +19,8 @@ interface Props {
 
 export default async function MasterPage({ searchParams }: Props) {
   const params = await searchParams
-  const tab: 'clients' | 'factories' = params.tab === 'factories' ? 'factories' : 'clients'
+  const tab: 'clients' | 'factories' | 'staff' =
+    params.tab === 'factories' ? 'factories' : params.tab === 'staff' ? 'staff' : 'clients'
 
   const supabase = await createClient()
   const {
@@ -26,22 +28,30 @@ export default async function MasterPage({ searchParams }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [clients, factories] = await Promise.all([listClients(), listFactories()])
+  const [clients, factories, staff] = await Promise.all([
+    listClients(),
+    listFactories(),
+    listStaff(),
+  ])
 
   // Aggregate per-client approved totals + in-progress counts
   const dealIds = new Map<string, string[]>() // client_id → deal ids
   const inProgressByClient = new Map<string, number>()
+  const inProgressByStaff = new Map<string, number>()
   const { data: deals } = await supabase
     .from('deals')
-    .select('id, client_id, simple_status')
-    .not('client_id', 'is', null)
+    .select('id, client_id, sales_user_id, simple_status')
   for (const d of deals || []) {
-    if (!d.client_id) continue
-    const arr = dealIds.get(d.client_id) || []
-    arr.push(d.id)
-    dealIds.set(d.client_id, arr)
-    if (d.simple_status !== 'delivered') {
-      inProgressByClient.set(d.client_id, (inProgressByClient.get(d.client_id) || 0) + 1)
+    if (d.client_id) {
+      const arr = dealIds.get(d.client_id) || []
+      arr.push(d.id)
+      dealIds.set(d.client_id, arr)
+      if (d.simple_status !== 'delivered') {
+        inProgressByClient.set(d.client_id, (inProgressByClient.get(d.client_id) || 0) + 1)
+      }
+    }
+    if (d.sales_user_id && d.simple_status !== 'delivered') {
+      inProgressByStaff.set(d.sales_user_id, (inProgressByStaff.get(d.sales_user_id) || 0) + 1)
     }
   }
   const allDealIds = Array.from(dealIds.values()).flat()
@@ -53,7 +63,6 @@ export default async function MasterPage({ searchParams }: Props) {
       .in('deal_id', allDealIds)
       .eq('status', 'approved')
     for (const q of quotes || []) {
-      // Find client_id for this deal
       for (const [cid, ids] of dealIds.entries()) {
         if (ids.includes(q.deal_id)) {
           approvedByClient.set(cid, (approvedByClient.get(cid) || 0) + (Number(q.total_billing_tax_jpy) || 0))
@@ -87,9 +96,15 @@ export default async function MasterPage({ searchParams }: Props) {
     quote_count: quoteCountByFactory.get(f.id) || 0,
   }))
 
+  const staffWithStats = staff.map((s) => ({
+    ...s,
+    in_progress_count: inProgressByStaff.get(s.id) || 0,
+  }))
+
   // Selected detail
   let selectedClient = null
   let selectedFactory = null
+  let selectedStaff = null
   if (params.id) {
     if (tab === 'clients') {
       const c = await getClient(params.id)
@@ -97,11 +112,17 @@ export default async function MasterPage({ searchParams }: Props) {
         const rollup = await getClientRollup(params.id)
         selectedClient = { client: c, rollup }
       }
-    } else {
+    } else if (tab === 'factories') {
       const f = await getFactory(params.id)
       if (f) {
         const rollup = await getFactoryRollup(params.id)
         selectedFactory = { factory: f, rollup }
+      }
+    } else if (tab === 'staff') {
+      const s = await getStaff(params.id)
+      if (s) {
+        const rollup = await getStaffRollup(params.id)
+        selectedStaff = { staff: s, rollup }
       }
     }
   }
@@ -110,15 +131,17 @@ export default async function MasterPage({ searchParams }: Props) {
     <>
       <div className="py-[18px]">
         <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a] tracking-tight">マスター</h1>
-        <p className="text-[11px] text-[#888] font-body mt-1">クライアント・工場の登録、編集、取引履歴管理</p>
+        <p className="text-[11px] text-[#888] font-body mt-1">クライアント・工場・担当者の登録、編集、取引履歴管理</p>
       </div>
 
       <MasterShell
         tab={tab}
         clients={clientsWithTotal}
         factories={factoriesWithStats}
+        staff={staffWithStats}
         selectedClient={selectedClient}
         selectedFactory={selectedFactory}
+        selectedStaff={selectedStaff}
       />
     </>
   )

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Plus } from 'lucide-react'
-import { DealsExcelTable } from '@/components/deals/deals-excel-table'
+import { DealsNestedTable } from '@/components/deals/deals-nested-table'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
 
 interface Props {
@@ -120,7 +120,7 @@ export default async function DealsPage({ searchParams }: Props) {
         <div>
           <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a] tracking-tight">案件</h1>
           <p className="text-[11px] text-[#888] font-body mt-0.5">
-            Excel 風一覧 — セルをクリックして直接編集 · 横スクロールで全項目表示
+            クライアントの ▼ をクリックで展開 · 各案件行クリックで詳細表示
           </p>
         </div>
         <Link
@@ -132,7 +132,7 @@ export default async function DealsPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <DealsExcelTable
+      <DealsNestedTable
         deals={deals || []}
         products={products}
         variants={variants}

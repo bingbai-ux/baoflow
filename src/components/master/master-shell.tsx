@@ -3,14 +3,16 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Plus, X } from 'lucide-react'
-import type { Client, Factory } from '@/lib/types'
+import type { Client, Factory, Profile } from '@/lib/types'
 import { formatJPY } from '@/lib/utils/format'
 import { ClientDetail } from './client-detail'
 import { FactoryDetail } from './factory-detail'
+import { StaffDetail } from './staff-detail'
 import { createClientRecord } from '@/lib/actions/clients'
 import { createFactoryRecord } from '@/lib/actions/factories'
 import type { ClientRollup } from '@/lib/actions/clients'
 import type { FactoryRollup } from '@/lib/actions/factories'
+import type { StaffRollup } from '@/lib/actions/staff'
 
 interface ClientWithTotal extends Client {
   approved_total_jpy: number
@@ -21,15 +23,36 @@ interface FactoryWithStats extends Factory {
   quote_count: number
 }
 
-interface Props {
-  tab: 'clients' | 'factories'
-  clients: ClientWithTotal[]
-  factories: FactoryWithStats[]
-  selectedClient?: { client: Client; rollup: ClientRollup } | null
-  selectedFactory?: { factory: Factory; rollup: FactoryRollup } | null
+interface StaffWithStats extends Profile {
+  in_progress_count: number
 }
 
-export function MasterShell({ tab, clients, factories, selectedClient, selectedFactory }: Props) {
+type Tab = 'clients' | 'factories' | 'staff'
+
+interface Props {
+  tab: Tab
+  clients: ClientWithTotal[]
+  factories: FactoryWithStats[]
+  staff: StaffWithStats[]
+  selectedClient?: { client: Client; rollup: ClientRollup } | null
+  selectedFactory?: { factory: Factory; rollup: FactoryRollup } | null
+  selectedStaff?: { staff: Profile; rollup: StaffRollup } | null
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: '管理者',
+  sales: '営業',
+}
+
+export function MasterShell({
+  tab,
+  clients,
+  factories,
+  staff,
+  selectedClient,
+  selectedFactory,
+  selectedStaff,
+}: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
@@ -44,13 +67,22 @@ export function MasterShell({ tab, clients, factories, selectedClient, selectedF
     f.factory_name.toLowerCase().includes(search.toLowerCase()) ||
     (f.name_cn?.toLowerCase().includes(search.toLowerCase()) ?? false)
   )
+  const filteredStaff = staff.filter((s) =>
+    !search ||
+    (s.display_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+    (s.email?.toLowerCase().includes(search.toLowerCase()) ?? false)
+  )
 
-  const switchTab = (next: 'clients' | 'factories') => {
+  const switchTab = (next: Tab) => {
     router.push(`/master?tab=${next}`)
   }
 
   const selectClient = (id: string) => router.push(`/master?tab=clients&id=${id}`)
   const selectFactory = (id: string) => router.push(`/master?tab=factories&id=${id}`)
+  const selectStaff = (id: string) => router.push(`/master?tab=staff&id=${id}`)
+
+  const newButtonLabel =
+    tab === 'clients' ? '新規クライアント' : tab === 'factories' ? '新規工場' : null
 
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[14px] overflow-hidden">
@@ -63,6 +95,9 @@ export function MasterShell({ tab, clients, factories, selectedClient, selectedF
           <TabButton active={tab === 'factories'} onClick={() => switchTab('factories')}>
             工場 <span className="text-[10px] text-[#888] ml-1 tabular-nums">{factories.length}</span>
           </TabButton>
+          <TabButton active={tab === 'staff'} onClick={() => switchTab('staff')}>
+            担当者 <span className="text-[10px] text-[#888] ml-1 tabular-nums">{staff.length}</span>
+          </TabButton>
         </div>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#888]" />
@@ -74,20 +109,22 @@ export function MasterShell({ tab, clients, factories, selectedClient, selectedF
             className="w-full pl-7 pr-2 py-1 text-[11px] font-body bg-[#fafaf9] border border-[rgba(0,0,0,0.08)] rounded-[6px] focus:outline-none focus:border-[#0a0a0a]"
           />
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="bg-[#0a0a0a] text-white text-[11px] rounded-[6px] px-3 py-1 inline-flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3" />新規{tab === 'clients' ? 'クライアント' : '工場'}
-        </button>
+        {newButtonLabel && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="bg-[#0a0a0a] text-white text-[11px] rounded-[6px] px-3 py-1 inline-flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />{newButtonLabel}
+          </button>
+        )}
       </div>
 
       {/* Split pane */}
       <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] md:divide-x divide-[rgba(0,0,0,0.06)]" style={{ minHeight: 'calc(100vh - 220px)' }}>
         {/* Left list */}
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-          {tab === 'clients' ? (
-            filteredClients.length === 0 ? (
+          {tab === 'clients' &&
+            (filteredClients.length === 0 ? (
               <p className="text-[11px] text-[#888] p-4 text-center">該当なし</p>
             ) : (
               <ul>
@@ -112,46 +149,100 @@ export function MasterShell({ tab, clients, factories, selectedClient, selectedF
                   </li>
                 ))}
               </ul>
-            )
-          ) : filteredFactories.length === 0 ? (
-            <p className="text-[11px] text-[#888] p-4 text-center">該当なし</p>
-          ) : (
-            <ul>
-              {filteredFactories.map((f) => (
-                <li key={f.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectFactory(f.id)}
-                    className={`w-full text-left px-3 py-2 border-b border-[rgba(0,0,0,0.04)] hover:bg-[#fafaf8] ${
-                      selectedFactory?.factory.id === f.id ? 'bg-[#f4f4f1]' : ''
-                    }`}
-                  >
-                    <div className="text-[12px] font-display font-semibold text-[#0a0a0a] truncate">{f.factory_name}</div>
-                    {f.name_cn && <div className="text-[10px] text-[#555] mt-0.5 truncate">{f.name_cn}</div>}
-                    <div className="text-[10px] text-[#888] tabular-nums mt-0.5">
-                      {f.quote_count} 見積実績
-                      {f.lead_time_range && <span> · {f.lead_time_range}</span>}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            ))}
+
+          {tab === 'factories' &&
+            (filteredFactories.length === 0 ? (
+              <p className="text-[11px] text-[#888] p-4 text-center">該当なし</p>
+            ) : (
+              <ul>
+                {filteredFactories.map((f) => (
+                  <li key={f.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectFactory(f.id)}
+                      className={`w-full text-left px-3 py-2 border-b border-[rgba(0,0,0,0.04)] hover:bg-[#fafaf8] ${
+                        selectedFactory?.factory.id === f.id ? 'bg-[#f4f4f1]' : ''
+                      }`}
+                    >
+                      <div className="text-[12px] font-display font-semibold text-[#0a0a0a] truncate">{f.factory_name}</div>
+                      {f.name_cn && <div className="text-[10px] text-[#555] mt-0.5 truncate">{f.name_cn}</div>}
+                      <div className="text-[10px] text-[#888] tabular-nums mt-0.5">
+                        {f.quote_count} 見積実績
+                        {f.lead_time_range && <span> · {f.lead_time_range}</span>}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ))}
+
+          {tab === 'staff' &&
+            (filteredStaff.length === 0 ? (
+              <p className="text-[11px] text-[#888] p-4 text-center">該当なし</p>
+            ) : (
+              <ul>
+                {filteredStaff.map((s) => {
+                  const initials = (s.display_name || s.email || 'U')
+                    .split(/[\s@]/)
+                    .filter(Boolean)
+                    .map((x) => x[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => selectStaff(s.id)}
+                        className={`w-full text-left px-3 py-2 border-b border-[rgba(0,0,0,0.04)] hover:bg-[#fafaf8] ${
+                          selectedStaff?.staff.id === s.id ? 'bg-[#f4f4f1]' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-[#f2f2f0] flex items-center justify-center text-[10px] text-[#555] font-body font-medium flex-shrink-0">
+                            {initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] font-display font-semibold text-[#0a0a0a] truncate">
+                              {s.display_name || s.email?.split('@')[0] || '(未設定)'}
+                            </div>
+                            <div className="text-[10px] text-[#888] mt-0.5 truncate">
+                              {ROLE_LABELS[s.role] || s.role}
+                              {s.in_progress_count > 0 && (
+                                <span className="text-[#22c55e] ml-1 tabular-nums">· {s.in_progress_count} 進行中</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            ))}
         </div>
 
         {/* Right detail */}
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-          {tab === 'clients' ? (
-            selectedClient ? (
+          {tab === 'clients' &&
+            (selectedClient ? (
               <ClientDetail client={selectedClient.client} rollup={selectedClient.rollup} />
             ) : (
               <EmptyDetail message="左のリストからクライアントを選んでください" />
-            )
-          ) : selectedFactory ? (
-            <FactoryDetail factory={selectedFactory.factory} rollup={selectedFactory.rollup} />
-          ) : (
-            <EmptyDetail message="左のリストから工場を選んでください" />
-          )}
+            ))}
+          {tab === 'factories' &&
+            (selectedFactory ? (
+              <FactoryDetail factory={selectedFactory.factory} rollup={selectedFactory.rollup} />
+            ) : (
+              <EmptyDetail message="左のリストから工場を選んでください" />
+            ))}
+          {tab === 'staff' &&
+            (selectedStaff ? (
+              <StaffDetail staff={selectedStaff.staff} rollup={selectedStaff.rollup} />
+            ) : (
+              <EmptyDetail message="左のリストから担当者を選んでください" />
+            ))}
         </div>
       </div>
 
