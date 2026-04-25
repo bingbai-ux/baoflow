@@ -44,7 +44,9 @@ export default async function DealDetailPage({ params }: Props) {
     await Promise.all([
       supabase
         .from('deal_specifications')
-        .select('id, product_name, product_category, height_mm, width_mm, depth_mm, material_category')
+        .select(
+          'id, product_name, product_category, height_mm, width_mm, depth_mm, material_category, print_colors, printing_method, processing_list, specification_memo'
+        )
         .eq('deal_id', id)
         .order('created_at', { ascending: true }),
       supabase

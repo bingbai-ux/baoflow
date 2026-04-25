@@ -28,6 +28,10 @@ interface SpecLite {
   width_mm: number | null
   depth_mm: number | null
   material_category: string | null
+  print_colors?: string | null
+  printing_method?: string | null
+  processing_list?: string[] | null
+  specification_memo?: string | null
 }
 
 interface QuoteLite {
@@ -209,44 +213,70 @@ function BasicTab({
   )
 }
 
-function SpecsTab({ dealId: _dealId, specifications }: { dealId: string; specifications: SpecLite[] }) {
+function SpecsTab({ dealId, specifications }: { dealId: string; specifications: SpecLite[] }) {
   return (
     <Section title="商品仕様">
       {specifications.length === 0 ? (
-        <EmptyState message="まだ商品仕様が登録されていません。" />
+        <EmptyState
+          message="まだ商品仕様が登録されていません。"
+          actionHref={`/deals/${dealId}/specifications/new`}
+          actionLabel="商品仕様を追加"
+        />
       ) : (
-        <ul className="space-y-2">
-          {specifications.map((s) => (
-            <li
-              key={s.id}
-              className="border border-[#e8e8e6] rounded-[8px] p-3 text-[13px] font-body"
-            >
-              <p className="text-[#0a0a0a] font-semibold">
-                {s.product_name || '(商品名未設定)'}
-              </p>
-              <p className="text-[#555] mt-1">
-                {[
-                  s.product_category,
-                  s.material_category,
-                  s.height_mm && s.width_mm
-                    ? `${s.height_mm}×${s.width_mm}${s.depth_mm ? `×${s.depth_mm}` : ''}mm`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' / ') || '詳細未設定'}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {specifications.map((s) => {
+              const sizeStr =
+                s.height_mm && s.width_mm
+                  ? `${s.height_mm}×${s.width_mm}${s.depth_mm ? `×${s.depth_mm}` : ''}mm`
+                  : null
+              const summary = [s.product_category, s.material_category, sizeStr].filter(Boolean).join(' / ')
+              const printSummary = [s.printing_method, s.print_colors].filter(Boolean).join(' · ')
+              return (
+                <li
+                  key={s.id}
+                  className="border border-[#e8e8e6] rounded-[8px] p-3 text-[13px] font-body"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[#0a0a0a] font-semibold">
+                        {s.product_name || '(商品名未設定)'}
+                      </p>
+                      {summary && <p className="text-[#555] mt-1">{summary}</p>}
+                      {printSummary && <p className="text-[#888] mt-0.5 text-[12px]">印刷: {printSummary}</p>}
+                      {s.processing_list && s.processing_list.length > 0 && (
+                        <p className="text-[#888] mt-0.5 text-[12px]">
+                          加工: {s.processing_list.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <Link
+                      href={`/deals/${dealId}/specifications/${s.id}/edit`}
+                      className="text-[12px] font-body text-[#22c55e] no-underline hover:underline whitespace-nowrap"
+                    >
+                      編集
+                    </Link>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+          <Link
+            href={`/deals/${dealId}/specifications/new`}
+            className="mt-3 inline-block text-[12px] font-body text-[#22c55e] no-underline hover:underline"
+          >
+            + 別の商品仕様を追加
+          </Link>
+        </>
       )}
-      <p className="text-[11px] text-[#bbb] font-body mt-3">
-        ※ Sprint 3 で追加・編集機能を実装します。
-      </p>
     </Section>
   )
 }
 
 function QuotesTab({ dealId, quotes }: { dealId: string; quotes: QuoteLite[] }) {
+  const visible = quotes.slice(0, 3)
+  const hidden = quotes.length - visible.length
+
   return (
     <Section title="見積">
       {quotes.length === 0 ? (
@@ -256,32 +286,42 @@ function QuotesTab({ dealId, quotes }: { dealId: string; quotes: QuoteLite[] }) 
           actionLabel="見積を作成"
         />
       ) : (
-        <ul className="space-y-2">
-          {quotes.map((q) => (
-            <li
-              key={q.id}
-              className="border border-[#e8e8e6] rounded-[8px] p-3 flex items-center justify-between text-[13px] font-body"
-            >
-              <div>
-                <p className="text-[#0a0a0a] font-semibold tabular-nums">
-                  v{q.version || 1} · {q.quantity?.toLocaleString() || '-'} 個
+        <>
+          <ul className="space-y-2">
+            {visible.map((q) => (
+              <li
+                key={q.id}
+                className="border border-[#e8e8e6] rounded-[8px] p-3 flex items-center justify-between text-[13px] font-body"
+              >
+                <div>
+                  <p className="text-[#0a0a0a] font-semibold tabular-nums">
+                    v{q.version || 1} · {q.quantity?.toLocaleString() || '-'} 個
+                  </p>
+                  <p className="text-[11px] text-[#888]">{formatDate(q.created_at)}</p>
+                </div>
+                <p className="text-[#0a0a0a] tabular-nums font-semibold">
+                  {q.total_billing_tax_jpy != null ? formatJPY(q.total_billing_tax_jpy) : '-'}
                 </p>
-                <p className="text-[11px] text-[#888]">{formatDate(q.created_at)}</p>
-              </div>
-              <p className="text-[#0a0a0a] tabular-nums font-semibold">
-                {q.total_billing_tax_jpy != null ? formatJPY(q.total_billing_tax_jpy) : '-'}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-      {quotes.length > 0 && (
-        <Link
-          href={`/deals/${dealId}/quotes/new`}
-          className="mt-3 inline-block text-[12px] font-body text-[#22c55e] no-underline hover:underline"
-        >
-          + 別バージョンを追加
-        </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex items-center gap-4">
+            <Link
+              href={`/deals/${dealId}/quotes/new`}
+              className="text-[12px] font-body text-[#22c55e] no-underline hover:underline"
+            >
+              + 別バージョンを追加
+            </Link>
+            {(hidden > 0 || quotes.length > 0) && (
+              <Link
+                href={`/deals/${dealId}/quote`}
+                className="text-[12px] font-body text-[#555] no-underline hover:underline"
+              >
+                {hidden > 0 ? `他 ${hidden} 件を見る →` : 'すべての見積を見る →'}
+              </Link>
+            )}
+          </div>
+        </>
       )}
     </Section>
   )
