@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide-react'
@@ -11,6 +11,44 @@ import {
   SIMPLE_STATUS_ORDER,
 } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
+
+type ColKey =
+  | 'expand'
+  | 'id'
+  | 'name'
+  | 'client'
+  | 'status'
+  | 'amount'
+  | 'delivery'
+  | 'updated'
+  | 'products'
+  | 'quotes'
+  | 'action'
+
+interface ColumnDef {
+  key: ColKey
+  label: string
+  width: number
+  minWidth: number
+  align?: 'left' | 'right'
+  resizable?: boolean
+}
+
+const DEFAULT_COLUMNS: ColumnDef[] = [
+  { key: 'expand', label: '', width: 40, minWidth: 28, resizable: false },
+  { key: 'id', label: 'ID', width: 100, minWidth: 60 },
+  { key: 'name', label: '案件名', width: 260, minWidth: 120 },
+  { key: 'client', label: 'クライアント', width: 160, minWidth: 100 },
+  { key: 'status', label: 'ステータス', width: 110, minWidth: 80 },
+  { key: 'amount', label: '採用合計', width: 100, minWidth: 70, align: 'right' },
+  { key: 'delivery', label: '納期', width: 90, minWidth: 60 },
+  { key: 'updated', label: '更新', width: 90, minWidth: 60 },
+  { key: 'products', label: '商品', width: 60, minWidth: 40, align: 'right' },
+  { key: 'quotes', label: '見積', width: 60, minWidth: 40, align: 'right' },
+  { key: 'action', label: '', width: 60, minWidth: 40, resizable: false },
+]
+
+const STORAGE_KEY = 'deals-nested-table:column-widths'
 
 const STEP_COLOR_MAP: Record<string, string> = {
   pending: '#bbbbbb',
@@ -110,6 +148,83 @@ export function DealsNestedTable({
   const currentSearch = searchParams.get('q') || ''
   const [searchValue, setSearchValue] = useState(currentSearch)
   const [allCollapsed, setAllCollapsed] = useState(false)
+
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
+    const init = {} as Record<ColKey, number>
+    for (const c of DEFAULT_COLUMNS) init[c.key] = c.width
+    return init
+  })
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Partial<Record<ColKey, number>>
+      setColWidths((prev) => {
+        const next = { ...prev }
+        for (const c of DEFAULT_COLUMNS) {
+          const v = saved[c.key]
+          if (typeof v === 'number' && v >= c.minWidth) next[c.key] = v
+        }
+        return next
+      })
+    } catch {}
+  }, [])
+
+  const persistWidths = useCallback((next: Record<ColKey, number>) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    } catch {}
+  }, [])
+
+  const dragRef = useRef<{ key: ColKey; startX: number; startWidth: number; min: number } | null>(null)
+
+  const onResizeStart = useCallback(
+    (key: ColKey, e: React.PointerEvent<HTMLSpanElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const col = DEFAULT_COLUMNS.find((c) => c.key === key)
+      if (!col) return
+      dragRef.current = {
+        key,
+        startX: e.clientX,
+        startWidth: colWidths[key],
+        min: col.minWidth,
+      }
+      const onMove = (ev: PointerEvent) => {
+        const drag = dragRef.current
+        if (!drag) return
+        const delta = ev.clientX - drag.startX
+        const w = Math.max(drag.min, drag.startWidth + delta)
+        setColWidths((prev) => ({ ...prev, [drag.key]: w }))
+      }
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove)
+        document.removeEventListener('pointerup', onUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        if (dragRef.current) {
+          setColWidths((prev) => {
+            persistWidths(prev)
+            return prev
+          })
+        }
+        dragRef.current = null
+      }
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      document.addEventListener('pointermove', onMove)
+      document.addEventListener('pointerup', onUp)
+    },
+    [colWidths, persistWidths]
+  )
+
+  const resetWidths = useCallback(() => {
+    const init = {} as Record<ColKey, number>
+    for (const c of DEFAULT_COLUMNS) init[c.key] = c.width
+    setColWidths(init)
+    persistWidths(init)
+  }, [persistWidths])
 
   const setParam = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -230,25 +345,44 @@ export function DealsNestedTable({
           >
             {allCollapsed ? '全展開' : '全折り畳み'}
           </button>
+          <button
+            type="button"
+            onClick={resetWidths}
+            className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8]"
+            title="列幅をデフォルトに戻す"
+          >
+            列幅リセット
+          </button>
         </div>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-        <table className="w-full border-collapse text-[11px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <table
+          className="border-collapse text-[11px] font-body"
+          style={{
+            fontVariantNumeric: 'tabular-nums',
+            tableLayout: 'fixed',
+            width: DEFAULT_COLUMNS.reduce((s, c) => s + colWidths[c.key], 0),
+          }}
+        >
+          <colgroup>
+            {DEFAULT_COLUMNS.map((c) => (
+              <col key={c.key} style={{ width: colWidths[c.key] }} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="bg-[#fafaf9]">
-              <Th className="w-10" />
-              <Th className="w-[100px]">ID</Th>
-              <Th className="w-[260px]">案件名</Th>
-              <Th className="w-[140px]">クライアント</Th>
-              <Th className="w-[110px]">ステータス</Th>
-              <Th className="w-[90px]" align="right">採用合計</Th>
-              <Th className="w-[80px]">納期</Th>
-              <Th className="w-[80px]">更新</Th>
-              <Th className="w-[60px]" align="right">商品</Th>
-              <Th className="w-[60px]" align="right">見積</Th>
-              <Th className="w-[60px]" />
+              {DEFAULT_COLUMNS.map((c) => (
+                <Th
+                  key={c.key}
+                  align={c.align}
+                  resizable={c.resizable !== false}
+                  onResizeStart={(e) => onResizeStart(c.key, e)}
+                >
+                  {c.label}
+                </Th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -303,18 +437,33 @@ function Th({
   children,
   className,
   align,
+  resizable,
+  onResizeStart,
 }: {
   children?: React.ReactNode
   className?: string
   align?: 'left' | 'right'
+  resizable?: boolean
+  onResizeStart?: (e: React.PointerEvent<HTMLSpanElement>) => void
 }) {
   return (
     <th
-      className={`px-2.5 py-2 text-[10px] font-body font-medium text-[#888] uppercase tracking-[0.02em] border-b border-[rgba(0,0,0,0.08)] whitespace-nowrap ${
+      className={`relative px-2.5 py-2 text-[10px] font-body font-medium text-[#888] uppercase tracking-[0.02em] border-b border-[rgba(0,0,0,0.08)] whitespace-nowrap overflow-hidden text-ellipsis ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${className || ''}`}
     >
       {children}
+      {resizable && onResizeStart && (
+        <span
+          onPointerDown={onResizeStart}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-0 right-0 h-full w-[6px] cursor-col-resize select-none group flex items-center justify-center"
+          aria-label="列幅をドラッグで変更"
+          role="separator"
+        >
+          <span className="block w-px h-3/5 bg-[#e8e8e6] group-hover:bg-[#0a0a0a] group-active:bg-[#0a0a0a]" />
+        </span>
+      )}
     </th>
   )
 }
