@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DealsNestedTable } from '@/components/deals/deals-nested-table'
-import { DealPane, DealPaneEmpty } from '@/components/deals/deal-pane'
+import { DealPaneHost } from '@/components/deals/deal-pane-host'
 import { getDealPaneData } from '@/lib/actions/deal-pane'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
 
@@ -162,7 +162,7 @@ export default async function DealsPage({ searchParams }: Props) {
           selectedDealId={params.selected || null}
         />
       </div>
-      {paneData ? <DealPane data={paneData} /> : <DealPaneEmpty />}
+      <DealPaneHost data={paneData} />
     </div>
   )
 }

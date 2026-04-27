@@ -14,7 +14,9 @@ import {
 } from '@/lib/types'
 import { markProductSelected } from '@/lib/actions/products'
 import { markVariantSelected } from '@/lib/actions/variants'
+import { updateDealField } from '@/lib/actions/inline-edit'
 import { DealCommunicationTab } from '@/components/deals/deal-communication-tab'
+import { InlineCell } from '@/components/deals/inline-cell'
 import type { DealCommunication } from '@/lib/types'
 
 type TabId = 'basic' | 'products' | 'quotes' | 'images' | 'comm' | 'history'
@@ -188,24 +190,40 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function BasicTab({ deal }: { deal: DealLite }) {
+  const editDeal = (field: string) => async (val: string) =>
+    updateDealField(deal.id, field, val || null)
   return (
     <div className="space-y-3">
       <Section title="案件情報">
-        <FieldRow label="案件名" value={deal.deal_name} />
-        <FieldRow label="クライアント名" value={deal.client_name_text} />
-        <FieldRow
-          label="希望納期"
-          value={deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : null}
-        />
+        <EditableRow label="案件名">
+          <InlineCell value={deal.deal_name} onSave={editDeal('deal_name')} placeholder="案件名を入力" />
+        </EditableRow>
+        <EditableRow label="クライアント名">
+          <InlineCell value={deal.client_name_text} onSave={editDeal('client_name_text')} placeholder="クライアント名を入力" />
+        </EditableRow>
+        <EditableRow label="希望納期">
+          <InlineCell type="date" value={deal.desired_delivery_date} onSave={editDeal('desired_delivery_date')} />
+        </EditableRow>
         <FieldRow label="担当スタッフ" value={deal.sales_user?.display_name} />
         <FieldRow label="作成日" value={formatDate(deal.created_at)} />
         <FieldRow label="最終更新" value={formatDate(deal.last_activity_at)} />
       </Section>
-      {deal.memo && (
-        <Section title="メモ">
-          <p className="text-[13px] text-[#0a0a0a] font-body whitespace-pre-wrap">{deal.memo}</p>
-        </Section>
-      )}
+      <Section title="メモ">
+        <InlineCell
+          value={deal.memo}
+          onSave={editDeal('memo')}
+          placeholder="メモを入力 — クリックで編集"
+        />
+      </Section>
+    </div>
+  )
+}
+
+function EditableRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[100px_1fr] gap-2 py-1 border-b border-[rgba(0,0,0,0.03)] items-center">
+      <span className="text-[10px] text-[#888] font-body">{label}</span>
+      <div className="text-[12px]">{children}</div>
     </div>
   )
 }

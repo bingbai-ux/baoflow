@@ -25,14 +25,16 @@ export function DealPane({ data }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { toast } = useUi()
+  const { toast, setPaneOpen } = useUi()
   const [docModalOpen, setDocModalOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const close = () => {
+    // Clear selection AND collapse the pane
     const p = new URLSearchParams(searchParams.toString())
     p.delete('selected')
-    router.push(p.toString() ? `${pathname}?${p.toString()}` : pathname)
+    setPaneOpen(false)
+    router.push(p.toString() ? `${pathname}?${p.toString()}` : pathname, { scroll: false })
   }
 
   const advance = () => {

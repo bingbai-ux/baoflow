@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide-react'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { DealExcelGrid } from './deal-excel-grid'
+import { DealPaneToggle } from './deal-pane-host'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -411,6 +412,7 @@ export function DealsNestedTable({
           >
             列幅リセット
           </button>
+          <DealPaneToggle />
         </div>
       </div>
 
