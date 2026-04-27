@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Plus } from 'lucide-react'
 import { DealsNestedTable } from '@/components/deals/deals-nested-table'
+import { DealPane, DealPaneEmpty } from '@/components/deals/deal-pane'
+import { getDealPaneData } from '@/lib/actions/deal-pane'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
 
 interface Props {
   searchParams: Promise<{
     status?: string
     q?: string
+    selected?: string
   }>
 }
 
@@ -147,30 +148,21 @@ export default async function DealsPage({ searchParams }: Props) {
     quotes = (qs || []) as never
   }
 
-  return (
-    <>
-      <div className="flex justify-between items-center py-[18px]">
-        <div>
-          <h1 className="font-display text-[22px] font-semibold text-[#0a0a0a] tracking-tight">案件</h1>
-          <p className="text-[11px] text-[#888] font-body mt-0.5">
-            クライアントの ▼ をクリックで展開 · 各案件行クリックで詳細表示
-          </p>
-        </div>
-        <Link
-          href="/deals/new"
-          className="bg-[#0a0a0a] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body no-underline inline-flex items-center gap-1"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          新規案件
-        </Link>
-      </div>
+  // Right pane data — fetched only when ?selected=X is present
+  const paneData = params.selected ? await getDealPaneData(params.selected) : null
 
-      <DealsNestedTable
-        deals={deals || []}
-        products={products}
-        variants={variants}
-        quotes={quotes}
-      />
-    </>
+  return (
+    <div className="flex h-[calc(100vh-52px)] -mx-5">
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto px-5">
+        <DealsNestedTable
+          deals={deals || []}
+          products={products}
+          variants={variants}
+          quotes={quotes}
+          selectedDealId={params.selected || null}
+        />
+      </div>
+      {paneData ? <DealPane data={paneData} /> : <DealPaneEmpty />}
+    </div>
   )
 }

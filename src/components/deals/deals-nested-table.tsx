@@ -148,6 +148,7 @@ interface DealsNestedTableProps {
   products: ProductRow[]
   variants: VariantRow[]
   quotes: QuoteRow[]
+  selectedDealId?: string | null
 }
 
 interface ClientGroup {
@@ -186,10 +187,17 @@ export function DealsNestedTable({
   products,
   variants,
   quotes,
+  selectedDealId,
 }: DealsNestedTableProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  const selectDeal = (dealId: string) => {
+    const p = new URLSearchParams(searchParams.toString())
+    p.set('selected', dealId)
+    router.push(`${pathname}?${p.toString()}`, { scroll: false })
+  }
 
   const currentStatus = searchParams.get('status') || 'all'
   const currentSearch = searchParams.get('q') || ''
@@ -463,6 +471,8 @@ export function DealsNestedTable({
                   quotesByVariant={quotesByVariant}
                   forceCollapsed={allCollapsed}
                   onOpenDocModal={setDocModalDealId}
+                  onSelectDeal={selectDeal}
+                  selectedDealId={selectedDealId}
                 />
               ))
             )}
@@ -559,6 +569,8 @@ function ClientGroupRows({
   quotesByVariant,
   forceCollapsed,
   onOpenDocModal,
+  onSelectDeal,
+  selectedDealId,
 }: {
   group: ClientGroup
   productsByDeal: Map<string, ProductRow[]>
@@ -567,6 +579,8 @@ function ClientGroupRows({
   quotesByVariant: Map<string, QuoteRow[]>
   forceCollapsed: boolean
   onOpenDocModal: (dealId: string) => void
+  onSelectDeal: (dealId: string) => void
+  selectedDealId?: string | null
 }) {
   const [expanded, setExpanded] = useState(true)
   const visible = forceCollapsed ? false : expanded
@@ -636,6 +650,8 @@ function ClientGroupRows({
             quotes={quotesByDeal.get(deal.id) || []}
             quotesByVariant={quotesByVariant}
             forceCollapsed={forceCollapsed}
+            onSelectDeal={onSelectDeal}
+            isSelected={selectedDealId === deal.id}
           />
         ))}
     </>
@@ -649,6 +665,8 @@ function DealRowItem({
   quotes,
   quotesByVariant,
   forceCollapsed,
+  onSelectDeal,
+  isSelected,
 }: {
   deal: DealRow
   products: ProductRow[]
@@ -656,6 +674,8 @@ function DealRowItem({
   quotes: QuoteRow[]
   quotesByVariant: Map<string, QuoteRow[]>
   forceCollapsed: boolean
+  onSelectDeal: (dealId: string) => void
+  isSelected: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const visible = forceCollapsed ? false : expanded
@@ -666,18 +686,31 @@ function DealRowItem({
   const stale = isStale(deal)
   const overdue = dDays < 0 && deal.desired_delivery_date
 
-  const rowBg = overdue
+  const baseBg = overdue
     ? 'bg-[#fef2f2] hover:bg-[#fde8e8]'
     : urgent
       ? 'bg-[#fffaf2] hover:bg-[#fff3e0]'
       : stale
         ? 'bg-[#fafaf9] hover:bg-[#f0f0ed]'
         : 'bg-white hover:bg-[#fafaf9]'
+  const rowBg = isSelected
+    ? 'bg-[#fff8e8] hover:bg-[#fff8e8] ring-1 ring-inset ring-[#e5a32e]'
+    : baseBg
 
   return (
     <>
-      <tr className={rowBg} style={{ height: 30 }}>
-        <td className="px-2 py-1 text-center cursor-pointer" onClick={() => setExpanded(!expanded)}>
+      <tr
+        className={`${rowBg} cursor-pointer`}
+        style={{ height: 30 }}
+        onClick={() => onSelectDeal(deal.id)}
+      >
+        <td
+          className="px-2 py-1 text-center cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation()
+            setExpanded(!expanded)
+          }}
+        >
           {visible ? (
             <ChevronDown className="w-2.5 h-2.5 text-[#888] inline" />
           ) : (
@@ -686,13 +719,10 @@ function DealRowItem({
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888] truncate">{deal.deal_code}</td>
         <td className="px-2.5 py-1 truncate">
-          <Link
-            href={`/deals/${deal.id}`}
-            className="text-[11px] text-[#0a0a0a] no-underline hover:underline truncate block"
-          >
+          <span className="text-[11px] text-[#0a0a0a] truncate block">
             {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] mr-1.5 align-middle" />}
             {deal.deal_name || '(未設定)'}
-          </Link>
+          </span>
         </td>
         <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">
           {deal.client_name_text || '-'}
@@ -715,8 +745,13 @@ function DealRowItem({
         <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{products.length}</td>
         <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{quotes.length}</td>
         <td className="px-2.5 py-1 text-right">
-          <Link href={`/deals/${deal.id}`} className="text-[10px] text-[#22c55e] no-underline hover:underline">
-            開く
+          <Link
+            href={`/deals/${deal.id}`}
+            className="text-[10px] text-[#22c55e] no-underline hover:underline"
+            onClick={(e) => e.stopPropagation()}
+            title="フルページで開く"
+          >
+            ↗
           </Link>
         </td>
       </tr>
