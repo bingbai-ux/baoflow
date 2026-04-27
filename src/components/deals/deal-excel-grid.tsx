@@ -33,26 +33,23 @@ const NUM = (v: number | string | null) => (v == null || v === '' ? '' : Number(
 const FIX = (n: number) => (v: number | string | null) =>
   v == null || v === '' ? '' : Number(v).toFixed(n)
 
-export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVariant }: Props) {
-  // Flatten product × variant into rows
-  const rows: RowData[] = []
-  for (const p of products.sort((a, b) => a.product_no - b.product_no)) {
-    const variants = variantsByProduct.get(p.id) || []
-    if (variants.length === 0) {
-      rows.push({ product: p, variant: emptyVariant(p.id), quote: null, quotes: [] })
-      continue
-    }
-    for (const v of variants) {
-      const vQuotes = quotesByVariant.get(v.id) || []
-      const approved = vQuotes.find((q) => q.status === 'approved')
-      const latest = [...vQuotes].sort((a, b) => (b.version || 0) - (a.version || 0))[0] || null
-      rows.push({ product: p, variant: v, quote: approved || latest, quotes: vQuotes })
-    }
-  }
+// Per-product accent colors. Cycles by product_no so adjacent products are distinct.
+// Light wash on the leftmost cell + a colored left border on the product header bar.
+const PRODUCT_PALETTE = [
+  { bar: '#22c55e', wash: '#f0fdf4' }, // green
+  { bar: '#3b82f6', wash: '#eff6ff' }, // blue
+  { bar: '#e5a32e', wash: '#fffbf2' }, // amber
+  { bar: '#a855f7', wash: '#faf5ff' }, // purple
+  { bar: '#ef4444', wash: '#fef2f2' }, // red
+  { bar: '#06b6d4', wash: '#ecfeff' }, // cyan
+]
 
-  if (rows.length === 0) {
+export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVariant }: Props) {
+  const sortedProducts = [...products].sort((a, b) => a.product_no - b.product_no)
+
+  if (sortedProducts.length === 0) {
     return (
-      <div className="bg-[#fafaf9] px-3.5 py-3 text-[11px] text-[#888]">
+      <div className="bg-[#fafaf9] px-3.5 py-4 text-[12px] text-[#888]">
         商品/バリエーションがまだありません ·{' '}
         <Link
           href={`/deals/${dealId}/products/new`}
@@ -68,11 +65,11 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
     <div className="bg-[#fafaf9] border-t border-b border-[rgba(0,0,0,0.06)]">
       <div className="overflow-x-auto">
         <table
-          className="border-collapse text-[10px] font-body"
+          className="border-collapse text-[11px] font-body"
           style={{
             fontVariantNumeric: 'tabular-nums',
             tableLayout: 'fixed',
-            minWidth: 2800,
+            minWidth: 2900,
           }}
         >
           <colgroup>
@@ -82,23 +79,23 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
           </colgroup>
           <thead>
             {/* Group header row */}
-            <tr className="bg-[#f0f0ed] text-[#555]">
+            <tr className="bg-[#e8e7e2] text-[#444]">
               {GROUPS.map((g) => (
                 <th
                   key={g.label}
                   colSpan={g.span}
-                  className="px-2 py-1 text-[9px] uppercase tracking-[0.05em] font-medium border-b border-r border-[rgba(0,0,0,0.06)] text-center"
+                  className="px-2 py-1.5 text-[10px] uppercase tracking-[0.06em] font-semibold border-b-2 border-r border-[rgba(0,0,0,0.08)] text-center"
                 >
                   {g.label}
                 </th>
               ))}
             </tr>
             {/* Field header row */}
-            <tr className="bg-[#fafaf9] text-[#888]">
+            <tr className="bg-[#f5f4f0] text-[#666]">
               {COLS.map((c) => (
                 <th
                   key={c.k}
-                  className={`px-1.5 py-1 text-[9px] font-medium uppercase tracking-[0.02em] border-b border-r border-[rgba(0,0,0,0.05)] whitespace-nowrap ${
+                  className={`px-1.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.03em] border-b border-r border-[rgba(0,0,0,0.06)] whitespace-nowrap ${
                     c.align === 'right' ? 'text-right' : 'text-left'
                   }`}
                 >
@@ -108,22 +105,31 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, idx) => (
-              <tr key={r.variant.id || `empty-${idx}`} className="bg-white hover:bg-[#fcfcfb]">
-                {COLS.map((c) => (
-                  <td
-                    key={c.k}
-                    className="border-b border-r border-[rgba(0,0,0,0.04)] p-0 align-middle"
-                  >
-                    <Cell col={c.k} row={r} />
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {sortedProducts.map((p, pi) => {
+              const palette = PRODUCT_PALETTE[pi % PRODUCT_PALETTE.length]
+              const variants = variantsByProduct.get(p.id) || []
+              const variantRows: RowData[] = variants.length === 0
+                ? [{ product: p, variant: emptyVariant(p.id), quote: null, quotes: [] }]
+                : variants.map((v) => {
+                    const vQuotes = quotesByVariant.get(v.id) || []
+                    const approved = vQuotes.find((q) => q.status === 'approved')
+                    const latest = [...vQuotes].sort((a, b) => (b.version || 0) - (a.version || 0))[0] || null
+                    return { product: p, variant: v, quote: approved || latest, quotes: vQuotes }
+                  })
+              return (
+                <ProductBlock
+                  key={p.id}
+                  dealId={dealId}
+                  product={p}
+                  rows={variantRows}
+                  palette={palette}
+                />
+              )
+            })}
           </tbody>
         </table>
       </div>
-      <div className="px-3.5 py-1.5 border-t border-[rgba(0,0,0,0.04)] flex items-center gap-3 text-[10px]">
+      <div className="px-3.5 py-2 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-3 text-[11px]">
         <Link
           href={`/deals/${dealId}/products/new`}
           className="text-[#22c55e] no-underline hover:underline"
@@ -138,6 +144,74 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
         </Link>
       </div>
     </div>
+  )
+}
+
+function ProductBlock({
+  dealId,
+  product,
+  rows,
+  palette,
+}: {
+  dealId: string
+  product: ProductRow
+  rows: RowData[]
+  palette: { bar: string; wash: string }
+}) {
+  return (
+    <>
+      {/* Product header banner — visually breaks up products */}
+      <tr style={{ background: palette.wash }}>
+        <td
+          colSpan={COLS.length}
+          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2"
+          style={{ borderLeft: `3px solid ${palette.bar}` }}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-display font-bold text-white"
+              style={{ background: palette.bar }}
+            >
+              {product.product_no}
+            </span>
+            <span className="text-[13px] font-body font-semibold text-[#0a0a0a]">
+              {product.description || '(商品名未設定)'}
+            </span>
+            {product.factory_staff_code && (
+              <span className="text-[10px] bg-[#0a0a0a] text-white px-1.5 py-0.5 rounded-[4px] font-display tracking-wider">
+                {product.factory_staff_code}
+              </span>
+            )}
+            <span className="text-[11px] text-[#888]">
+              バリエ {rows.filter((r) => r.variant.id).length} 件
+            </span>
+            <Link
+              href={`/deals/${dealId}/products/${product.id}/variants/new`}
+              className="ml-auto text-[10px] text-[#22c55e] no-underline hover:underline"
+            >
+              + バリエ追加
+            </Link>
+          </div>
+        </td>
+      </tr>
+      {/* Variant rows */}
+      {rows.map((r, idx) => (
+        <tr
+          key={r.variant.id || `empty-${product.id}-${idx}`}
+          className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
+        >
+          {COLS.map((c, ci) => (
+            <td
+              key={c.k}
+              className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
+              style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
+            >
+              <Cell col={c.k} row={r} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   )
 }
 
@@ -301,8 +375,8 @@ function Display({
 }) {
   return (
     <span
-      className={`block px-1.5 py-0.5 text-[10px] ${align === 'right' ? 'text-right' : 'text-left'} ${
-        green ? 'text-[#22c55e] font-display tabular-nums' : 'text-[#555]'
+      className={`block px-1.5 py-1 text-[11px] ${align === 'right' ? 'text-right' : 'text-left'} ${
+        green ? 'text-[#22c55e] font-display tabular-nums font-semibold' : 'text-[#0a0a0a]'
       }`}
     >
       {children || <span className="text-[#ccc]">—</span>}

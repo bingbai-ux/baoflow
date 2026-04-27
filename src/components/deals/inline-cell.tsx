@@ -95,7 +95,7 @@ export function InlineCell({
           }
         }}
         disabled={pending}
-        className={`block w-full px-1.5 py-0.5 text-[10px] font-body bg-[#fffaf2] border border-[#e5a32e] rounded-[2px] focus:outline-none ${alignClass} ${className} ${
+        className={`block w-full px-1.5 py-1 text-[11px] font-body bg-[#fffaf2] border border-[#e5a32e] rounded-[2px] focus:outline-none ${alignClass} ${className} ${
           error ? 'border-[#cf5a3a]' : ''
         }`}
         title={error || ''}
@@ -107,7 +107,7 @@ export function InlineCell({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className={`block w-full px-1.5 py-0.5 text-[10px] font-body cursor-text hover:bg-[#fafaf8] hover:ring-1 hover:ring-[#e8e8e6] rounded-[2px] ${alignClass} ${className}`}
+      className={`block w-full px-1.5 py-1 text-[11px] font-body cursor-text hover:bg-[#fafaf8] hover:ring-1 hover:ring-[#e8e8e6] rounded-[2px] ${alignClass} ${className}`}
     >
       {display || <span className="text-[#bbb]">{placeholder}</span>}
     </button>
