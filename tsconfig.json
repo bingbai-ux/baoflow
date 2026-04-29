@@ -26,11 +26,12 @@
   "exclude": [
     "node_modules",
     "src/app/(main)/_archive/**",
+    "src/app/(main)/_archive_settings/**",
     "src/app/_archive_factory/**",
     "src/app/_archive_portal/**",
-    "src/lib/actions/_unused/**",
-    "src/components/_unused/**",
-    "src/components/deals/_unused/**",
-    "src/app/(main)/deals/[id]/_unused/**"
+    "src/lib/actions/_legacy_pages/**",
+    "src/components/_legacy_pages/**",
+    "src/components/deals/_legacy_pages/**",
+    "src/app/(main)/deals/[id]/_legacy_pages/**"
   ]
 }
