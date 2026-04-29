@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTransition } from 'react'
-import { X, FileText, ExternalLink } from 'lucide-react'
+import { X, FileText, ExternalLink, Send } from 'lucide-react'
 import { MiniPipeline } from './mini-pipeline'
 import { PaneTabs } from './pane-tabs'
 import { DocumentModal } from '@/components/documents/document-modal'
+import { RfqCreateModal } from './rfq-create-modal'
 import { useState } from 'react'
 import { advanceSimpleStatus } from '@/lib/actions/deals'
 import { useUi } from '@/components/ui/ui-store'
@@ -27,6 +28,7 @@ export function DealPane({ data }: Props) {
   const searchParams = useSearchParams()
   const { toast, setPaneOpen } = useUi()
   const [docModalOpen, setDocModalOpen] = useState(false)
+  const [rfqModalOpen, setRfqModalOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const close = () => {
@@ -120,22 +122,31 @@ export function DealPane({ data }: Props) {
         <button
           type="button"
           onClick={() => setDocModalOpen(true)}
-          className="flex-1 px-2.5 py-2 rounded-[6px] text-[11px] cursor-pointer border border-[#e0dfd9] bg-white text-[#0a0a0a] inline-flex items-center justify-center gap-1 hover:bg-[#fafaf9] transition-colors"
+          className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#e0dfd9] bg-white text-[#0a0a0a] inline-flex items-center justify-center gap-1 hover:bg-[#fafaf9] transition-colors"
         >
           <FileText className="w-3 h-3" />
           帳票
+        </button>
+        {/* Sprint 8-6: 見積依頼 (RFQ) ボタン */}
+        <button
+          type="button"
+          onClick={() => setRfqModalOpen(true)}
+          className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#e0dfd9] bg-white text-[#0a0a0a] inline-flex items-center justify-center gap-1 hover:bg-[#fafaf9] transition-colors"
+        >
+          <Send className="w-3 h-3" />
+          見積依頼
         </button>
         {!isLast ? (
           <button
             type="button"
             onClick={advance}
             disabled={pending}
-            className="flex-1 px-2.5 py-2 rounded-[6px] text-[11px] cursor-pointer border border-[#0a0a0a] bg-[#0a0a0a] text-white font-medium hover:bg-[#222] disabled:opacity-50 transition-colors"
+            className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#0a0a0a] bg-[#0a0a0a] text-white font-medium hover:bg-[#222] disabled:opacity-50 transition-colors"
           >
             {pending ? '更新中…' : `→ ${nextLabel}`}
           </button>
         ) : (
-          <span className="flex-1 px-2.5 py-2 rounded-[6px] text-[11px] text-center bg-[#e7f0e6] text-[#3a7d36] font-medium">
+          <span className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] text-center bg-[#e7f0e6] text-[#3a7d36] font-medium">
             納品完了
           </span>
         )}
@@ -143,6 +154,13 @@ export function DealPane({ data }: Props) {
 
       {docModalOpen && (
         <DocumentModal dealId={data.deal.id} onClose={() => setDocModalOpen(false)} />
+      )}
+      {rfqModalOpen && (
+        <RfqCreateModal
+          dealId={data.deal.id}
+          products={data.products as never}
+          onClose={() => setRfqModalOpen(false)}
+        />
       )}
     </div>
   )

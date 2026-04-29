@@ -154,6 +154,8 @@ export interface QuoteRow {
   sample_production_days: number | null
   sample_shipping_days: number | null
   status: string | null
+  // Sprint 8-8: 見積に紐づく工場 (factory.id)
+  factory_id: string | null
 }
 
 interface DealsNestedTableProps {

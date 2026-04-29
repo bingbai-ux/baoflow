@@ -8,6 +8,7 @@ import { formatJPY } from '@/lib/utils/format'
 import { ClientDetail } from './client-detail'
 import { FactoryDetail } from './factory-detail'
 import { StaffDetail } from './staff-detail'
+import { InviteButton } from './invite-button'
 import { createClientRecord } from '@/lib/actions/clients'
 import { createFactoryRecord } from '@/lib/actions/factories'
 import type { ClientRollup, FactoryRollup, StaffRollup } from '@/lib/actions/master-types'
@@ -107,6 +108,9 @@ export function MasterTabs({
             className="w-full pl-7 pr-2 py-1 text-[11px] font-body bg-[#fafaf9] border border-[rgba(0,0,0,0.08)] rounded-[6px] focus:outline-none focus:border-[#0a0a0a]"
           />
         </div>
+        {/* Sprint 8-5: 招待リンク生成ボタン (clients/factories タブのみ、staff タブでは非表示) */}
+        {tab === 'clients' && <InviteButton kind="client" />}
+        {tab === 'factories' && <InviteButton kind="factory" />}
         {newButtonLabel && (
           <button
             onClick={() => setShowNew(true)}

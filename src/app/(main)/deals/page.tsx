@@ -124,6 +124,7 @@ export default async function DealsPage({ searchParams }: Props) {
     sample_production_days: number | null
     sample_shipping_days: number | null
     status: string | null
+    factory_id: string | null
   }> = []
 
   if (dealIds.length > 0) {
@@ -143,7 +144,7 @@ export default async function DealsPage({ searchParams }: Props) {
       supabase
         .from('deal_quotes')
         .select(
-          'id, deal_id, variant_id, spec_id, version, quantity, moq, factory_unit_price_usd, plate_fee_usd, pantone_color_fee_usd, sample_cost_usd, sample_shipping_usd, other_fees_usd, domestic_china_freight_usd, factory_calculated_freight_usd, food_inspection_fee_yuan, china_freight_yuan, china_freight_usd, exchange_rate, cost_ratio, selling_price_usd, selling_price_jpy, unit_cost_usd, total_cost_usd, total_billing_jpy, total_billing_tax_jpy, shipping_weight_kg, incoterm, packing_info_text, sample_production_days, sample_shipping_days, status'
+          'id, deal_id, variant_id, spec_id, version, quantity, moq, factory_unit_price_usd, plate_fee_usd, pantone_color_fee_usd, sample_cost_usd, sample_shipping_usd, other_fees_usd, domestic_china_freight_usd, factory_calculated_freight_usd, food_inspection_fee_yuan, china_freight_yuan, china_freight_usd, exchange_rate, cost_ratio, selling_price_usd, selling_price_jpy, unit_cost_usd, total_cost_usd, total_billing_jpy, total_billing_tax_jpy, shipping_weight_kg, incoterm, packing_info_text, sample_production_days, sample_shipping_days, status, factory_id'
         )
         .in('deal_id', dealIds)
         .order('version', { ascending: false }),
