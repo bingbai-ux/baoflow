@@ -16,6 +16,7 @@ import {
   updateQuoteSimpleField,
 } from '@/lib/actions/inline-edit'
 import { addBlankVariant } from '@/lib/actions/variants'
+import { addBlankProduct } from '@/lib/actions/products'
 import { useUi } from '@/components/ui/ui-store'
 import { VariantRowMenu } from './variant-row-menu'
 import { ProductShippingPopover } from './product-shipping-popover'
@@ -83,13 +84,8 @@ export function DealExcelGrid({
   if (sortedProducts.length === 0) {
     return (
       <div className="bg-[#fafaf9] px-3.5 py-4 text-[12px] text-[#888]">
-        商品/バリエーションがまだありません ·{' '}
-        <Link
-          href={`/deals/${dealId}/products/new`}
-          className="text-[#22c55e] no-underline hover:underline"
-        >
-          + 追加
-        </Link>
+        商品がまだありません ·{' '}
+        <AddProductButton dealId={dealId} variant="inline" />
       </div>
     )
   }
@@ -164,12 +160,7 @@ export function DealExcelGrid({
         </table>
       </div>
       <div className="px-3.5 py-2 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-3 text-[11px]">
-        <Link
-          href={`/deals/${dealId}/products/new`}
-          className="text-[#22c55e] no-underline hover:underline"
-        >
-          + 商品を追加
-        </Link>
+        <AddProductButton dealId={dealId} variant="inline" />
         <Link
           href={`/deals/${dealId}`}
           className="text-[#888] no-underline hover:text-[#0a0a0a] ml-auto"
@@ -178,6 +169,38 @@ export function DealExcelGrid({
         </Link>
       </div>
     </div>
+  )
+}
+
+// Sprint 7-6: 「+ 商品を追加」ボタン。旧 /deals/[id]/products/new ページの代替。
+function AddProductButton({ dealId, variant }: { dealId: string; variant: 'inline' }) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const [pending, startTransition] = useTransition()
+
+  const handleAdd = () => {
+    if (pending) return
+    startTransition(async () => {
+      const r = await addBlankProduct(dealId)
+      if (r.error) toast(r.error || '商品追加に失敗しました', 'warn')
+      else {
+        toast('新規商品を追加しました')
+        router.refresh()
+      }
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleAdd}
+      disabled={pending}
+      className={`text-[#22c55e] hover:underline disabled:opacity-50 ${
+        variant === 'inline' ? '' : ''
+      }`}
+    >
+      {pending ? '追加中…' : '+ 商品を追加'}
+    </button>
   )
 }
 

@@ -359,7 +359,7 @@ function ProductsTab({
         <div className="text-center py-8">
           <p className="text-[13px] text-[#888] font-body">まだ商品が登録されていません。</p>
           <Link
-            href={`/deals/${dealId}/products/new`}
+            href={`/deals?selected=${dealId}`}
             className="mt-3 inline-flex items-center gap-1 text-[12px] font-body text-[#22c55e] no-underline hover:underline"
           >
             <Plus className="w-3 h-3" /> 商品を追加
@@ -390,7 +390,7 @@ function ProductsTab({
         })}
       </ul>
       <Link
-        href={`/deals/${dealId}/products/new`}
+        href={`/deals?selected=${dealId}`}
         className="mt-3 inline-flex items-center gap-1 text-[12px] font-body text-[#22c55e] no-underline hover:underline"
       >
         <Plus className="w-3 h-3" /> 別の商品を追加
@@ -473,7 +473,7 @@ function ProductRow({
             {product.is_selected ? '採用解除' : <><Check className="w-3 h-3" /> 採用</>}
           </button>
           <Link
-            href={`/deals/${dealId}/products/${product.id}/edit`}
+            href={`/deals?selected=${dealId}`}
             className="text-[11px] font-body text-[#22c55e] no-underline hover:underline px-2 py-1"
           >
             編集
@@ -487,7 +487,7 @@ function ProductRow({
             <div className="text-center py-3">
               <p className="text-[12px] text-[#888] font-body">バリエーションがありません</p>
               <Link
-                href={`/deals/${dealId}/products/${product.id}/variants/new`}
+                href={`/deals?selected=${dealId}`}
                 className="mt-1 inline-flex items-center gap-1 text-[11px] font-body text-[#22c55e] no-underline hover:underline"
               >
                 <Plus className="w-3 h-3" /> バリエーションを追加
@@ -506,7 +506,7 @@ function ProductRow({
                 />
               ))}
               <Link
-                href={`/deals/${dealId}/products/${product.id}/variants/new`}
+                href={`/deals?selected=${dealId}`}
                 className="inline-flex items-center gap-1 text-[11px] font-body text-[#22c55e] no-underline hover:underline pt-1"
               >
                 <Plus className="w-3 h-3" /> バリエーションを追加
@@ -599,7 +599,7 @@ function VariantRow({
             {variant.is_selected ? '解除' : '採用'}
           </button>
           <Link
-            href={`/deals/${dealId}/products/${productId}/variants/${variant.id}/edit`}
+            href={`/deals?selected=${dealId}`}
             className="text-[10px] font-body text-[#22c55e] hover:underline px-1"
           >
             編集
@@ -639,7 +639,7 @@ function VariantRow({
             </ul>
           )}
           <Link
-            href={`/deals/${dealId}/products/${productId}/variants/${variant.id}/quotes/new`}
+            href={`/deals?selected=${dealId}`}
             className="inline-flex items-center gap-1 text-[11px] font-body text-[#22c55e] no-underline hover:underline pt-1"
           >
             <Plus className="w-3 h-3" /> 数量別見積を追加
@@ -721,7 +721,7 @@ function ImagesTab({
         <div className="text-center py-8">
           <p className="text-[13px] text-[#888] font-body">まだ画像が登録されていません。</p>
           <Link
-            href={`/deals/${dealId}/designs`}
+            href={`/deals?selected=${dealId}`}
             className="mt-2 inline-block text-[12px] font-body text-[#22c55e] no-underline hover:underline"
           >
             画像をアップロード →
@@ -750,7 +750,7 @@ function ImagesTab({
             )}
           </div>
           <Link
-            href={`/deals/${dealId}/designs`}
+            href={`/deals?selected=${dealId}`}
             className="mt-3 inline-block text-[12px] font-body text-[#22c55e] no-underline hover:underline"
           >
             画像を管理 →
