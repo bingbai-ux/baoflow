@@ -10,6 +10,7 @@ import { DealPaneToggle } from './deal-pane-host'
 import { InlineCell } from './inline-cell'
 import { DealStatusDropdown } from './deal-status-dropdown'
 import { updateDealField } from '@/lib/actions/inline-edit'
+import { setDealsTableColumnWidths } from '@/lib/actions/user-preferences'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -153,6 +154,8 @@ interface DealsNestedTableProps {
   variants: VariantRow[]
   quotes: QuoteRow[]
   selectedDealId?: string | null
+  // Sprint 7-3-3: server side で fetch した列幅 (user_preferences.deals_table_column_widths)
+  serverColWidths?: Record<string, number> | null
 }
 
 interface ClientGroup {
@@ -192,6 +195,7 @@ export function DealsNestedTable({
   variants,
   quotes,
   selectedDealId,
+  serverColWidths,
 }: DealsNestedTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -251,13 +255,23 @@ export function DealsNestedTable({
     })
   }, [])
 
+  // Sprint 7-3-3: 列幅の優先順 1) サーバー (user_preferences) → 2) localStorage → 3) デフォルト
   const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
     const init = {} as Record<ColKey, number>
     for (const c of DEFAULT_COLUMNS) init[c.key] = c.width
+    // 1) サーバーから受け取った値を最優先で適用 (SSR で既に分かっている)
+    if (serverColWidths) {
+      for (const c of DEFAULT_COLUMNS) {
+        const v = serverColWidths[c.key]
+        if (typeof v === 'number' && v >= c.minWidth) init[c.key] = v
+      }
+    }
     return init
   })
 
+  // 2) localStorage fallback (server に値がない初回ユーザー or オフライン時)
   useEffect(() => {
+    if (serverColWidths && Object.keys(serverColWidths).length > 0) return
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
@@ -271,12 +285,18 @@ export function DealsNestedTable({
         return next
       })
     } catch {}
-  }, [])
+  }, [serverColWidths])
 
+  // Sprint 7-3-3: localStorage への即時保存 + DB への非同期 upsert (fire-and-forget)。
+  // ネット失敗時も localStorage が残っているので次回開いた時はその値が使われる。
   const persistWidths = useCallback((next: Record<ColKey, number>) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {}
+    // DB upsert は非同期、結果を待たない (UI を block しない)
+    void setDealsTableColumnWidths(next as Record<string, number>).catch(() => {
+      // 失敗時は localStorage 側で次回ロード時にも復元できるので silent
+    })
   }, [])
 
   const dragRef = useRef<{ key: ColKey; startX: number; startWidth: number; min: number } | null>(null)
@@ -793,6 +813,7 @@ function DealRowItem({
                 value={deal.deal_name}
                 onSave={(val) => updateDealField(deal.id, 'deal_name', val || null)}
                 placeholder="(案件名)"
+                dataCol="deal_name"
               />
             </span>
           </div>
@@ -802,6 +823,7 @@ function DealRowItem({
             value={deal.client_name_text}
             onSave={(val) => updateDealField(deal.id, 'client_name_text', val || null)}
             placeholder="(クライアント)"
+            dataCol="client_name_text"
           />
         </td>
         <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
@@ -816,6 +838,7 @@ function DealRowItem({
             value={deal.desired_delivery_date}
             onSave={(val) => updateDealField(deal.id, 'desired_delivery_date', val || null)}
             placeholder="-"
+            dataCol="desired_delivery_date"
           />
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">

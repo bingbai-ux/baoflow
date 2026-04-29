@@ -325,22 +325,28 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
   const quoteSimpleEdit = (field: string) => async (val: string) =>
     q ? updateQuoteSimpleField(q.id, field, val || null) : { success: false, error: '見積未作成' }
 
+  // Sprint 7-3-4: 全 InlineCell に dataCol を自動注入する thin wrapper。
+  // これにより Enter で「次の行の同じ列」へフォーカス移動可能になる。
+  const IC = (props: React.ComponentProps<typeof InlineCell>) => (
+    <InlineCell {...props} dataCol={col} />
+  )
+
   switch (col) {
     case 'product_no':
       return <Display>{`#${p.product_no}`}</Display>
     case 'product_code':
       return (
-        <InlineCell
+        <IC
           value={p.factory_staff_code}
           onSave={productEdit('factory_staff_code')}
           suggestions={FACTORY_STAFF_CODES}
         />
       )
     case 'process':
-      return <InlineCell value={p.production_process} onSave={productEdit('production_process')} />
+      return <IC value={p.production_process} onSave={productEdit('production_process')} />
     case 'food_grade':
       return (
-        <InlineCell
+        <IC
           type="select"
           value={p.food_grade_status}
           onSave={productEdit('food_grade_status')}
@@ -349,7 +355,7 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
       )
     case 'food_check':
       return (
-        <InlineCell
+        <IC
           type="select"
           value={p.food_inspection_status}
           onSave={productEdit('food_inspection_status')}
@@ -357,12 +363,12 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
         />
       )
     case 'description':
-      return <InlineCell value={p.description} onSave={productEdit('description')} />
+      return <IC value={p.description} onSave={productEdit('description')} />
     case 'variant_label':
       return (
         <div className="group/vlabel flex items-center gap-1">
           <span className="flex-1 min-w-0">
-            <InlineCell value={v.variant_label} onSave={variantEdit('variant_label')} />
+            <IC value={v.variant_label} onSave={variantEdit('variant_label')} />
           </span>
           {v.id && (
             <span className="opacity-0 group-hover/vlabel:opacity-100 transition-opacity flex-shrink-0 pr-1">
@@ -376,46 +382,46 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
         </div>
       )
     case 'w':
-      return <InlineCell type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
+      return <IC type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
     case 'h':
-      return <InlineCell type="number" align="right" value={v.height_mm} onSave={variantEdit('height_mm')} />
+      return <IC type="number" align="right" value={v.height_mm} onSave={variantEdit('height_mm')} />
     case 'd':
-      return <InlineCell type="number" align="right" value={v.depth_mm} onSave={variantEdit('depth_mm')} />
+      return <IC type="number" align="right" value={v.depth_mm} onSave={variantEdit('depth_mm')} />
     case 'material':
-      return <InlineCell value={v.material} onSave={variantEdit('material')} />
+      return <IC value={v.material} onSave={variantEdit('material')} />
     case 'color':
-      return <InlineCell value={v.color_description} onSave={variantEdit('color_description')} />
+      return <IC value={v.color_description} onSave={variantEdit('color_description')} />
     case 'pantone':
-      return <InlineCell value={v.pantone_colors} onSave={variantEdit('pantone_colors')} />
+      return <IC value={v.pantone_colors} onSave={variantEdit('pantone_colors')} />
     case 'processing':
-      return <InlineCell value={v.processing} onSave={variantEdit('processing')} />
+      return <IC value={v.processing} onSave={variantEdit('processing')} />
     case 'other':
-      return <InlineCell value={v.other_notes} onSave={variantEdit('other_notes')} />
+      return <IC value={v.other_notes} onSave={variantEdit('other_notes')} />
     case 'print_colors':
-      return <InlineCell value={v.print_color_count} onSave={variantEdit('print_color_count')} />
+      return <IC value={v.print_color_count} onSave={variantEdit('print_color_count')} />
     case 'print_method':
-      return <InlineCell value={v.print_method} onSave={variantEdit('print_method')} />
+      return <IC value={v.print_method} onSave={variantEdit('print_method')} />
     case 'moq':
-      return <InlineCell type="number" align="right" value={q?.moq ?? null} onSave={quoteEdit('moq')} format={NUM} />
+      return <IC type="number" align="right" value={q?.moq ?? null} onSave={quoteEdit('moq')} format={NUM} />
     case 'qty':
-      return <InlineCell type="number" align="right" value={q?.quantity ?? null} onSave={quoteEdit('quantity')} format={NUM} />
+      return <IC type="number" align="right" value={q?.quantity ?? null} onSave={quoteEdit('quantity')} format={NUM} />
     case 'unit_usd':
-      return <InlineCell type="number" align="right" value={q?.factory_unit_price_usd ?? null} onSave={quoteEdit('factory_unit_price_usd')} format={FIX(3)} />
+      return <IC type="number" align="right" value={q?.factory_unit_price_usd ?? null} onSave={quoteEdit('factory_unit_price_usd')} format={FIX(3)} />
     case 'factory_freight':
-      return <InlineCell type="number" align="right" value={q?.factory_calculated_freight_usd ?? null} onSave={quoteSimpleEdit('factory_calculated_freight_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.factory_calculated_freight_usd ?? null} onSave={quoteSimpleEdit('factory_calculated_freight_usd')} format={FIX(2)} />
     case 'pcs_ctn':
-      return <InlineCell type="number" align="right" value={v.pcs_per_carton} onSave={variantEdit('pcs_per_carton')} format={NUM} />
+      return <IC type="number" align="right" value={v.pcs_per_carton} onSave={variantEdit('pcs_per_carton')} format={NUM} />
     case 'ctns':
       // derived: qty / pcs_per_carton
       return <Display align="right">{q?.quantity && v.pcs_per_carton ? Math.ceil(q.quantity / v.pcs_per_carton).toLocaleString() : ''}</Display>
     case 'cw':
-      return <InlineCell type="number" align="right" value={v.carton_width_cm} onSave={variantEdit('carton_width_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_width_cm} onSave={variantEdit('carton_width_cm')} format={FIX(0)} />
     case 'ch':
-      return <InlineCell type="number" align="right" value={v.carton_height_cm} onSave={variantEdit('carton_height_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_height_cm} onSave={variantEdit('carton_height_cm')} format={FIX(0)} />
     case 'cd':
-      return <InlineCell type="number" align="right" value={v.carton_depth_cm} onSave={variantEdit('carton_depth_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_depth_cm} onSave={variantEdit('carton_depth_cm')} format={FIX(0)} />
     case 'gw':
-      return <InlineCell type="number" align="right" value={v.gross_weight_kg} onSave={variantEdit('gross_weight_kg')} format={FIX(2)} />
+      return <IC type="number" align="right" value={v.gross_weight_kg} onSave={variantEdit('gross_weight_kg')} format={FIX(2)} />
     case 'volumetric':
       return <Display align="right">{q?.china_freight_yuan && q.shipping_weight_kg ? FIX(2)(q.shipping_weight_kg) : ''}</Display>
     case 'china_yuan':
@@ -423,9 +429,9 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'china_usd':
       return <Display align="right">{FIX(2)(q?.china_freight_usd ?? null)}</Display>
     case 'domestic_usd':
-      return <InlineCell type="number" align="right" value={q?.domestic_china_freight_usd ?? null} onSave={quoteEdit('domestic_china_freight_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.domestic_china_freight_usd ?? null} onSave={quoteEdit('domestic_china_freight_usd')} format={FIX(2)} />
     case 'cost_ratio':
-      return <InlineCell type="number" align="right" value={q?.cost_ratio ?? null} onSave={quoteEdit('cost_ratio')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.cost_ratio ?? null} onSave={quoteEdit('cost_ratio')} format={FIX(2)} />
     case 'unit_cost':
       return <Display align="right">{q?.unit_cost_usd ? `$${Number(q.unit_cost_usd).toFixed(3)}` : ''}</Display>
     case 'total_pretax':
@@ -433,35 +439,35 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'total_tax':
       return <Display align="right" green>{q?.total_billing_tax_jpy ? `¥${Number(q.total_billing_tax_jpy).toLocaleString()}` : ''}</Display>
     case 'plate_fee':
-      return <InlineCell type="number" align="right" value={q?.plate_fee_usd ?? null} onSave={quoteEdit('plate_fee_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.plate_fee_usd ?? null} onSave={quoteEdit('plate_fee_usd')} format={FIX(2)} />
     case 'pantone_fee':
-      return <InlineCell type="number" align="right" value={q?.pantone_color_fee_usd ?? null} onSave={quoteEdit('pantone_color_fee_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.pantone_color_fee_usd ?? null} onSave={quoteEdit('pantone_color_fee_usd')} format={FIX(2)} />
     case 'sample_make':
-      return <InlineCell type="number" align="right" value={q?.sample_cost_usd ?? null} onSave={quoteEdit('sample_cost_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.sample_cost_usd ?? null} onSave={quoteEdit('sample_cost_usd')} format={FIX(2)} />
     case 'sample_ship':
-      return <InlineCell type="number" align="right" value={q?.sample_shipping_usd ?? null} onSave={quoteEdit('sample_shipping_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.sample_shipping_usd ?? null} onSave={quoteEdit('sample_shipping_usd')} format={FIX(2)} />
     case 'food_fee':
-      return <InlineCell type="number" align="right" value={q?.food_inspection_fee_yuan ?? null} onSave={quoteSimpleEdit('food_inspection_fee_yuan')} format={FIX(0)} />
+      return <IC type="number" align="right" value={q?.food_inspection_fee_yuan ?? null} onSave={quoteSimpleEdit('food_inspection_fee_yuan')} format={FIX(0)} />
     case 'sample_make_days':
-      return <InlineCell type="number" align="right" value={q?.sample_production_days ?? null} onSave={quoteSimpleEdit('sample_production_days')} />
+      return <IC type="number" align="right" value={q?.sample_production_days ?? null} onSave={quoteSimpleEdit('sample_production_days')} />
     case 'sample_ship_days':
-      return <InlineCell type="number" align="right" value={q?.sample_shipping_days ?? null} onSave={quoteSimpleEdit('sample_shipping_days')} />
+      return <IC type="number" align="right" value={q?.sample_shipping_days ?? null} onSave={quoteSimpleEdit('sample_shipping_days')} />
     case 'prod_days':
-      return <InlineCell type="number" align="right" value={v.production_lead_days} onSave={variantEdit('production_lead_days')} />
+      return <IC type="number" align="right" value={v.production_lead_days} onSave={variantEdit('production_lead_days')} />
     case 'ship_days':
-      return <InlineCell type="number" align="right" value={v.shipping_lead_days} onSave={variantEdit('shipping_lead_days')} />
+      return <IC type="number" align="right" value={v.shipping_lead_days} onSave={variantEdit('shipping_lead_days')} />
     case 'food_days':
-      return <InlineCell type="number" align="right" value={v.food_inspection_days} onSave={variantEdit('food_inspection_days')} />
+      return <IC type="number" align="right" value={v.food_inspection_days} onSave={variantEdit('food_inspection_days')} />
     case 'lead_total': {
       const n = (v.production_lead_days || 0) + (v.shipping_lead_days || 0) + (v.food_inspection_days || 0)
       return <Display align="right">{n > 0 ? n : ''}</Display>
     }
     case 'incoterm':
-      return <InlineCell value={q?.incoterm ?? null} onSave={quoteSimpleEdit('incoterm')} />
+      return <IC value={q?.incoterm ?? null} onSave={quoteSimpleEdit('incoterm')} />
     case 'packing':
-      return <InlineCell value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
+      return <IC value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
     case 'address':
-      return <InlineCell value={v.shipping_address} onSave={variantEdit('shipping_address')} />
+      return <IC value={v.shipping_address} onSave={variantEdit('shipping_address')} />
     default:
       return <Display>—</Display>
   }
