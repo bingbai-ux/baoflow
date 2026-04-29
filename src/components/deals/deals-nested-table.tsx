@@ -85,6 +85,14 @@ export interface ProductRow {
   food_inspection_status: string | null
   product_memo: string | null
   is_selected: boolean
+  // Sprint 7-4-1 (migration 027): 商品レベルの納品先
+  shipping_address_label: string | null
+  shipping_address_full: string | null
+  shipping_recipient_name: string | null
+  shipping_phone: string | null
+  shipping_address_id: string | null
+  // Sprint 7 (migration 027): 商品サムネイル (Sprint 7-4-2 で UI 配線)
+  thumbnail_url: string | null
 }
 
 export interface VariantRow {

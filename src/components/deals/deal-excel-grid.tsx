@@ -18,6 +18,7 @@ import {
 import { addBlankVariant } from '@/lib/actions/variants'
 import { useUi } from '@/components/ui/ui-store'
 import { VariantRowMenu } from './variant-row-menu'
+import { ProductShippingPopover } from './product-shipping-popover'
 import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
 
 interface Props {
@@ -467,7 +468,11 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'packing':
       return <IC value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
     case 'address':
-      return <IC value={v.shipping_address} onSave={variantEdit('shipping_address')} />
+      // Sprint 7-4-1: 商品レベルの納品先 (deal_products.shipping_address_*) に切替。
+      // バリエ行ごとに表示すると同じ商品の中で何度も同じセルが出てしまうため、
+      // 「最初のバリエ行のみ表示」「他のバリエ行は空欄 (継承)」とする視覚処理は将来検討。
+      // Sprint 7-4-1 では各バリエ行で同じ product の納品先を表示・編集 (どこから開いても同じ結果)。
+      return <ProductShippingPopover product={p} />
     default:
       return <Display>—</Display>
   }

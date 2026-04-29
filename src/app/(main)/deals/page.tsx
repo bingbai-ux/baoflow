@@ -58,6 +58,13 @@ export default async function DealsPage({ searchParams }: Props) {
     food_inspection_status: string | null
     product_memo: string | null
     is_selected: boolean
+    // Sprint 7-4-1 (migration 027)
+    shipping_address_label: string | null
+    shipping_address_full: string | null
+    shipping_recipient_name: string | null
+    shipping_phone: string | null
+    shipping_address_id: string | null
+    thumbnail_url: string | null
   }> = []
   let variants: Array<{
     id: string
@@ -123,7 +130,7 @@ export default async function DealsPage({ searchParams }: Props) {
     const [{ data: prod }, { data: vars }, { data: qs }] = await Promise.all([
       supabase
         .from('deal_products')
-        .select('id, deal_id, product_no, description, factory_staff_code, production_process, food_grade_status, food_inspection_status, product_memo, is_selected')
+        .select('id, deal_id, product_no, description, factory_staff_code, production_process, food_grade_status, food_inspection_status, product_memo, is_selected, shipping_address_label, shipping_address_full, shipping_recipient_name, shipping_phone, shipping_address_id, thumbnail_url')
         .in('deal_id', dealIds)
         .order('product_no', { ascending: true }),
       supabase
