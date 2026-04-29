@@ -3,12 +3,13 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, AlertCircle, FileText, MoreHorizontal, Archive } from 'lucide-react'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { DealExcelGrid } from './deal-excel-grid'
 import { DealPaneToggle } from './deal-pane-host'
 import { InlineCell } from './inline-cell'
 import { DealStatusDropdown } from './deal-status-dropdown'
+import { ArchiveDealModal } from './archive-deal-modal'
 import { updateDealField } from '@/lib/actions/inline-edit'
 import { setDealsTableColumnWidths } from '@/lib/actions/user-preferences'
 import {
@@ -421,6 +422,7 @@ export function DealsNestedTable({
 
   // 帳票モーダル: 表の外に持ち上げて HTML を <tbody> 構造に閉じ込めない (hydration 安全)
   const [docModalDealId, setDocModalDealId] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
 
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[14px] overflow-hidden">
@@ -555,6 +557,7 @@ export function DealsNestedTable({
                   onOpenDocModal={setDocModalDealId}
                   onSelectDeal={selectDeal}
                   selectedDealId={selectedDealId}
+                  onArchiveDeal={(id, name) => setArchiveTarget({ id, name })}
                 />
               ))
             )}
@@ -576,6 +579,15 @@ export function DealsNestedTable({
       {/* 帳票モーダル: 表の外で render し、tbody/tr 直下に div を入れない */}
       {docModalDealId && (
         <DocumentModal dealId={docModalDealId} onClose={() => setDocModalDealId(null)} />
+      )}
+
+      {/* Sprint 9: アーカイブモーダル */}
+      {archiveTarget && (
+        <ArchiveDealModal
+          dealId={archiveTarget.id}
+          dealName={archiveTarget.name}
+          onClose={() => setArchiveTarget(null)}
+        />
       )}
     </div>
   )
@@ -656,6 +668,7 @@ function ClientGroupRows({
   onOpenDocModal,
   onSelectDeal,
   selectedDealId,
+  onArchiveDeal,
 }: {
   group: ClientGroup
   productsByDeal: Map<string, ProductRow[]>
@@ -669,6 +682,7 @@ function ClientGroupRows({
   onOpenDocModal: (dealId: string) => void
   onSelectDeal: (dealId: string) => void
   selectedDealId?: string | null
+  onArchiveDeal: (dealId: string, dealName: string) => void
 }) {
   // クライアント階層の expand/collapse はローカル state のまま (仕様書 §2-3 Bug A は deal/product/variant のみ言及)
   const [expanded, setExpanded] = useState(true)
@@ -744,6 +758,7 @@ function ClientGroupRows({
             onToggleProduct={onToggleProduct}
             onSelectDeal={onSelectDeal}
             isSelected={selectedDealId === deal.id}
+            onArchiveDeal={onArchiveDeal}
           />
         ))}
     </>
@@ -762,6 +777,7 @@ function DealRowItem({
   onToggleProduct,
   onSelectDeal,
   isSelected,
+  onArchiveDeal,
 }: {
   deal: DealRow
   products: ProductRow[]
@@ -774,6 +790,7 @@ function DealRowItem({
   onToggleProduct: (productId: string) => void
   onSelectDeal: (dealId: string) => void
   isSelected: boolean
+  onArchiveDeal: (dealId: string, dealName: string) => void
 }) {
   const visible = isExpanded
   const cfg = SIMPLE_STATUS_CONFIG[deal.simple_status]
@@ -782,6 +799,7 @@ function DealRowItem({
   const urgent = isUrgent(deal)
   const stale = isStale(deal)
   const overdue = dDays < 0 && deal.desired_delivery_date
+  const [showRowMenu, setShowRowMenu] = useState(false)
 
   const baseBg = overdue
     ? 'bg-[#fef2f2] hover:bg-[#fde8e8]'
@@ -856,15 +874,56 @@ function DealRowItem({
         </td>
         <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{products.length}</td>
         <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{quotes.length}</td>
-        <td className="px-2.5 py-1 text-right">
-          <Link
-            href={`/deals/${deal.id}`}
-            className="text-[10px] text-[#22c55e] no-underline hover:underline"
-            onClick={(e) => e.stopPropagation()}
-            title="フルページで開く"
-          >
-            ↗
-          </Link>
+        <td className="px-2.5 py-1 text-right relative">
+          <div className="inline-flex items-center gap-1">
+            <Link
+              href={`/deals/${deal.id}`}
+              className="text-[10px] text-[#22c55e] no-underline hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              title="フルページで開く"
+            >
+              ↗
+            </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowRowMenu((s) => !s)
+              }}
+              className="text-[#888] hover:bg-[#fafaf9] rounded p-0.5"
+              aria-label="案件メニュー"
+              title="メニュー"
+            >
+              <MoreHorizontal className="w-3 h-3" />
+            </button>
+          </div>
+          {showRowMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-[1000]"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowRowMenu(false)
+                }}
+              />
+              <div
+                className="absolute right-2 top-7 z-[1001] bg-white border border-[#e8e8e6] rounded-[8px] shadow-lg py-1 min-w-[160px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRowMenu(false)
+                    onArchiveDeal(deal.id, deal.deal_name || deal.deal_code)
+                  }}
+                  className="w-full text-left text-[11px] px-3 py-1.5 hover:bg-[#fafaf9] inline-flex items-center gap-1.5 text-[#0a0a0a]"
+                >
+                  <Archive className="w-3 h-3 text-[#888]" />
+                  案件をクローズ
+                </button>
+              </div>
+            </>
+          )}
         </td>
       </tr>
       {visible && (

@@ -578,6 +578,9 @@ export interface GetDealsFilters {
   search?: string
   limit?: number
   offset?: number
+  // Sprint 9: archived フィルタ。デフォルトは false (アーカイブ除外)
+  includeArchived?: boolean
+  archivedOnly?: boolean
 }
 
 export async function getDeals(filters?: GetDealsFilters): Promise<Deal[]> {
@@ -587,6 +590,12 @@ export async function getDeals(filters?: GetDealsFilters): Promise<Deal[]> {
     .from('deals')
     .select('*, client:clients(company_name)')
     .order('created_at', { ascending: false })
+
+  if (filters?.archivedOnly) {
+    query = query.not('archived_at', 'is', null)
+  } else if (!filters?.includeArchived) {
+    query = query.is('archived_at', null)
+  }
 
   if (filters?.status) {
     if (Array.isArray(filters.status)) {
@@ -711,4 +720,191 @@ export async function advanceSimpleStatus(
 
   const nextStatus = SIMPLE_STATUS_ORDER[currentIndex + 1]
   return updateSimpleStatus(dealId, nextStatus)
+}
+
+// ============================================================================
+// Sprint 9: アーカイブ操作 (§0.5-6)
+// ============================================================================
+
+export type ArchiveReasonInput = 'completed' | 'cancelled' | 'lost' | 'other'
+
+export async function archiveDeal(
+  dealId: string,
+  reason: ArchiveReasonInput,
+  note: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('deals')
+    .update({
+      archived_at: new Date().toISOString(),
+      archived_by: user.id,
+      archive_reason: reason,
+      archive_note: note?.trim() || null,
+    })
+    .eq('id', dealId)
+    .is('archived_at', null)
+
+  if (error) return { success: false, error: error.message }
+
+  await supabase.from('deal_status_history').insert({
+    deal_id: dealId,
+    kind: 'status',
+    note: `案件をアーカイブ (${reason})${note ? `: ${note}` : ''}`,
+    changed_at: new Date().toISOString(),
+  })
+
+  revalidatePath('/deals')
+  revalidatePath('/archive')
+  revalidatePath(`/deals/${dealId}`)
+  return { success: true }
+}
+
+export async function unarchiveDeal(
+  dealId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('deals')
+    .update({
+      archived_at: null,
+      archived_by: null,
+      archive_reason: null,
+    })
+    .eq('id', dealId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/deals')
+  revalidatePath('/archive')
+  return { success: true }
+}
+
+export async function getArchivedDeals(filters?: {
+  search?: string
+  reason?: ArchiveReasonInput | 'all'
+  sortBy?: 'archived_at' | 'created_at' | 'deal_name'
+  sortOrder?: 'asc' | 'desc'
+}): Promise<Deal[]> {
+  const supabase = await createClient()
+  let query = supabase
+    .from('deals')
+    .select('*, client:clients(company_name)')
+    .not('archived_at', 'is', null)
+
+  if (filters?.reason && filters.reason !== 'all') {
+    query = query.eq('archive_reason', filters.reason)
+  }
+
+  if (filters?.search) {
+    const s = filters.search
+    query = query.or(
+      `deal_code.ilike.%${s}%,deal_name.ilike.%${s}%,client_name_text.ilike.%${s}%`
+    )
+  }
+
+  const sortBy = filters?.sortBy || 'archived_at'
+  const ascending = filters?.sortOrder === 'asc'
+  query = query.order(sortBy, { ascending })
+
+  const { data } = await query
+  return (data || []) as Deal[]
+}
+
+/**
+ * リオーダー: アーカイブ案件の deal + deal_products + deal_product_variants を複製。
+ * deal_quotes はコピーせず（再見積依頼が必要）。
+ */
+export async function reorderDeal(
+  sourceDealId: string
+): Promise<{ data: Deal | null; error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Unauthorized' }
+
+  const { data: source } = await supabase
+    .from('deals')
+    .select('*')
+    .eq('id', sourceDealId)
+    .single()
+
+  if (!source) return { data: null, error: '元の案件が見つかりません' }
+
+  const newCode = await generateDealCode()
+  const { data: newDeal, error: insertErr } = await supabase
+    .from('deals')
+    .insert({
+      deal_code: newCode,
+      deal_name: source.deal_name ? `${source.deal_name} (リオーダー)` : null,
+      client_id: source.client_id,
+      client_name_text: source.client_name_text,
+      sales_user_id: user.id,
+      desired_delivery_date: null,
+      memo: source.memo,
+      simple_status: 'quoting',
+      visibility: source.visibility,
+      tags: source.tags,
+    })
+    .select('*')
+    .single()
+
+  if (insertErr || !newDeal) {
+    return { data: null, error: insertErr?.message || '案件複製に失敗' }
+  }
+
+  // 商品をコピー
+  const { data: products } = await supabase
+    .from('deal_products')
+    .select('*')
+    .eq('deal_id', sourceDealId)
+
+  if (products && products.length > 0) {
+    const productMap = new Map<string, string>() // old → new
+    for (const p of products) {
+      const { id: oldId, deal_id: _did, created_at: _ca, updated_at: _ua, ...rest } = p
+      const { data: np } = await supabase
+        .from('deal_products')
+        .insert({ ...rest, deal_id: newDeal.id })
+        .select('id')
+        .single()
+      if (np) productMap.set(oldId, np.id)
+    }
+
+    // バリエーションをコピー
+    const oldProductIds = Array.from(productMap.keys())
+    const { data: variants } = await supabase
+      .from('deal_product_variants')
+      .select('*')
+      .in('product_id', oldProductIds)
+
+    if (variants && variants.length > 0) {
+      const newVariantRows = variants
+        .map((v) => {
+          const newProductId = productMap.get(v.product_id)
+          if (!newProductId) return null
+          const { id: _vid, product_id: _pid, created_at: _vca, updated_at: _vua, ...rest } = v
+          return { ...rest, product_id: newProductId }
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+      if (newVariantRows.length > 0) {
+        await supabase.from('deal_product_variants').insert(newVariantRows)
+      }
+    }
+  }
+
+  revalidatePath('/deals')
+  revalidatePath('/archive')
+  return { data: newDeal as Deal, error: null }
 }

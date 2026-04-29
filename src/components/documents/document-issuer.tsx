@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Printer, FileText } from 'lucide-react'
+import { Printer, FileText, Copy, Check } from 'lucide-react'
 import {
   DocumentTemplate,
   type DocumentType,
@@ -37,6 +37,8 @@ interface DocumentIssuerProps {
   defaultShippingAddress: string | null
   initialDocs: DocumentRow[]
   nextNumbers: Record<DocumentType, string>
+  // Sprint 9: 設定画面で編集可能な定型文 (タブ別)
+  boilerplateTexts?: Record<DocumentType, string>
 }
 
 const TABS: Array<{ id: DocumentType; label: string }> = [
@@ -58,6 +60,7 @@ export function DocumentIssuer({
   defaultShippingAddress,
   initialDocs,
   nextNumbers,
+  boilerplateTexts,
 }: DocumentIssuerProps) {
   const router = useRouter()
   const [active, setActive] = useState<DocumentType>('quotation')
@@ -68,6 +71,15 @@ export function DocumentIssuer({
   const [shippingDate, setShippingDate] = useState('')
   const [shippingAddress, setShippingAddress] = useState(defaultShippingAddress || '')
   const [notes, setNotes] = useState('')
+  const [notesEdited, setNotesEdited] = useState(false)
+  const [copyState, setCopyState] = useState<'code' | 'text' | null>(null)
+
+  // タブ切替時に定型文を notes に投入 (ユーザーが手動編集していない場合)
+  useEffect(() => {
+    if (!notesEdited && boilerplateTexts) {
+      setNotes(boilerplateTexts[active] || '')
+    }
+  }, [active, boilerplateTexts, notesEdited])
 
   const docsByType = (t: DocumentType) => docs.filter((d) => d.document_type === t)
   const currentDocs = docsByType(active)
@@ -78,7 +90,8 @@ export function DocumentIssuer({
     paymentDueDate: active === 'invoice' ? paymentDueDate || null : null,
     shippingDate: active === 'delivery_note' ? shippingDate || null : null,
     shippingAddress: active === 'delivery_note' ? shippingAddress || null : null,
-    notes: notes || null,
+    // Sprint 9: notes フィールドが空ならテンプレ定型文を補填
+    notes: notes || boilerplateTexts?.[active] || null,
   }
 
   const handleIssue = () => {
@@ -104,6 +117,39 @@ export function DocumentIssuer({
   }
 
   const handlePrint = () => window.print()
+
+  const handleCopyDealCode = async () => {
+    try {
+      await navigator.clipboard.writeText(deal.deal_code)
+      setCopyState('code')
+      setTimeout(() => setCopyState(null), 1500)
+    } catch {
+      // noop
+    }
+  }
+
+  // 全テキストコピー: 帳票の主要内容をプレーンテキストで生成
+  const fullText = useMemo(() => {
+    const tabLabel = TABS.find((t) => t.id === active)?.label || active
+    const lines: string[] = [
+      `[${tabLabel}] No. ${previewNumber}`,
+      `案件: ${deal.deal_name || '(未設定)'} (${deal.deal_code})`,
+      `クライアント: ${deal.client_name_text || '-'}`,
+      '',
+    ]
+    if (notes) lines.push(notes, '')
+    return lines.join('\n')
+  }, [active, deal.deal_code, deal.deal_name, deal.client_name_text, notes, previewNumber])
+
+  const handleCopyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(fullText)
+      setCopyState('text')
+      setTimeout(() => setCopyState(null), 1500)
+    } catch {
+      // noop
+    }
+  }
 
   return (
     <div>
@@ -159,14 +205,29 @@ export function DocumentIssuer({
               </Field>
             </>
           )}
-          <Field label="備考" className={active === 'delivery_note' || active === 'rfq' ? 'md:col-span-2' : ''}>
+          <Field label="備考 / 定型文 (設定画面で編集可)" className={active === 'delivery_note' || active === 'rfq' ? 'md:col-span-2' : ''}>
             <textarea
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
+              onChange={(e) => {
+                setNotes(e.target.value)
+                setNotesEdited(true)
+              }}
+              rows={4}
               placeholder={active === 'rfq' ? '工場への補足事項 (任意)' : '(任意)'}
               className={`${inputClass} resize-y`}
             />
+            {notesEdited && boilerplateTexts && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNotes(boilerplateTexts[active] || '')
+                  setNotesEdited(false)
+                }}
+                className="text-[10px] text-[#888] hover:text-[#0a0a0a] mt-1 underline"
+              >
+                定型文に戻す
+              </button>
+            )}
           </Field>
         </div>
 
@@ -187,6 +248,26 @@ export function DocumentIssuer({
           >
             <Printer className="w-3.5 h-3.5" />
             印刷 / PDF として保存
+          </button>
+
+          {/* Sprint 9-6: コピペボタン */}
+          <button
+            type="button"
+            onClick={handleCopyDealCode}
+            className="bg-white border border-[#e8e8e6] text-[#0a0a0a] rounded-[8px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
+            title="案件番号をクリップボードにコピー"
+          >
+            {copyState === 'code' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            案件番号
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyAll}
+            className="bg-white border border-[#e8e8e6] text-[#0a0a0a] rounded-[8px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
+            title="帳票の主要内容をプレーンテキストでコピー (メール添付用)"
+          >
+            {copyState === 'text' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            全テキスト
           </button>
         </div>
         {error && (
