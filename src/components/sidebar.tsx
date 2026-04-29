@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Home, FileText, Users, Settings, FileBarChart } from 'lucide-react'
+import { Home, FileText, Users, Settings, FileBarChart, Archive } from 'lucide-react'
 
 interface NavItem {
   k: string
@@ -17,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { k: 'home', label: 'ホーム', href: '/', Icon: Home, match: (p) => p === '/' },
   { k: 'deals', label: '案件', href: '/deals', Icon: FileText, match: (p) => p.startsWith('/deals') },
+  { k: 'archive', label: '案件履歴', href: '/archive', Icon: Archive, match: (p) => p.startsWith('/archive') },
   { k: 'master', label: '取引先', href: '/master', Icon: Users, match: (p) => p.startsWith('/master') },
   { k: 'docs', label: '帳票', href: '/docs', Icon: FileBarChart, match: (p) => p.startsWith('/docs') },
 ]

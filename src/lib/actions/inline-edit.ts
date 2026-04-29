@@ -14,7 +14,28 @@ const ALLOWED_DEAL_FIELDS = new Set([
   'memo',
   'shipping_method_1',
   'contract_number',
+  // Sprint 9 (§0.5-6): アーカイブ後も編集可
+  'archive_note',
+  'tags',
 ])
+
+// Sprint 9 (§0.5-6): アーカイブ後に編集可能な deals フィールド
+const ARCHIVE_EDITABLE_DEAL_FIELDS = new Set(['archive_note', 'tags'])
+
+const ARCHIVE_LOCKED_ERROR =
+  'この案件はアーカイブ済みのため編集できません (メモ・タグのみ編集可)'
+
+async function isDealArchived(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dealId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('deals')
+    .select('archived_at')
+    .eq('id', dealId)
+    .maybeSingle()
+  return Boolean(data?.archived_at)
+}
 
 const ALLOWED_PRODUCT_FIELDS = new Set([
   'description',
@@ -88,12 +109,34 @@ export async function updateDealField(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ALLOWED_DEAL_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+
+  // §0.5-6: アーカイブ済み案件は archive_note / tags のみ編集可
+  if (!ARCHIVE_EDITABLE_DEAL_FIELDS.has(field)) {
+    if (await isDealArchived(supabase, dealId)) {
+      return { success: false, error: ARCHIVE_LOCKED_ERROR }
+    }
+  }
+
+  // tags は TEXT[] なのでカンマ区切り文字列をパース
+  let dbValue: string | string[] | null = value
+  if (field === 'tags') {
+    if (value === null || value.trim() === '') {
+      dbValue = []
+    } else {
+      dbValue = value
+        .split(/[,、]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    }
+  }
+
   const { error } = await supabase
     .from('deals')
-    .update({ [field]: value, last_activity_at: new Date().toISOString() })
+    .update({ [field]: dbValue, last_activity_at: new Date().toISOString() })
     .eq('id', dealId)
   if (error) return { success: false, error: error.message }
   revalidatePath('/deals')
+  revalidatePath('/archive')
   revalidatePath(`/deals/${dealId}`)
   return { success: true }
 }
@@ -110,6 +153,9 @@ export async function updateProductField(
     .select('deal_id')
     .eq('id', productId)
     .single()
+  if (existing?.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
+    return { success: false, error: ARCHIVE_LOCKED_ERROR }
+  }
   const { error } = await supabase
     .from('deal_products')
     .update({ [field]: value, updated_at: new Date().toISOString() })
@@ -133,20 +179,25 @@ export async function updateVariantField(
     .select('product_id')
     .eq('id', variantId)
     .single()
-  const { error } = await supabase
-    .from('deal_product_variants')
-    .update({ [field]: cast, updated_at: new Date().toISOString() })
-    .eq('id', variantId)
-  if (error) return { success: false, error: error.message }
-  revalidatePath('/deals')
+  let dealId: string | null = null
   if (existing?.product_id) {
     const { data: prod } = await supabase
       .from('deal_products')
       .select('deal_id')
       .eq('id', existing.product_id)
       .single()
-    if (prod?.deal_id) revalidatePath(`/deals/${prod.deal_id}`)
+    dealId = prod?.deal_id || null
   }
+  if (dealId && (await isDealArchived(supabase, dealId))) {
+    return { success: false, error: ARCHIVE_LOCKED_ERROR }
+  }
+  const { error } = await supabase
+    .from('deal_product_variants')
+    .update({ [field]: cast, updated_at: new Date().toISOString() })
+    .eq('id', variantId)
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/deals')
+  if (dealId) revalidatePath(`/deals/${dealId}`)
   return { success: true }
 }
 
@@ -163,6 +214,9 @@ export async function updateQuoteSimpleField(
     .select('deal_id')
     .eq('id', quoteId)
     .single()
+  if (existing?.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
+    return { success: false, error: ARCHIVE_LOCKED_ERROR }
+  }
   const { error } = await supabase
     .from('deal_quotes')
     .update({ [field]: cast, updated_at: new Date().toISOString() })
@@ -188,6 +242,10 @@ export async function updateQuoteField(
     .eq('id', quoteId)
     .single()
   if (!quote) return { success: false, error: 'quote not found' }
+
+  if (quote.deal_id && (await isDealArchived(supabase, quote.deal_id))) {
+    return { success: false, error: ARCHIVE_LOCKED_ERROR }
+  }
 
   const cast = castValue(value)
   const newQuote = { ...quote, [field]: cast }

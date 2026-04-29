@@ -16,6 +16,11 @@ interface SettingsFormProps {
     company_info_phase1: CompanyInfoPhase1 | null
     bank_accounts_phase1: BankAccountPhase1[] | null
     default_shipping_address: string | null
+    // Sprint 9: 帳票定型文
+    quote_default_text: string
+    invoice_default_text: string
+    delivery_note_default_text: string
+    rfq_default_text: string
   }
   profile: {
     display_name: string | null
@@ -45,6 +50,11 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
   const [shippingAddress, setShippingAddress] = useState(
     initial.default_shipping_address || ''
   )
+  // Sprint 9: 帳票定型文 (4 種)
+  const [quoteText, setQuoteText] = useState(initial.quote_default_text || '')
+  const [invoiceText, setInvoiceText] = useState(initial.invoice_default_text || '')
+  const [deliveryText, setDeliveryText] = useState(initial.delivery_note_default_text || '')
+  const [rfqText, setRfqText] = useState(initial.rfq_default_text || '')
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -75,6 +85,11 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
         company_info_phase1: company,
         bank_accounts_phase1: banks.filter((b) => b.bank_name?.trim()),
         default_shipping_address: shippingAddress.trim() || null,
+        // Sprint 9: 帳票定型文
+        quote_default_text: quoteText.trim() || null,
+        invoice_default_text: invoiceText.trim() || null,
+        delivery_note_default_text: deliveryText.trim() || null,
+        rfq_default_text: rfqText.trim() || null,
       } as never)
       if (result.error) setMessage({ type: 'error', text: result.error })
       else setMessage({ type: 'success', text: '保存しました' })
@@ -290,6 +305,52 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
           </p>
         </div>
         <textarea value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} rows={3} placeholder="例: サンキューコーポレーション八王子ロジスティックスセンター&#10;〒192-0375 東京都八王子市鑓水２丁目１７５−１" className={`${inputClass} resize-y`} />
+      </div>
+
+      {/* Sprint 9: 帳票定型文 */}
+      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-4">
+        <div>
+          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">帳票の定型文</h2>
+          <p className="text-[11px] text-[#888] font-body mt-0.5">
+            帳票発行時に「備考」欄に自動投入される定型文。発行画面で個別に編集可能です。
+          </p>
+        </div>
+        <Field label="見積書の定型文">
+          <textarea
+            value={quoteText}
+            onChange={(e) => setQuoteText(e.target.value)}
+            rows={4}
+            placeholder="※リードタイムは…&#10;※価格は…"
+            className={`${inputClass} resize-y`}
+          />
+        </Field>
+        <Field label="請求書の定型文">
+          <textarea
+            value={invoiceText}
+            onChange={(e) => setInvoiceText(e.target.value)}
+            rows={3}
+            placeholder="※お支払い期限は…"
+            className={`${inputClass} resize-y`}
+          />
+        </Field>
+        <Field label="納品書の定型文">
+          <textarea
+            value={deliveryText}
+            onChange={(e) => setDeliveryText(e.target.value)}
+            rows={3}
+            placeholder="※商品の数量・状態をご確認の上…"
+            className={`${inputClass} resize-y`}
+          />
+        </Field>
+        <Field label="RFQ (見積依頼) の定型文 (EN+CN 推奨)">
+          <textarea
+            value={rfqText}
+            onChange={(e) => setRfqText(e.target.value)}
+            rows={6}
+            placeholder="Please provide your quotation including:&#10;..."
+            className={`${inputClass} resize-y`}
+          />
+        </Field>
       </div>
 
       {/* プロフィール (読み取り専用) */}

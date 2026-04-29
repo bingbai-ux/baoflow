@@ -186,6 +186,12 @@ export interface Deal {
   memo: string | null
   // Sprint 7 (migration 027): 案件単位の列幅オーバーライド
   column_widths: Record<string, number>
+  // Sprint 9 (migration 030, §0.5-6): 案件履歴 + アーカイブ後編集ロック
+  archived_at: string | null
+  archived_by: string | null
+  archive_reason: 'completed' | 'cancelled' | 'lost' | 'other' | null
+  archive_note: string | null
+  tags: string[]
 }
 
 export interface DealSpecification {
@@ -453,8 +459,22 @@ export interface SystemSettings {
   logistics_email_template: string | null
   shipment_instruction_template: string | null
   storage_billing_method: string | null
+  // Sprint 9 (migration 030): 帳票定型文 4 種
+  quote_default_text: string | null
+  invoice_default_text: string | null
+  delivery_note_default_text: string | null
+  rfq_default_text: string | null
   created_at: string
   updated_at: string
+}
+
+export type ArchiveReason = 'completed' | 'cancelled' | 'lost' | 'other'
+
+export const ARCHIVE_REASON_LABEL: Record<ArchiveReason, string> = {
+  completed: '完了',
+  cancelled: 'キャンセル',
+  lost: '失注',
+  other: 'その他',
 }
 
 export interface ProductRegistry {

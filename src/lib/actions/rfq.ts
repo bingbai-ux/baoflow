@@ -153,8 +153,8 @@ export async function createRfq(
     })
   }
 
-  // pending 工場 (未登録、メールのみ) は Sprint 8 では invitation だけ作って external_form は作らない。
-  // 工場が後から自己登録 → スタッフが手動で紐付けるフローを Sprint 9 で検討。
+  // Sprint 9 hand-off #2: pending 工場 (未登録) にも external_form トークンを発行する。
+  // 工場は同じトークンで RFQ 回答画面にアクセスし、回答後にスタッフが factories マスターへ昇格する。
   for (const pf of input.pendingFactories || []) {
     const { data: inv } = await supabase
       .from('rfq_factory_invitations')
@@ -167,12 +167,37 @@ export async function createRfq(
       .select('id')
       .single()
     if (!inv) continue
+
+    const token = generateToken()
+    const { data: efRow } = await supabase
+      .from('external_forms')
+      .insert({
+        form_type: 'rfq_response',
+        token,
+        related_id: inv.id,
+        status: 'pending',
+        created_by: user.id,
+        context: {
+          pending_factory_name: pf.name,
+          pending_factory_email: pf.email || null,
+        },
+      })
+      .select('id')
+      .single()
+
+    if (efRow) {
+      await supabase
+        .from('rfq_factory_invitations')
+        .update({ external_form_id: efRow.id, invitation_sent_at: new Date().toISOString() })
+        .eq('id', inv.id)
+    }
+
     invitations.push({
       invitationId: inv.id,
       factoryId: null,
       factoryName: pf.name,
-      formToken: '',
-      formUrl: '(工場が自己登録した後、スタッフが invitation に紐付け)',
+      formToken: token,
+      formUrl: efRow ? `${origin}/external/${token}` : '(token生成失敗)',
     })
   }
 

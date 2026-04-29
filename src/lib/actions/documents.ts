@@ -179,6 +179,13 @@ export async function fetchDocumentBundle(
       company: settings?.company_info_phase1 || null,
       banks: settings?.bank_accounts_phase1 || null,
       defaultShippingAddress: settings?.default_shipping_address || null,
+      // Sprint 9: 帳票定型文 (system_settings)
+      boilerplateTexts: {
+        quotation: settings?.quote_default_text || '',
+        invoice: settings?.invoice_default_text || '',
+        delivery_note: settings?.delivery_note_default_text || '',
+        rfq: settings?.rfq_default_text || '',
+      },
       nextNumbers: {
         quotation: nextQuotation,
         invoice: nextInvoice,

@@ -32,6 +32,8 @@ export default async function DealsPage({ searchParams }: Props) {
     .select(
       'id, deal_code, deal_name, client_name_text, desired_delivery_date, simple_status, last_activity_at, sales_user_id'
     )
+    // Sprint 9: アーカイブ案件は /archive に分離 (§0.5-6)
+    .is('archived_at', null)
     .order('last_activity_at', { ascending: false })
 
   if (params.status && isValidStatus(params.status)) {

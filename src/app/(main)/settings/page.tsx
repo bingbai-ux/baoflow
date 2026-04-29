@@ -32,6 +32,11 @@ export default async function SettingsPage() {
     company_info_phase1: settings?.company_info_phase1 || null,
     bank_accounts_phase1: settings?.bank_accounts_phase1 || null,
     default_shipping_address: settings?.default_shipping_address || null,
+    // Sprint 9: 帳票定型文
+    quote_default_text: settings?.quote_default_text || '',
+    invoice_default_text: settings?.invoice_default_text || '',
+    delivery_note_default_text: settings?.delivery_note_default_text || '',
+    rfq_default_text: settings?.rfq_default_text || '',
   }
 
   return (

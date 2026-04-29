@@ -38,6 +38,7 @@ interface Bundle {
   company: CompanyInfoPhase1 | null
   banks: BankAccountPhase1[] | null
   defaultShippingAddress: string | null
+  boilerplateTexts: Record<DocumentType, string>
   nextNumbers: Record<DocumentType, string>
 }
 
@@ -109,6 +110,7 @@ export function DocumentModal({ dealId, onClose }: Props) {
               defaultShippingAddress={bundle.defaultShippingAddress}
               initialDocs={bundle.docs}
               nextNumbers={bundle.nextNumbers}
+              boilerplateTexts={bundle.boilerplateTexts}
             />
           )}
         </div>
