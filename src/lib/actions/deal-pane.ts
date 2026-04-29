@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient as createSupabase } from '@/lib/supabase/server'
+import { classifyFile } from '@/lib/utils/file-classify'
 import type { DealPaneData } from './deal-pane-types'
 
 export async function getDealPaneData(dealId: string): Promise<DealPaneData | null> {
@@ -50,7 +51,9 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
       .order('created_at', { ascending: true }),
     supabase
       .from('deal_design_files')
-      .select('id, storage_url, file_name, created_at')
+      .select(
+        'id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at, file_extension, file_size_bytes, thumbnail_generated'
+      )
       .eq('deal_id', dealId)
       .order('created_at', { ascending: false }),
     supabase
@@ -85,7 +88,12 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
     variants,
     quotes: quotes || [],
     fees: fees || [],
-    designFiles: designFiles || [],
+    designFiles: (designFiles || []).map((f) => ({
+      ...(f as Record<string, unknown>),
+      file_category: classifyFile(
+        (f as Record<string, unknown>).file_extension as string | null
+      ),
+    })),
     statusHistory: (statusHistory || []).map((h) => ({
       ...h,
       changer: Array.isArray((h as Record<string, unknown>).changer)

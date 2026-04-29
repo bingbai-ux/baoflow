@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { DealsNestedTable } from '@/components/deals/deals-nested-table'
 import { DealPaneHost } from '@/components/deals/deal-pane-host'
 import { getDealPaneData } from '@/lib/actions/deal-pane'
+import { getUserPreferences } from '@/lib/actions/user-preferences'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
 
 interface Props {
@@ -57,6 +58,13 @@ export default async function DealsPage({ searchParams }: Props) {
     food_inspection_status: string | null
     product_memo: string | null
     is_selected: boolean
+    // Sprint 7-4-1 (migration 027)
+    shipping_address_label: string | null
+    shipping_address_full: string | null
+    shipping_recipient_name: string | null
+    shipping_phone: string | null
+    shipping_address_id: string | null
+    thumbnail_url: string | null
   }> = []
   let variants: Array<{
     id: string
@@ -122,7 +130,7 @@ export default async function DealsPage({ searchParams }: Props) {
     const [{ data: prod }, { data: vars }, { data: qs }] = await Promise.all([
       supabase
         .from('deal_products')
-        .select('id, deal_id, product_no, description, factory_staff_code, production_process, food_grade_status, food_inspection_status, product_memo, is_selected')
+        .select('id, deal_id, product_no, description, factory_staff_code, production_process, food_grade_status, food_inspection_status, product_memo, is_selected, shipping_address_label, shipping_address_full, shipping_recipient_name, shipping_phone, shipping_address_id, thumbnail_url')
         .in('deal_id', dealIds)
         .order('product_no', { ascending: true }),
       supabase
@@ -151,6 +159,12 @@ export default async function DealsPage({ searchParams }: Props) {
   // Right pane data — fetched only when ?selected=X is present
   const paneData = params.selected ? await getDealPaneData(params.selected) : null
 
+  // Sprint 7-3-3: 列幅をユーザーごとに DB 永続化。初回ロード時の優先順:
+  //   1. user_preferences.deals_table_column_widths (DB)
+  //   2. localStorage (クライアント側で fallback、useEffect 内)
+  //   3. ハードコードされたデフォルト
+  const userPrefs = await getUserPreferences()
+
   return (
     <div className="flex h-[calc(100vh-52px)] -mx-5">
       <div className="flex-1 flex flex-col min-w-0 overflow-auto px-5">
@@ -160,6 +174,7 @@ export default async function DealsPage({ searchParams }: Props) {
           variants={variants}
           quotes={quotes}
           selectedDealId={params.selected || null}
+          serverColWidths={userPrefs?.deals_table_column_widths || null}
         />
       </div>
       <DealPaneHost data={paneData} />

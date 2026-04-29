@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTransition } from 'react'
 import { X, FileText, ExternalLink } from 'lucide-react'
 import { MiniPipeline } from './mini-pipeline'
-import { DealDetailTabs } from '@/app/(main)/deals/[id]/deal-detail-tabs'
+import { PaneTabs } from './pane-tabs'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { useState } from 'react'
 import { advanceSimpleStatus } from '@/lib/actions/deals'
@@ -103,17 +103,15 @@ export function DealPane({ data }: Props) {
         <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
       </div>
 
-      {/* Tabs body — reuse existing DealDetailTabs */}
-      <div className="flex-1 overflow-auto px-4 py-3 text-[11.5px]">
-        <DealDetailTabs
-          deal={data.deal as never}
-          products={data.products as never}
-          variants={data.variants as never}
-          quotes={data.quotes as never}
-          fees={data.fees as never}
-          designFiles={data.designFiles as never}
+      {/* Sprint 7-5: パネル専用タブ (履歴 / 通信 / 添付 / 帳票) のみ。
+          基本情報・商品・見積はスプレッド本体で編集するためパネルからは外す (仕様書 §2-4)。*/}
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <PaneTabs
+          dealId={data.deal.id}
           statusHistory={data.statusHistory as never}
           communications={data.communications as never}
+          designFiles={data.designFiles as never}
+          onOpenDocumentModal={() => setDocModalOpen(true)}
         />
       </div>
 

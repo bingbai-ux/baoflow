@@ -55,6 +55,33 @@ async function nextProductNo(
   return data && data.length > 0 ? (data[0].product_no || 0) + 1 : 1
 }
 
+/**
+ * Sprint 7-6: スプレッド「+ 商品を追加」用の軽量 INSERT。
+ * 旧 createProduct は description を必須としていたが、Sprint 7 のスプレッド UX では
+ * 「+ボタン → 行が出る → InlineCell で編集」のフローのため、description は「新規商品」の
+ * プレースホルダーで作成する。
+ */
+export async function addBlankProduct(
+  dealId: string
+): Promise<{ data: DealProduct | null; error: string | null }> {
+  const supabase = await createClient()
+  const product_no = await nextProductNo(supabase, dealId)
+  const { data: row, error } = await supabase
+    .from('deal_products')
+    .insert({
+      deal_id: dealId,
+      product_no,
+      description: '新規商品',
+      is_selected: false,
+    })
+    .select()
+    .single()
+  if (error) return { data: null, error: error.message }
+  revalidatePath('/deals')
+  revalidatePath(`/deals/${dealId}`)
+  return { data: row as DealProduct, error: null }
+}
+
 export async function createProduct(
   dealId: string,
   input: ProductInput | FormData

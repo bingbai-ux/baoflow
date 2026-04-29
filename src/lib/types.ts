@@ -184,6 +184,8 @@ export interface Deal {
   client_name_text: string | null
   desired_delivery_date: string | null
   memo: string | null
+  // Sprint 7 (migration 027): 案件単位の列幅オーバーライド
+  column_widths: Record<string, number>
 }
 
 export interface DealSpecification {
@@ -229,6 +231,10 @@ export interface DealDesignFile {
   is_final: boolean
   created_at: string
   updated_at: string
+  // Sprint 7 (migration 027 / §0.5-1): 添付ファイル拡張
+  file_extension: string | null
+  file_size_bytes: number | null
+  thumbnail_generated: boolean
 }
 
 export interface DealFactoryAssignment {
@@ -802,6 +808,24 @@ export interface DealProduct {
   food_inspection_status: FoodGradeStatus
   product_memo: string | null
   is_selected: boolean
+  created_at: string
+  updated_at: string
+  // Sprint 7 (migration 027): 商品ごとの納品先 (Excel C23 相当)
+  shipping_address_label: string | null
+  shipping_address_full: string | null
+  shipping_recipient_name: string | null
+  shipping_phone: string | null
+  shipping_address_id: string | null
+  // Sprint 7 (migration 027): スプレッド表示用サムネイル
+  thumbnail_url: string | null
+}
+
+// Sprint 7: ユーザー別の表示設定 (列幅 / 列表示 / ピン留め)
+export interface UserPreferences {
+  user_id: string
+  deals_table_column_widths: Record<string, number>
+  deals_table_visible_columns: string[] | null
+  pinned_deal_ids: string[]
   created_at: string
   updated_at: string
 }

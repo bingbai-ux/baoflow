@@ -7,6 +7,10 @@ import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide
 import { DocumentModal } from '@/components/documents/document-modal'
 import { DealExcelGrid } from './deal-excel-grid'
 import { DealPaneToggle } from './deal-pane-host'
+import { InlineCell } from './inline-cell'
+import { DealStatusDropdown } from './deal-status-dropdown'
+import { updateDealField } from '@/lib/actions/inline-edit'
+import { setDealsTableColumnWidths } from '@/lib/actions/user-preferences'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -81,6 +85,14 @@ export interface ProductRow {
   food_inspection_status: string | null
   product_memo: string | null
   is_selected: boolean
+  // Sprint 7-4-1 (migration 027): 商品レベルの納品先
+  shipping_address_label: string | null
+  shipping_address_full: string | null
+  shipping_recipient_name: string | null
+  shipping_phone: string | null
+  shipping_address_id: string | null
+  // Sprint 7 (migration 027): 商品サムネイル (Sprint 7-4-2 で UI 配線)
+  thumbnail_url: string | null
 }
 
 export interface VariantRow {
@@ -150,6 +162,8 @@ interface DealsNestedTableProps {
   variants: VariantRow[]
   quotes: QuoteRow[]
   selectedDealId?: string | null
+  // Sprint 7-3-3: server side で fetch した列幅 (user_preferences.deals_table_column_widths)
+  serverColWidths?: Record<string, number> | null
 }
 
 interface ClientGroup {
@@ -189,6 +203,7 @@ export function DealsNestedTable({
   variants,
   quotes,
   selectedDealId,
+  serverColWidths,
 }: DealsNestedTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -203,15 +218,68 @@ export function DealsNestedTable({
   const currentStatus = searchParams.get('status') || 'all'
   const currentSearch = searchParams.get('q') || ''
   const [searchValue, setSearchValue] = useState(currentSearch)
-  const [allCollapsed, setAllCollapsed] = useState(false)
 
+  // Bug A 修正 (Sprint 7-2): expand 状態を 3 階層独立管理。
+  // 旧 allCollapsed は全階層を強制 collapse していたため、再展開時に商品が出ない症状の根本原因だった。
+  // 仕様書 §2-3 Bug A の通り、deal / product / variant の 3 セットを top-level で持つ。
+  const [expandedDealIds, setExpandedDealIds] = useState<Set<string>>(new Set())
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set())
+  const [expandedVariantIds, setExpandedVariantIds] = useState<Set<string>>(new Set())
+
+  // 「全バリエ閉じる」: variant 階層 (= product 配下のバリエ行 + 将来の variant 詳細) のみ閉じる。
+  // deal / client 階層は維持されるので、Excel グリッドは開いたままで products 行のバナーだけが残る。
+  const collapseAllVariants = useCallback(() => {
+    setExpandedProductIds(new Set())
+    setExpandedVariantIds(new Set())
+  }, [])
+
+  // 案件行の ▶ クリック: deal を展開する場合、その配下の product 全てを expandedProductIds にも追加
+  // (初回展開時はバリエ行も自動表示。ユーザーが個別に閉じれば次回からは閉じたまま)
+  const toggleDealExpanded = useCallback((dealId: string, productIdsToSeed: string[]) => {
+    setExpandedDealIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(dealId)) {
+        next.delete(dealId)
+      } else {
+        next.add(dealId)
+        if (productIdsToSeed.length > 0) {
+          setExpandedProductIds((p) => {
+            const np = new Set(p)
+            for (const id of productIdsToSeed) np.add(id)
+            return np
+          })
+        }
+      }
+      return next
+    })
+  }, [])
+
+  const toggleProductExpanded = useCallback((productId: string) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(productId)) next.delete(productId)
+      else next.add(productId)
+      return next
+    })
+  }, [])
+
+  // Sprint 7-3-3: 列幅の優先順 1) サーバー (user_preferences) → 2) localStorage → 3) デフォルト
   const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
     const init = {} as Record<ColKey, number>
     for (const c of DEFAULT_COLUMNS) init[c.key] = c.width
+    // 1) サーバーから受け取った値を最優先で適用 (SSR で既に分かっている)
+    if (serverColWidths) {
+      for (const c of DEFAULT_COLUMNS) {
+        const v = serverColWidths[c.key]
+        if (typeof v === 'number' && v >= c.minWidth) init[c.key] = v
+      }
+    }
     return init
   })
 
+  // 2) localStorage fallback (server に値がない初回ユーザー or オフライン時)
   useEffect(() => {
+    if (serverColWidths && Object.keys(serverColWidths).length > 0) return
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
@@ -225,12 +293,18 @@ export function DealsNestedTable({
         return next
       })
     } catch {}
-  }, [])
+  }, [serverColWidths])
 
+  // Sprint 7-3-3: localStorage への即時保存 + DB への非同期 upsert (fire-and-forget)。
+  // ネット失敗時も localStorage が残っているので次回開いた時はその値が使われる。
   const persistWidths = useCallback((next: Record<ColKey, number>) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {}
+    // DB upsert は非同期、結果を待たない (UI を block しない)
+    void setDealsTableColumnWidths(next as Record<string, number>).catch(() => {
+      // 失敗時は localStorage 側で次回ロード時にも復元できるので silent
+    })
   }, [])
 
   const dragRef = useRef<{ key: ColKey; startX: number; startWidth: number; min: number } | null>(null)
@@ -399,10 +473,11 @@ export function DealsNestedTable({
           </div>
           <button
             type="button"
-            onClick={() => setAllCollapsed((v) => !v)}
+            onClick={collapseAllVariants}
             className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8]"
+            title="全商品のバリエを閉じる (案件・商品の見出しは維持)"
           >
-            {allCollapsed ? '全展開' : '全折り畳み'}
+            全バリエ閉じる
           </button>
           <button
             type="button"
@@ -471,7 +546,10 @@ export function DealsNestedTable({
                   variantsByProduct={variantsByProduct}
                   quotesByDeal={quotesByDeal}
                   quotesByVariant={quotesByVariant}
-                  forceCollapsed={allCollapsed}
+                  expandedDealIds={expandedDealIds}
+                  expandedProductIds={expandedProductIds}
+                  onToggleDeal={toggleDealExpanded}
+                  onToggleProduct={toggleProductExpanded}
                   onOpenDocModal={setDocModalDealId}
                   onSelectDeal={selectDeal}
                   selectedDealId={selectedDealId}
@@ -569,7 +647,10 @@ function ClientGroupRows({
   variantsByProduct,
   quotesByDeal,
   quotesByVariant,
-  forceCollapsed,
+  expandedDealIds,
+  expandedProductIds,
+  onToggleDeal,
+  onToggleProduct,
   onOpenDocModal,
   onSelectDeal,
   selectedDealId,
@@ -579,13 +660,17 @@ function ClientGroupRows({
   variantsByProduct: Map<string, VariantRow[]>
   quotesByDeal: Map<string, QuoteRow[]>
   quotesByVariant: Map<string, QuoteRow[]>
-  forceCollapsed: boolean
+  expandedDealIds: Set<string>
+  expandedProductIds: Set<string>
+  onToggleDeal: (dealId: string, productIdsToSeed: string[]) => void
+  onToggleProduct: (productId: string) => void
   onOpenDocModal: (dealId: string) => void
   onSelectDeal: (dealId: string) => void
   selectedDealId?: string | null
 }) {
+  // クライアント階層の expand/collapse はローカル state のまま (仕様書 §2-3 Bug A は deal/product/variant のみ言及)
   const [expanded, setExpanded] = useState(true)
-  const visible = forceCollapsed ? false : expanded
+  const visible = expanded
   const inProgress = group.deals.filter((d) => d.simple_status !== 'delivered').length
   const totalApproved = group.deals.reduce(
     (s, d) => s + approvedTotalForDeal(quotesByDeal.get(d.id) || []),
@@ -651,7 +736,10 @@ function ClientGroupRows({
             variantsByProduct={variantsByProduct}
             quotes={quotesByDeal.get(deal.id) || []}
             quotesByVariant={quotesByVariant}
-            forceCollapsed={forceCollapsed}
+            isExpanded={expandedDealIds.has(deal.id)}
+            expandedProductIds={expandedProductIds}
+            onToggleDeal={onToggleDeal}
+            onToggleProduct={onToggleProduct}
             onSelectDeal={onSelectDeal}
             isSelected={selectedDealId === deal.id}
           />
@@ -666,7 +754,10 @@ function DealRowItem({
   variantsByProduct,
   quotes,
   quotesByVariant,
-  forceCollapsed,
+  isExpanded,
+  expandedProductIds,
+  onToggleDeal,
+  onToggleProduct,
   onSelectDeal,
   isSelected,
 }: {
@@ -675,12 +766,14 @@ function DealRowItem({
   variantsByProduct: Map<string, VariantRow[]>
   quotes: QuoteRow[]
   quotesByVariant: Map<string, QuoteRow[]>
-  forceCollapsed: boolean
+  isExpanded: boolean
+  expandedProductIds: Set<string>
+  onToggleDeal: (dealId: string, productIdsToSeed: string[]) => void
+  onToggleProduct: (productId: string) => void
   onSelectDeal: (dealId: string) => void
   isSelected: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const visible = forceCollapsed ? false : expanded
+  const visible = isExpanded
   const cfg = SIMPLE_STATUS_CONFIG[deal.simple_status]
   const approvedTax = approvedTotalForDeal(quotes)
   const dDays = daysUntil(deal.desired_delivery_date)
@@ -710,7 +803,7 @@ function DealRowItem({
           className="px-2 py-1 text-center cursor-pointer"
           onClick={(e) => {
             e.stopPropagation()
-            setExpanded(!expanded)
+            onToggleDeal(deal.id, products.map((p) => p.id))
           }}
         >
           {visible ? (
@@ -720,26 +813,41 @@ function DealRowItem({
           )}
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888] truncate">{deal.deal_code}</td>
-        <td className="px-2.5 py-1 truncate">
-          <span className="text-[11px] text-[#0a0a0a] truncate block">
-            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] mr-1.5 align-middle" />}
-            {deal.deal_name || '(未設定)'}
-          </span>
+        <td className="px-1.5 py-0.5 truncate" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] flex-shrink-0" />}
+            <span className="flex-1 min-w-0">
+              <InlineCell
+                value={deal.deal_name}
+                onSave={(val) => updateDealField(deal.id, 'deal_name', val || null)}
+                placeholder="(案件名)"
+                dataCol="deal_name"
+              />
+            </span>
+          </div>
         </td>
-        <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">
-          {deal.client_name_text || '-'}
+        <td className="px-1.5 py-0.5 truncate" onClick={(e) => e.stopPropagation()}>
+          <InlineCell
+            value={deal.client_name_text}
+            onSave={(val) => updateDealField(deal.id, 'client_name_text', val || null)}
+            placeholder="(クライアント)"
+            dataCol="client_name_text"
+          />
         </td>
-        <td className="px-2.5 py-1">
-          <span className="inline-flex items-center gap-1 text-[10px] text-[#555]">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STEP_COLOR_MAP[cfg.color] }} />
-            {cfg.label}
-          </span>
+        <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+          <DealStatusDropdown dealId={deal.id} current={deal.simple_status} />
         </td>
         <td className="px-2.5 py-1 text-right text-[11px] font-display tabular-nums text-[#22c55e]">
           {approvedTax > 0 ? formatJPY(approvedTax) : '-'}
         </td>
-        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">
-          {deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : '-'}
+        <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+          <InlineCell
+            type="date"
+            value={deal.desired_delivery_date}
+            onSave={(val) => updateDealField(deal.id, 'desired_delivery_date', val || null)}
+            placeholder="-"
+            dataCol="desired_delivery_date"
+          />
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">
           {formatDate(deal.last_activity_at)}
@@ -765,6 +873,8 @@ function DealRowItem({
               products={products}
               variantsByProduct={variantsByProduct}
               quotesByVariant={quotesByVariant}
+              expandedProductIds={expandedProductIds}
+              onToggleProduct={onToggleProduct}
             />
           </td>
         </tr>

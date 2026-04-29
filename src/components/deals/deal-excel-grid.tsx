@@ -5,6 +5,9 @@
 // directly editable via InlineCell — no need to navigate into a deal detail page.
 
 import Link from 'next/link'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { InlineCell } from './inline-cell'
 import {
   updateProductField,
@@ -12,6 +15,12 @@ import {
   updateQuoteField,
   updateQuoteSimpleField,
 } from '@/lib/actions/inline-edit'
+import { addBlankVariant } from '@/lib/actions/variants'
+import { addBlankProduct } from '@/lib/actions/products'
+import { useUi } from '@/components/ui/ui-store'
+import { VariantRowMenu } from './variant-row-menu'
+import { ProductShippingPopover } from './product-shipping-popover'
+import { ProductThumbnailCell } from './product-thumbnail-cell'
 import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
 
 interface Props {
@@ -19,6 +28,10 @@ interface Props {
   products: ProductRow[]
   variantsByProduct: Map<string, VariantRow[]>
   quotesByVariant: Map<string, QuoteRow[]>
+  // Bug A (Sprint 7-2): expand 状態は親コンポーネント (DealsNestedTable) で一元管理。
+  // 商品単位での展開/折り畳みをここで描画切り替えする。
+  expandedProductIds: Set<string>
+  onToggleProduct: (productId: string) => void
 }
 
 interface RowData {
@@ -44,19 +57,35 @@ const PRODUCT_PALETTE = [
   { bar: '#06b6d4', wash: '#ecfeff' }, // cyan
 ]
 
-export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVariant }: Props) {
+// Sprint 7-3-2 仕様書 §2-2-2: food_grade / food_inspection_status の選択肢。
+// 空文字 ('') を「未指定 (NULL に戻す)」として明示的に提供。
+// '-' は Excel 原本の「明示的にナシ」マーク (NULL とは区別)。
+const FOOD_FLAG_OPTIONS = [
+  { value: '', label: '(未指定)' },
+  { value: '-', label: '-' },
+  { value: '*', label: '*' },
+  { value: '●', label: '●' },
+  { value: '同', label: '同' },
+]
+
+// Sprint 7-3-2 仕様書 §2-2-2: 工場担当者 code のサジェスト候補
+const FACTORY_STAFF_CODES = ['AL', 'NA', 'JT', 'RI', 'RS', 'AS']
+
+export function DealExcelGrid({
+  dealId,
+  products,
+  variantsByProduct,
+  quotesByVariant,
+  expandedProductIds,
+  onToggleProduct,
+}: Props) {
   const sortedProducts = [...products].sort((a, b) => a.product_no - b.product_no)
 
   if (sortedProducts.length === 0) {
     return (
       <div className="bg-[#fafaf9] px-3.5 py-4 text-[12px] text-[#888]">
-        商品/バリエーションがまだありません ·{' '}
-        <Link
-          href={`/deals/${dealId}/products/new`}
-          className="text-[#22c55e] no-underline hover:underline"
-        >
-          + 追加
-        </Link>
+        商品がまだありません ·{' '}
+        <AddProductButton dealId={dealId} variant="inline" />
       </div>
     )
   }
@@ -119,10 +148,11 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
               return (
                 <ProductBlock
                   key={p.id}
-                  dealId={dealId}
                   product={p}
                   rows={variantRows}
                   palette={palette}
+                  isExpanded={expandedProductIds.has(p.id)}
+                  onToggle={() => onToggleProduct(p.id)}
                 />
               )
             })}
@@ -130,12 +160,7 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
         </table>
       </div>
       <div className="px-3.5 py-2 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-3 text-[11px]">
-        <Link
-          href={`/deals/${dealId}/products/new`}
-          className="text-[#22c55e] no-underline hover:underline"
-        >
-          + 商品を追加
-        </Link>
+        <AddProductButton dealId={dealId} variant="inline" />
         <Link
           href={`/deals/${dealId}`}
           className="text-[#888] no-underline hover:text-[#0a0a0a] ml-auto"
@@ -147,27 +172,87 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
   )
 }
 
+// Sprint 7-6: 「+ 商品を追加」ボタン。旧 /deals/[id]/products/new ページの代替。
+function AddProductButton({ dealId, variant }: { dealId: string; variant: 'inline' }) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const [pending, startTransition] = useTransition()
+
+  const handleAdd = () => {
+    if (pending) return
+    startTransition(async () => {
+      const r = await addBlankProduct(dealId)
+      if (r.error) toast(r.error || '商品追加に失敗しました', 'warn')
+      else {
+        toast('新規商品を追加しました')
+        router.refresh()
+      }
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleAdd}
+      disabled={pending}
+      className={`text-[#22c55e] hover:underline disabled:opacity-50 ${
+        variant === 'inline' ? '' : ''
+      }`}
+    >
+      {pending ? '追加中…' : '+ 商品を追加'}
+    </button>
+  )
+}
+
 function ProductBlock({
-  dealId,
   product,
   rows,
   palette,
+  isExpanded,
+  onToggle,
 }: {
-  dealId: string
   product: ProductRow
   rows: RowData[]
   palette: { bar: string; wash: string }
+  isExpanded: boolean
+  onToggle: () => void
 }) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const [pending, startTransition] = useTransition()
+  const variantCount = rows.filter((r) => r.variant.id).length
+
+  // Bug B (Sprint 7-2): バリエーション追加ボタン。商品 ID を渡して空バリエ INSERT。
+  // ラベルは "新規バリエ" のプレースホルダーで作成し、その場で InlineCell から編集可能。
+  const handleAddVariant = () => {
+    if (pending) return
+    startTransition(async () => {
+      const r = await addBlankVariant(product.id)
+      if (r.error) {
+        toast(r.error || 'バリエ追加に失敗しました', 'warn')
+      } else {
+        toast('新規バリエを追加しました')
+        router.refresh()
+      }
+    })
+  }
+
   return (
     <>
-      {/* Product header banner — visually breaks up products */}
+      {/* Product header banner — クリックで該当商品のバリエ行を toggle */}
       <tr style={{ background: palette.wash }}>
         <td
           colSpan={COLS.length}
-          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2"
+          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2 cursor-pointer hover:brightness-95"
           style={{ borderLeft: `3px solid ${palette.bar}` }}
+          onClick={onToggle}
         >
           <div className="flex items-center gap-3">
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-[#555]" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-[#555]" />
+            )}
             <span
               className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-display font-bold text-white"
               style={{ background: palette.bar }}
@@ -183,34 +268,42 @@ function ProductBlock({
               </span>
             )}
             <span className="text-[11px] text-[#888]">
-              バリエ {rows.filter((r) => r.variant.id).length} 件
+              バリエ {variantCount} 件
             </span>
-            <Link
-              href={`/deals/${dealId}/products/${product.id}/variants/new`}
-              className="ml-auto text-[10px] text-[#22c55e] no-underline hover:underline"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleAddVariant()
+              }}
+              disabled={pending}
+              className="ml-auto inline-flex items-center gap-0.5 text-[10px] text-[#22c55e] hover:underline disabled:opacity-50"
+              title="新しいバリエを追加 (Bug B: 旧 /products/.../variants/new ページの代替)"
             >
-              + バリエ追加
-            </Link>
+              <Plus className="w-2.5 h-2.5" />
+              {pending ? '追加中…' : 'バリエ追加'}
+            </button>
           </div>
         </td>
       </tr>
-      {/* Variant rows */}
-      {rows.map((r, idx) => (
-        <tr
-          key={r.variant.id || `empty-${product.id}-${idx}`}
-          className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
-        >
-          {COLS.map((c, ci) => (
-            <td
-              key={c.k}
-              className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
-              style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
-            >
-              <Cell col={c.k} row={r} />
-            </td>
-          ))}
-        </tr>
-      ))}
+      {/* Variant rows — isExpanded=false の場合は隠す (バナーのみ残る) */}
+      {isExpanded &&
+        rows.map((r, idx) => (
+          <tr
+            key={r.variant.id || `empty-${product.id}-${idx}`}
+            className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
+          >
+            {COLS.map((c, ci) => (
+              <td
+                key={c.k}
+                className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
+                style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
+              >
+                <Cell col={c.k} row={r} />
+              </td>
+            ))}
+          </tr>
+        ))}
     </>
   )
 }
@@ -257,62 +350,110 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
   const quoteSimpleEdit = (field: string) => async (val: string) =>
     q ? updateQuoteSimpleField(q.id, field, val || null) : { success: false, error: '見積未作成' }
 
+  // Sprint 7-3-4: 全 InlineCell に dataCol を自動注入する thin wrapper。
+  // これにより Enter で「次の行の同じ列」へフォーカス移動可能になる。
+  const IC = (props: React.ComponentProps<typeof InlineCell>) => (
+    <InlineCell {...props} dataCol={col} />
+  )
+
   switch (col) {
     case 'product_no':
       return <Display>{`#${p.product_no}`}</Display>
+    case 'product_image':
+      // Sprint 7-4-2-A: 商品サムネイル。クリックで画像差し替え。
+      return (
+        <span className="flex items-center justify-center py-0.5">
+          <ProductThumbnailCell productId={p.id} thumbnailUrl={p.thumbnail_url} />
+        </span>
+      )
     case 'product_code':
-      return <InlineCell value={p.factory_staff_code} onSave={productEdit('factory_staff_code')} />
+      return (
+        <IC
+          value={p.factory_staff_code}
+          onSave={productEdit('factory_staff_code')}
+          suggestions={FACTORY_STAFF_CODES}
+        />
+      )
     case 'process':
-      return <InlineCell value={p.production_process} onSave={productEdit('production_process')} />
+      return <IC value={p.production_process} onSave={productEdit('production_process')} />
     case 'food_grade':
-      return <InlineCell value={p.food_grade_status} onSave={productEdit('food_grade_status')} />
+      return (
+        <IC
+          type="select"
+          value={p.food_grade_status}
+          onSave={productEdit('food_grade_status')}
+          options={FOOD_FLAG_OPTIONS}
+        />
+      )
     case 'food_check':
-      return <InlineCell value={p.food_inspection_status} onSave={productEdit('food_inspection_status')} />
+      return (
+        <IC
+          type="select"
+          value={p.food_inspection_status}
+          onSave={productEdit('food_inspection_status')}
+          options={FOOD_FLAG_OPTIONS}
+        />
+      )
     case 'description':
-      return <InlineCell value={p.description} onSave={productEdit('description')} />
+      return <IC value={p.description} onSave={productEdit('description')} />
     case 'variant_label':
-      return <InlineCell value={v.variant_label} onSave={variantEdit('variant_label')} />
+      return (
+        <div className="group/vlabel flex items-center gap-1">
+          <span className="flex-1 min-w-0">
+            <IC value={v.variant_label} onSave={variantEdit('variant_label')} />
+          </span>
+          {v.id && (
+            <span className="opacity-0 group-hover/vlabel:opacity-100 transition-opacity flex-shrink-0 pr-1">
+              <VariantRowMenu
+                variantId={v.id}
+                isSelected={v.is_selected}
+                variantLabel={v.variant_label || '(無名)'}
+              />
+            </span>
+          )}
+        </div>
+      )
     case 'w':
-      return <InlineCell type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
+      return <IC type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
     case 'h':
-      return <InlineCell type="number" align="right" value={v.height_mm} onSave={variantEdit('height_mm')} />
+      return <IC type="number" align="right" value={v.height_mm} onSave={variantEdit('height_mm')} />
     case 'd':
-      return <InlineCell type="number" align="right" value={v.depth_mm} onSave={variantEdit('depth_mm')} />
+      return <IC type="number" align="right" value={v.depth_mm} onSave={variantEdit('depth_mm')} />
     case 'material':
-      return <InlineCell value={v.material} onSave={variantEdit('material')} />
+      return <IC value={v.material} onSave={variantEdit('material')} />
     case 'color':
-      return <InlineCell value={v.color_description} onSave={variantEdit('color_description')} />
+      return <IC value={v.color_description} onSave={variantEdit('color_description')} />
     case 'pantone':
-      return <InlineCell value={v.pantone_colors} onSave={variantEdit('pantone_colors')} />
+      return <IC value={v.pantone_colors} onSave={variantEdit('pantone_colors')} />
     case 'processing':
-      return <InlineCell value={v.processing} onSave={variantEdit('processing')} />
+      return <IC value={v.processing} onSave={variantEdit('processing')} />
     case 'other':
-      return <InlineCell value={v.other_notes} onSave={variantEdit('other_notes')} />
+      return <IC value={v.other_notes} onSave={variantEdit('other_notes')} />
     case 'print_colors':
-      return <InlineCell value={v.print_color_count} onSave={variantEdit('print_color_count')} />
+      return <IC value={v.print_color_count} onSave={variantEdit('print_color_count')} />
     case 'print_method':
-      return <InlineCell value={v.print_method} onSave={variantEdit('print_method')} />
+      return <IC value={v.print_method} onSave={variantEdit('print_method')} />
     case 'moq':
-      return <InlineCell type="number" align="right" value={q?.moq ?? null} onSave={quoteEdit('moq')} format={NUM} />
+      return <IC type="number" align="right" value={q?.moq ?? null} onSave={quoteEdit('moq')} format={NUM} />
     case 'qty':
-      return <InlineCell type="number" align="right" value={q?.quantity ?? null} onSave={quoteEdit('quantity')} format={NUM} />
+      return <IC type="number" align="right" value={q?.quantity ?? null} onSave={quoteEdit('quantity')} format={NUM} />
     case 'unit_usd':
-      return <InlineCell type="number" align="right" value={q?.factory_unit_price_usd ?? null} onSave={quoteEdit('factory_unit_price_usd')} format={FIX(3)} />
+      return <IC type="number" align="right" value={q?.factory_unit_price_usd ?? null} onSave={quoteEdit('factory_unit_price_usd')} format={FIX(3)} />
     case 'factory_freight':
-      return <InlineCell type="number" align="right" value={q?.factory_calculated_freight_usd ?? null} onSave={quoteSimpleEdit('factory_calculated_freight_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.factory_calculated_freight_usd ?? null} onSave={quoteSimpleEdit('factory_calculated_freight_usd')} format={FIX(2)} />
     case 'pcs_ctn':
-      return <InlineCell type="number" align="right" value={v.pcs_per_carton} onSave={variantEdit('pcs_per_carton')} format={NUM} />
+      return <IC type="number" align="right" value={v.pcs_per_carton} onSave={variantEdit('pcs_per_carton')} format={NUM} />
     case 'ctns':
       // derived: qty / pcs_per_carton
       return <Display align="right">{q?.quantity && v.pcs_per_carton ? Math.ceil(q.quantity / v.pcs_per_carton).toLocaleString() : ''}</Display>
     case 'cw':
-      return <InlineCell type="number" align="right" value={v.carton_width_cm} onSave={variantEdit('carton_width_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_width_cm} onSave={variantEdit('carton_width_cm')} format={FIX(0)} />
     case 'ch':
-      return <InlineCell type="number" align="right" value={v.carton_height_cm} onSave={variantEdit('carton_height_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_height_cm} onSave={variantEdit('carton_height_cm')} format={FIX(0)} />
     case 'cd':
-      return <InlineCell type="number" align="right" value={v.carton_depth_cm} onSave={variantEdit('carton_depth_cm')} format={FIX(0)} />
+      return <IC type="number" align="right" value={v.carton_depth_cm} onSave={variantEdit('carton_depth_cm')} format={FIX(0)} />
     case 'gw':
-      return <InlineCell type="number" align="right" value={v.gross_weight_kg} onSave={variantEdit('gross_weight_kg')} format={FIX(2)} />
+      return <IC type="number" align="right" value={v.gross_weight_kg} onSave={variantEdit('gross_weight_kg')} format={FIX(2)} />
     case 'volumetric':
       return <Display align="right">{q?.china_freight_yuan && q.shipping_weight_kg ? FIX(2)(q.shipping_weight_kg) : ''}</Display>
     case 'china_yuan':
@@ -320,9 +461,9 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'china_usd':
       return <Display align="right">{FIX(2)(q?.china_freight_usd ?? null)}</Display>
     case 'domestic_usd':
-      return <InlineCell type="number" align="right" value={q?.domestic_china_freight_usd ?? null} onSave={quoteEdit('domestic_china_freight_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.domestic_china_freight_usd ?? null} onSave={quoteEdit('domestic_china_freight_usd')} format={FIX(2)} />
     case 'cost_ratio':
-      return <InlineCell type="number" align="right" value={q?.cost_ratio ?? null} onSave={quoteEdit('cost_ratio')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.cost_ratio ?? null} onSave={quoteEdit('cost_ratio')} format={FIX(2)} />
     case 'unit_cost':
       return <Display align="right">{q?.unit_cost_usd ? `$${Number(q.unit_cost_usd).toFixed(3)}` : ''}</Display>
     case 'total_pretax':
@@ -330,35 +471,39 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'total_tax':
       return <Display align="right" green>{q?.total_billing_tax_jpy ? `¥${Number(q.total_billing_tax_jpy).toLocaleString()}` : ''}</Display>
     case 'plate_fee':
-      return <InlineCell type="number" align="right" value={q?.plate_fee_usd ?? null} onSave={quoteEdit('plate_fee_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.plate_fee_usd ?? null} onSave={quoteEdit('plate_fee_usd')} format={FIX(2)} />
     case 'pantone_fee':
-      return <InlineCell type="number" align="right" value={q?.pantone_color_fee_usd ?? null} onSave={quoteEdit('pantone_color_fee_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.pantone_color_fee_usd ?? null} onSave={quoteEdit('pantone_color_fee_usd')} format={FIX(2)} />
     case 'sample_make':
-      return <InlineCell type="number" align="right" value={q?.sample_cost_usd ?? null} onSave={quoteEdit('sample_cost_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.sample_cost_usd ?? null} onSave={quoteEdit('sample_cost_usd')} format={FIX(2)} />
     case 'sample_ship':
-      return <InlineCell type="number" align="right" value={q?.sample_shipping_usd ?? null} onSave={quoteEdit('sample_shipping_usd')} format={FIX(2)} />
+      return <IC type="number" align="right" value={q?.sample_shipping_usd ?? null} onSave={quoteEdit('sample_shipping_usd')} format={FIX(2)} />
     case 'food_fee':
-      return <InlineCell type="number" align="right" value={q?.food_inspection_fee_yuan ?? null} onSave={quoteSimpleEdit('food_inspection_fee_yuan')} format={FIX(0)} />
+      return <IC type="number" align="right" value={q?.food_inspection_fee_yuan ?? null} onSave={quoteSimpleEdit('food_inspection_fee_yuan')} format={FIX(0)} />
     case 'sample_make_days':
-      return <InlineCell type="number" align="right" value={q?.sample_production_days ?? null} onSave={quoteSimpleEdit('sample_production_days')} />
+      return <IC type="number" align="right" value={q?.sample_production_days ?? null} onSave={quoteSimpleEdit('sample_production_days')} />
     case 'sample_ship_days':
-      return <InlineCell type="number" align="right" value={q?.sample_shipping_days ?? null} onSave={quoteSimpleEdit('sample_shipping_days')} />
+      return <IC type="number" align="right" value={q?.sample_shipping_days ?? null} onSave={quoteSimpleEdit('sample_shipping_days')} />
     case 'prod_days':
-      return <InlineCell type="number" align="right" value={v.production_lead_days} onSave={variantEdit('production_lead_days')} />
+      return <IC type="number" align="right" value={v.production_lead_days} onSave={variantEdit('production_lead_days')} />
     case 'ship_days':
-      return <InlineCell type="number" align="right" value={v.shipping_lead_days} onSave={variantEdit('shipping_lead_days')} />
+      return <IC type="number" align="right" value={v.shipping_lead_days} onSave={variantEdit('shipping_lead_days')} />
     case 'food_days':
-      return <InlineCell type="number" align="right" value={v.food_inspection_days} onSave={variantEdit('food_inspection_days')} />
+      return <IC type="number" align="right" value={v.food_inspection_days} onSave={variantEdit('food_inspection_days')} />
     case 'lead_total': {
       const n = (v.production_lead_days || 0) + (v.shipping_lead_days || 0) + (v.food_inspection_days || 0)
       return <Display align="right">{n > 0 ? n : ''}</Display>
     }
     case 'incoterm':
-      return <InlineCell value={q?.incoterm ?? null} onSave={quoteSimpleEdit('incoterm')} />
+      return <IC value={q?.incoterm ?? null} onSave={quoteSimpleEdit('incoterm')} />
     case 'packing':
-      return <InlineCell value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
+      return <IC value={q?.packing_info_text ?? null} onSave={quoteSimpleEdit('packing_info_text')} />
     case 'address':
-      return <InlineCell value={v.shipping_address} onSave={variantEdit('shipping_address')} />
+      // Sprint 7-4-1: 商品レベルの納品先 (deal_products.shipping_address_*) に切替。
+      // バリエ行ごとに表示すると同じ商品の中で何度も同じセルが出てしまうため、
+      // 「最初のバリエ行のみ表示」「他のバリエ行は空欄 (継承)」とする視覚処理は将来検討。
+      // Sprint 7-4-1 では各バリエ行で同じ product の納品先を表示・編集 (どこから開いても同じ結果)。
+      return <ProductShippingPopover product={p} />
     default:
       return <Display>—</Display>
   }
@@ -386,6 +531,7 @@ function Display({
 
 type ColKey =
   | 'product_no'
+  | 'product_image'
   | 'product_code'
   | 'process'
   | 'food_grade'
@@ -444,6 +590,7 @@ interface ColumnDef {
 
 const COLS: ColumnDef[] = [
   { k: 'product_no', label: '#', w: 36, align: 'right' },
+  { k: 'product_image', label: '画像', w: 50 },
   { k: 'product_code', label: 'code', w: 56 },
   { k: 'process', label: '製作プロセス', w: 110 },
   { k: 'food_grade', label: 'food grade', w: 70 },
@@ -495,7 +642,7 @@ const COLS: ColumnDef[] = [
 ]
 
 const GROUPS: Array<{ label: string; span: number }> = [
-  { label: '商品', span: 6 },
+  { label: '商品', span: 7 }, // Sprint 7-4-2-A: +1 (画像列追加)
   { label: 'バリエ・サイズ', span: 4 },
   { label: '素材・色・印刷', span: 7 },
   { label: '数量・単価', span: 4 },
