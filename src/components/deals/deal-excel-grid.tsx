@@ -19,6 +19,7 @@ import { addBlankVariant } from '@/lib/actions/variants'
 import { useUi } from '@/components/ui/ui-store'
 import { VariantRowMenu } from './variant-row-menu'
 import { ProductShippingPopover } from './product-shipping-popover'
+import { ProductThumbnailCell } from './product-thumbnail-cell'
 import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
 
 interface Props {
@@ -335,6 +336,13 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
   switch (col) {
     case 'product_no':
       return <Display>{`#${p.product_no}`}</Display>
+    case 'product_image':
+      // Sprint 7-4-2-A: 商品サムネイル。クリックで画像差し替え。
+      return (
+        <span className="flex items-center justify-center py-0.5">
+          <ProductThumbnailCell productId={p.id} thumbnailUrl={p.thumbnail_url} />
+        </span>
+      )
     case 'product_code':
       return (
         <IC
@@ -500,6 +508,7 @@ function Display({
 
 type ColKey =
   | 'product_no'
+  | 'product_image'
   | 'product_code'
   | 'process'
   | 'food_grade'
@@ -558,6 +567,7 @@ interface ColumnDef {
 
 const COLS: ColumnDef[] = [
   { k: 'product_no', label: '#', w: 36, align: 'right' },
+  { k: 'product_image', label: '画像', w: 50 },
   { k: 'product_code', label: 'code', w: 56 },
   { k: 'process', label: '製作プロセス', w: 110 },
   { k: 'food_grade', label: 'food grade', w: 70 },
@@ -609,7 +619,7 @@ const COLS: ColumnDef[] = [
 ]
 
 const GROUPS: Array<{ label: string; span: number }> = [
-  { label: '商品', span: 6 },
+  { label: '商品', span: 7 }, // Sprint 7-4-2-A: +1 (画像列追加)
   { label: 'バリエ・サイズ', span: 4 },
   { label: '素材・色・印刷', span: 7 },
   { label: '数量・単価', span: 4 },

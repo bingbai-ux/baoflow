@@ -2,8 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { classifyFile, getExtension, type FileType } from '@/lib/utils/file-classify'
 
-const BUCKET = 'deal-images'
+const BUCKET = 'deal-images'  // Sprint 7-4-2-A: bucket は引き続き 'deal-images'。
+                              // migration 028 で MIME 制限解除 + 50MB に拡張済み。
 
 export interface DesignFileRow {
   id: string
@@ -15,18 +17,42 @@ export interface DesignFileRow {
   comment: string | null
   category: string | null
   created_at: string
+  // Sprint 7-4-2-A (migration 027 で追加): 添付ファイルメタデータ
+  file_extension: string | null
+  file_size_bytes: number | null
+  thumbnail_generated: boolean
+  // Sprint 7-4-2-A: classifyFile() で計算したカテゴリ (DB 列ではなく派生値、一覧で使う)
+  file_category: FileType
 }
 
 export async function listDesignFiles(dealId: string): Promise<DesignFileRow[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('deal_design_files')
-    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at')
+    .select(
+      'id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at, file_extension, file_size_bytes, thumbnail_generated'
+    )
     .eq('deal_id', dealId)
     .order('created_at', { ascending: false })
-  return (data || []) as DesignFileRow[]
+  // file_category を派生フィールドとして付加
+  return (data || []).map((r) => ({
+    ...r,
+    file_category: classifyFile(r.file_extension as string | null),
+  })) as DesignFileRow[]
 }
 
+/**
+ * Sprint 7-4-2-A (§0.5-1): 全形式 attachment アップロード。
+ *
+ * 旧 uploadDesignImage は image のみ受け付けていた。今は MIME 制限なし
+ * (migration 028 でバケット側が NULL = 全許可)、拡張子から file_category
+ * (image / pdf / zip / design / document / other) を判定して保存。
+ *
+ * 保存される追加メタデータ (migration 027 で追加されたカラム):
+ *   - file_extension: 'jpg' / 'pdf' / 'zip' 等 (lowercase)
+ *   - file_size_bytes: file.size
+ *   - thumbnail_generated: false (Sprint 7-4-2-B で PDF サムネ生成が入った時に true)
+ */
 export async function uploadDesignImage(
   dealId: string,
   file: File,
@@ -40,10 +66,14 @@ export async function uploadDesignImage(
   } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Unauthorized' }
 
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-  if (file.type && !allowed.includes(file.type)) {
-    return { data: null, error: '対応形式: JPEG / PNG / WebP / GIF' }
+  // Sprint 7-4-2-A: MIME による事前 reject は削除。サイズだけクライアント側で簡易チェック。
+  // 50MB 超は migration 028 でバケット側が拒否する (Storage エラー)。
+  if (file.size > 52428800) {
+    return { data: null, error: 'ファイルサイズが大きすぎます (上限 50 MB)' }
   }
+
+  const ext = getExtension(file.name)
+  const fileCategory = classifyFile(ext)
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const storagePath = `${dealId}/${Date.now()}_${safeName}`
@@ -75,13 +105,18 @@ export async function uploadDesignImage(
       file_url: publicUrl,
       storage_path: storagePath,
       file_name: file.name,
-      file_type: file.type || null,
+      file_type: file.type || null,                  // 元の MIME 型 (例 'application/pdf')
+      file_extension: ext || null,                   // 拡張子 (例 'pdf')
+      file_size_bytes: file.size,
+      thumbnail_generated: false,                    // Sprint 7-4-2-B で PDF サムネ実装後に更新
       version_number: nextVersion,
       comment: comment?.trim() || null,
       category: category || null,
       uploaded_by_user_id: user.id,
     })
-    .select('id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at')
+    .select(
+      'id, deal_id, file_url, storage_path, file_name, file_type, comment, category, created_at, file_extension, file_size_bytes, thumbnail_generated'
+    )
     .single()
 
   if (insertError) {
@@ -92,7 +127,10 @@ export async function uploadDesignImage(
 
   revalidatePath(`/deals/${dealId}`)
   revalidatePath(`/deals/${dealId}/designs`)
-  return { data: row as DesignFileRow, error: null }
+  return {
+    data: { ...(row as Record<string, unknown>), file_category: fileCategory } as DesignFileRow,
+    error: null,
+  }
 }
 
 export async function deleteDesignImage(
