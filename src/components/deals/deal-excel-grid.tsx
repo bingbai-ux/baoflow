@@ -5,6 +5,9 @@
 // directly editable via InlineCell — no need to navigate into a deal detail page.
 
 import Link from 'next/link'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { InlineCell } from './inline-cell'
 import {
   updateProductField,
@@ -12,6 +15,8 @@ import {
   updateQuoteField,
   updateQuoteSimpleField,
 } from '@/lib/actions/inline-edit'
+import { addBlankVariant } from '@/lib/actions/variants'
+import { useUi } from '@/components/ui/ui-store'
 import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
 
 interface Props {
@@ -19,6 +24,10 @@ interface Props {
   products: ProductRow[]
   variantsByProduct: Map<string, VariantRow[]>
   quotesByVariant: Map<string, QuoteRow[]>
+  // Bug A (Sprint 7-2): expand 状態は親コンポーネント (DealsNestedTable) で一元管理。
+  // 商品単位での展開/折り畳みをここで描画切り替えする。
+  expandedProductIds: Set<string>
+  onToggleProduct: (productId: string) => void
 }
 
 interface RowData {
@@ -44,7 +53,14 @@ const PRODUCT_PALETTE = [
   { bar: '#06b6d4', wash: '#ecfeff' }, // cyan
 ]
 
-export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVariant }: Props) {
+export function DealExcelGrid({
+  dealId,
+  products,
+  variantsByProduct,
+  quotesByVariant,
+  expandedProductIds,
+  onToggleProduct,
+}: Props) {
   const sortedProducts = [...products].sort((a, b) => a.product_no - b.product_no)
 
   if (sortedProducts.length === 0) {
@@ -119,10 +135,11 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
               return (
                 <ProductBlock
                   key={p.id}
-                  dealId={dealId}
                   product={p}
                   rows={variantRows}
                   palette={palette}
+                  isExpanded={expandedProductIds.has(p.id)}
+                  onToggle={() => onToggleProduct(p.id)}
                 />
               )
             })}
@@ -148,26 +165,54 @@ export function DealExcelGrid({ dealId, products, variantsByProduct, quotesByVar
 }
 
 function ProductBlock({
-  dealId,
   product,
   rows,
   palette,
+  isExpanded,
+  onToggle,
 }: {
-  dealId: string
   product: ProductRow
   rows: RowData[]
   palette: { bar: string; wash: string }
+  isExpanded: boolean
+  onToggle: () => void
 }) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const [pending, startTransition] = useTransition()
+  const variantCount = rows.filter((r) => r.variant.id).length
+
+  // Bug B (Sprint 7-2): バリエーション追加ボタン。商品 ID を渡して空バリエ INSERT。
+  // ラベルは "新規バリエ" のプレースホルダーで作成し、その場で InlineCell から編集可能。
+  const handleAddVariant = () => {
+    if (pending) return
+    startTransition(async () => {
+      const r = await addBlankVariant(product.id)
+      if (r.error) {
+        toast(r.error || 'バリエ追加に失敗しました', 'warn')
+      } else {
+        toast('新規バリエを追加しました')
+        router.refresh()
+      }
+    })
+  }
+
   return (
     <>
-      {/* Product header banner — visually breaks up products */}
+      {/* Product header banner — クリックで該当商品のバリエ行を toggle */}
       <tr style={{ background: palette.wash }}>
         <td
           colSpan={COLS.length}
-          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2"
+          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2 cursor-pointer hover:brightness-95"
           style={{ borderLeft: `3px solid ${palette.bar}` }}
+          onClick={onToggle}
         >
           <div className="flex items-center gap-3">
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-[#555]" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-[#555]" />
+            )}
             <span
               className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-display font-bold text-white"
               style={{ background: palette.bar }}
@@ -183,34 +228,42 @@ function ProductBlock({
               </span>
             )}
             <span className="text-[11px] text-[#888]">
-              バリエ {rows.filter((r) => r.variant.id).length} 件
+              バリエ {variantCount} 件
             </span>
-            <Link
-              href={`/deals/${dealId}/products/${product.id}/variants/new`}
-              className="ml-auto text-[10px] text-[#22c55e] no-underline hover:underline"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleAddVariant()
+              }}
+              disabled={pending}
+              className="ml-auto inline-flex items-center gap-0.5 text-[10px] text-[#22c55e] hover:underline disabled:opacity-50"
+              title="新しいバリエを追加 (Bug B: 旧 /products/.../variants/new ページの代替)"
             >
-              + バリエ追加
-            </Link>
+              <Plus className="w-2.5 h-2.5" />
+              {pending ? '追加中…' : 'バリエ追加'}
+            </button>
           </div>
         </td>
       </tr>
-      {/* Variant rows */}
-      {rows.map((r, idx) => (
-        <tr
-          key={r.variant.id || `empty-${product.id}-${idx}`}
-          className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
-        >
-          {COLS.map((c, ci) => (
-            <td
-              key={c.k}
-              className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
-              style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
-            >
-              <Cell col={c.k} row={r} />
-            </td>
-          ))}
-        </tr>
-      ))}
+      {/* Variant rows — isExpanded=false の場合は隠す (バナーのみ残る) */}
+      {isExpanded &&
+        rows.map((r, idx) => (
+          <tr
+            key={r.variant.id || `empty-${product.id}-${idx}`}
+            className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
+          >
+            {COLS.map((c, ci) => (
+              <td
+                key={c.k}
+                className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
+                style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
+              >
+                <Cell col={c.k} row={r} />
+              </td>
+            ))}
+          </tr>
+        ))}
     </>
   )
 }

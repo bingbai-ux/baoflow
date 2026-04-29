@@ -203,7 +203,50 @@ export function DealsNestedTable({
   const currentStatus = searchParams.get('status') || 'all'
   const currentSearch = searchParams.get('q') || ''
   const [searchValue, setSearchValue] = useState(currentSearch)
-  const [allCollapsed, setAllCollapsed] = useState(false)
+
+  // Bug A 修正 (Sprint 7-2): expand 状態を 3 階層独立管理。
+  // 旧 allCollapsed は全階層を強制 collapse していたため、再展開時に商品が出ない症状の根本原因だった。
+  // 仕様書 §2-3 Bug A の通り、deal / product / variant の 3 セットを top-level で持つ。
+  const [expandedDealIds, setExpandedDealIds] = useState<Set<string>>(new Set())
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set())
+  const [expandedVariantIds, setExpandedVariantIds] = useState<Set<string>>(new Set())
+
+  // 「全バリエ閉じる」: variant 階層 (= product 配下のバリエ行 + 将来の variant 詳細) のみ閉じる。
+  // deal / client 階層は維持されるので、Excel グリッドは開いたままで products 行のバナーだけが残る。
+  const collapseAllVariants = useCallback(() => {
+    setExpandedProductIds(new Set())
+    setExpandedVariantIds(new Set())
+  }, [])
+
+  // 案件行の ▶ クリック: deal を展開する場合、その配下の product 全てを expandedProductIds にも追加
+  // (初回展開時はバリエ行も自動表示。ユーザーが個別に閉じれば次回からは閉じたまま)
+  const toggleDealExpanded = useCallback((dealId: string, productIdsToSeed: string[]) => {
+    setExpandedDealIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(dealId)) {
+        next.delete(dealId)
+      } else {
+        next.add(dealId)
+        if (productIdsToSeed.length > 0) {
+          setExpandedProductIds((p) => {
+            const np = new Set(p)
+            for (const id of productIdsToSeed) np.add(id)
+            return np
+          })
+        }
+      }
+      return next
+    })
+  }, [])
+
+  const toggleProductExpanded = useCallback((productId: string) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(productId)) next.delete(productId)
+      else next.add(productId)
+      return next
+    })
+  }, [])
 
   const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
     const init = {} as Record<ColKey, number>
@@ -399,10 +442,11 @@ export function DealsNestedTable({
           </div>
           <button
             type="button"
-            onClick={() => setAllCollapsed((v) => !v)}
+            onClick={collapseAllVariants}
             className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8]"
+            title="全商品のバリエを閉じる (案件・商品の見出しは維持)"
           >
-            {allCollapsed ? '全展開' : '全折り畳み'}
+            全バリエ閉じる
           </button>
           <button
             type="button"
@@ -471,7 +515,10 @@ export function DealsNestedTable({
                   variantsByProduct={variantsByProduct}
                   quotesByDeal={quotesByDeal}
                   quotesByVariant={quotesByVariant}
-                  forceCollapsed={allCollapsed}
+                  expandedDealIds={expandedDealIds}
+                  expandedProductIds={expandedProductIds}
+                  onToggleDeal={toggleDealExpanded}
+                  onToggleProduct={toggleProductExpanded}
                   onOpenDocModal={setDocModalDealId}
                   onSelectDeal={selectDeal}
                   selectedDealId={selectedDealId}
@@ -569,7 +616,10 @@ function ClientGroupRows({
   variantsByProduct,
   quotesByDeal,
   quotesByVariant,
-  forceCollapsed,
+  expandedDealIds,
+  expandedProductIds,
+  onToggleDeal,
+  onToggleProduct,
   onOpenDocModal,
   onSelectDeal,
   selectedDealId,
@@ -579,13 +629,17 @@ function ClientGroupRows({
   variantsByProduct: Map<string, VariantRow[]>
   quotesByDeal: Map<string, QuoteRow[]>
   quotesByVariant: Map<string, QuoteRow[]>
-  forceCollapsed: boolean
+  expandedDealIds: Set<string>
+  expandedProductIds: Set<string>
+  onToggleDeal: (dealId: string, productIdsToSeed: string[]) => void
+  onToggleProduct: (productId: string) => void
   onOpenDocModal: (dealId: string) => void
   onSelectDeal: (dealId: string) => void
   selectedDealId?: string | null
 }) {
+  // クライアント階層の expand/collapse はローカル state のまま (仕様書 §2-3 Bug A は deal/product/variant のみ言及)
   const [expanded, setExpanded] = useState(true)
-  const visible = forceCollapsed ? false : expanded
+  const visible = expanded
   const inProgress = group.deals.filter((d) => d.simple_status !== 'delivered').length
   const totalApproved = group.deals.reduce(
     (s, d) => s + approvedTotalForDeal(quotesByDeal.get(d.id) || []),
@@ -651,7 +705,10 @@ function ClientGroupRows({
             variantsByProduct={variantsByProduct}
             quotes={quotesByDeal.get(deal.id) || []}
             quotesByVariant={quotesByVariant}
-            forceCollapsed={forceCollapsed}
+            isExpanded={expandedDealIds.has(deal.id)}
+            expandedProductIds={expandedProductIds}
+            onToggleDeal={onToggleDeal}
+            onToggleProduct={onToggleProduct}
             onSelectDeal={onSelectDeal}
             isSelected={selectedDealId === deal.id}
           />
@@ -666,7 +723,10 @@ function DealRowItem({
   variantsByProduct,
   quotes,
   quotesByVariant,
-  forceCollapsed,
+  isExpanded,
+  expandedProductIds,
+  onToggleDeal,
+  onToggleProduct,
   onSelectDeal,
   isSelected,
 }: {
@@ -675,12 +735,14 @@ function DealRowItem({
   variantsByProduct: Map<string, VariantRow[]>
   quotes: QuoteRow[]
   quotesByVariant: Map<string, QuoteRow[]>
-  forceCollapsed: boolean
+  isExpanded: boolean
+  expandedProductIds: Set<string>
+  onToggleDeal: (dealId: string, productIdsToSeed: string[]) => void
+  onToggleProduct: (productId: string) => void
   onSelectDeal: (dealId: string) => void
   isSelected: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const visible = forceCollapsed ? false : expanded
+  const visible = isExpanded
   const cfg = SIMPLE_STATUS_CONFIG[deal.simple_status]
   const approvedTax = approvedTotalForDeal(quotes)
   const dDays = daysUntil(deal.desired_delivery_date)
@@ -710,7 +772,7 @@ function DealRowItem({
           className="px-2 py-1 text-center cursor-pointer"
           onClick={(e) => {
             e.stopPropagation()
-            setExpanded(!expanded)
+            onToggleDeal(deal.id, products.map((p) => p.id))
           }}
         >
           {visible ? (
@@ -765,6 +827,8 @@ function DealRowItem({
               products={products}
               variantsByProduct={variantsByProduct}
               quotesByVariant={quotesByVariant}
+              expandedProductIds={expandedProductIds}
+              onToggleProduct={onToggleProduct}
             />
           </td>
         </tr>

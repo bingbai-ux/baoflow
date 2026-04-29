@@ -77,6 +77,48 @@ async function findDealId(
   return data?.deal_id || null
 }
 
+/**
+ * Sprint 7-2 Bug B: バリエ追加ボタン用の軽量 INSERT。
+ *
+ * 既存 createVariant() は variant_label を必須としているが、Sprint 7 のスプレッド UI では
+ * 「クリック → 行が出る → InlineCell で編集する」という流れにしたいため、ラベルは
+ * プレースホルダーで作成し、その場で InlineCell から編集してもらう。
+ *
+ * /deals (一覧) を revalidate するので、router.refresh() で新規行が表示される。
+ */
+export async function addBlankVariant(
+  productId: string
+): Promise<{ data: DealProductVariant | null; error: string | null }> {
+  const supabase = await createClient()
+
+  // Compute next variant_order
+  const { data: existing } = await supabase
+    .from('deal_product_variants')
+    .select('variant_order')
+    .eq('product_id', productId)
+    .order('variant_order', { ascending: false })
+    .limit(1)
+  const nextOrder = existing && existing.length > 0 ? (existing[0].variant_order || 0) + 1 : 0
+
+  const { data: row, error } = await supabase
+    .from('deal_product_variants')
+    .insert({
+      product_id: productId,
+      variant_label: '新規バリエ',
+      variant_order: nextOrder,
+      is_selected: false,
+    })
+    .select()
+    .single()
+
+  if (error) return { data: null, error: error.message }
+
+  const dealId = await findDealId(supabase, productId)
+  revalidatePath('/deals')
+  if (dealId) revalidatePath(`/deals/${dealId}`)
+  return { data: row as DealProductVariant, error: null }
+}
+
 export async function createVariant(
   productId: string,
   input: VariantInput | FormData
