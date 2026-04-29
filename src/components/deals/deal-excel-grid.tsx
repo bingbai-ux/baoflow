@@ -17,6 +17,7 @@ import {
 } from '@/lib/actions/inline-edit'
 import { addBlankVariant } from '@/lib/actions/variants'
 import { useUi } from '@/components/ui/ui-store'
+import { VariantRowMenu } from './variant-row-menu'
 import type { ProductRow, VariantRow, QuoteRow } from './deals-nested-table'
 
 interface Props {
@@ -52,6 +53,20 @@ const PRODUCT_PALETTE = [
   { bar: '#ef4444', wash: '#fef2f2' }, // red
   { bar: '#06b6d4', wash: '#ecfeff' }, // cyan
 ]
+
+// Sprint 7-3-2 仕様書 §2-2-2: food_grade / food_inspection_status の選択肢。
+// 空文字 ('') を「未指定 (NULL に戻す)」として明示的に提供。
+// '-' は Excel 原本の「明示的にナシ」マーク (NULL とは区別)。
+const FOOD_FLAG_OPTIONS = [
+  { value: '', label: '(未指定)' },
+  { value: '-', label: '-' },
+  { value: '*', label: '*' },
+  { value: '●', label: '●' },
+  { value: '同', label: '同' },
+]
+
+// Sprint 7-3-2 仕様書 §2-2-2: 工場担当者 code のサジェスト候補
+const FACTORY_STAFF_CODES = ['AL', 'NA', 'JT', 'RI', 'RS', 'AS']
 
 export function DealExcelGrid({
   dealId,
@@ -314,17 +329,52 @@ function Cell({ col, row }: { col: ColKey; row: RowData }) {
     case 'product_no':
       return <Display>{`#${p.product_no}`}</Display>
     case 'product_code':
-      return <InlineCell value={p.factory_staff_code} onSave={productEdit('factory_staff_code')} />
+      return (
+        <InlineCell
+          value={p.factory_staff_code}
+          onSave={productEdit('factory_staff_code')}
+          suggestions={FACTORY_STAFF_CODES}
+        />
+      )
     case 'process':
       return <InlineCell value={p.production_process} onSave={productEdit('production_process')} />
     case 'food_grade':
-      return <InlineCell value={p.food_grade_status} onSave={productEdit('food_grade_status')} />
+      return (
+        <InlineCell
+          type="select"
+          value={p.food_grade_status}
+          onSave={productEdit('food_grade_status')}
+          options={FOOD_FLAG_OPTIONS}
+        />
+      )
     case 'food_check':
-      return <InlineCell value={p.food_inspection_status} onSave={productEdit('food_inspection_status')} />
+      return (
+        <InlineCell
+          type="select"
+          value={p.food_inspection_status}
+          onSave={productEdit('food_inspection_status')}
+          options={FOOD_FLAG_OPTIONS}
+        />
+      )
     case 'description':
       return <InlineCell value={p.description} onSave={productEdit('description')} />
     case 'variant_label':
-      return <InlineCell value={v.variant_label} onSave={variantEdit('variant_label')} />
+      return (
+        <div className="group/vlabel flex items-center gap-1">
+          <span className="flex-1 min-w-0">
+            <InlineCell value={v.variant_label} onSave={variantEdit('variant_label')} />
+          </span>
+          {v.id && (
+            <span className="opacity-0 group-hover/vlabel:opacity-100 transition-opacity flex-shrink-0 pr-1">
+              <VariantRowMenu
+                variantId={v.id}
+                isSelected={v.is_selected}
+                variantLabel={v.variant_label || '(無名)'}
+              />
+            </span>
+          )}
+        </div>
+      )
     case 'w':
       return <InlineCell type="number" align="right" value={v.width_mm} onSave={variantEdit('width_mm')} />
     case 'h':

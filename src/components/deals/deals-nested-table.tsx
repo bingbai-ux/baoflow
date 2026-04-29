@@ -7,6 +7,9 @@ import { ChevronDown, ChevronRight, Search, AlertCircle, FileText } from 'lucide
 import { DocumentModal } from '@/components/documents/document-modal'
 import { DealExcelGrid } from './deal-excel-grid'
 import { DealPaneToggle } from './deal-pane-host'
+import { InlineCell } from './inline-cell'
+import { DealStatusDropdown } from './deal-status-dropdown'
+import { updateDealField } from '@/lib/actions/inline-edit'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
@@ -782,26 +785,38 @@ function DealRowItem({
           )}
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888] truncate">{deal.deal_code}</td>
-        <td className="px-2.5 py-1 truncate">
-          <span className="text-[11px] text-[#0a0a0a] truncate block">
-            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] mr-1.5 align-middle" />}
-            {deal.deal_name || '(未設定)'}
-          </span>
+        <td className="px-1.5 py-0.5 truncate" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] flex-shrink-0" />}
+            <span className="flex-1 min-w-0">
+              <InlineCell
+                value={deal.deal_name}
+                onSave={(val) => updateDealField(deal.id, 'deal_name', val || null)}
+                placeholder="(案件名)"
+              />
+            </span>
+          </div>
         </td>
-        <td className="px-2.5 py-1 text-[10px] text-[#555] truncate">
-          {deal.client_name_text || '-'}
+        <td className="px-1.5 py-0.5 truncate" onClick={(e) => e.stopPropagation()}>
+          <InlineCell
+            value={deal.client_name_text}
+            onSave={(val) => updateDealField(deal.id, 'client_name_text', val || null)}
+            placeholder="(クライアント)"
+          />
         </td>
-        <td className="px-2.5 py-1">
-          <span className="inline-flex items-center gap-1 text-[10px] text-[#555]">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STEP_COLOR_MAP[cfg.color] }} />
-            {cfg.label}
-          </span>
+        <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+          <DealStatusDropdown dealId={deal.id} current={deal.simple_status} />
         </td>
         <td className="px-2.5 py-1 text-right text-[11px] font-display tabular-nums text-[#22c55e]">
           {approvedTax > 0 ? formatJPY(approvedTax) : '-'}
         </td>
-        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">
-          {deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : '-'}
+        <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+          <InlineCell
+            type="date"
+            value={deal.desired_delivery_date}
+            onSave={(val) => updateDealField(deal.id, 'desired_delivery_date', val || null)}
+            placeholder="-"
+          />
         </td>
         <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">
           {formatDate(deal.last_activity_at)}

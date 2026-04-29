@@ -216,6 +216,71 @@ export async function markVariantSelected(
   return { success: true }
 }
 
+/**
+ * Sprint 7-3-2 (§2-2-4): 既存バリエの全フィールドをコピーして新規 INSERT。
+ * - 採用フラグ (is_selected) は OFF で複製
+ * - variant_order は末尾に + 1
+ * - ラベルは `元 (コピー)`、既に `(コピー)` で終わる場合は `(コピー2)`、`(コピーN)` なら `(コピーN+1)`
+ *
+ * /deals 一覧と /deals/[id] を revalidate。
+ */
+export async function duplicateVariant(
+  variantId: string
+): Promise<{ data: DealProductVariant | null; error: string | null }> {
+  const supabase = await createClient()
+
+  const { data: source } = await supabase
+    .from('deal_product_variants')
+    .select('*')
+    .eq('id', variantId)
+    .single()
+  if (!source) return { data: null, error: 'バリエが見つかりません' }
+
+  // ラベル連番化
+  const baseLabel = source.variant_label || ''
+  let newLabel: string
+  const m = baseLabel.match(/^(.*?)\s*\(コピー(\d*)\)\s*$/)
+  if (m) {
+    const stripped = m[1]
+    const n = m[2] ? Number(m[2]) : 1
+    newLabel = `${stripped} (コピー${n + 1})`
+  } else {
+    newLabel = `${baseLabel} (コピー)`
+  }
+
+  // 末尾の variant_order
+  const { data: existing } = await supabase
+    .from('deal_product_variants')
+    .select('variant_order')
+    .eq('product_id', source.product_id)
+    .order('variant_order', { ascending: false })
+    .limit(1)
+  const nextOrder = existing && existing.length > 0 ? (existing[0].variant_order || 0) + 1 : 0
+
+  // id / created_at / updated_at / is_selected を除いた全カラムをコピー
+  const { id: _id, created_at: _c, updated_at: _u, is_selected: _s, ...rest } =
+    source as Record<string, unknown>
+  void _id; void _c; void _u; void _s
+
+  const { data: row, error } = await supabase
+    .from('deal_product_variants')
+    .insert({
+      ...rest,
+      variant_label: newLabel,
+      variant_order: nextOrder,
+      is_selected: false,
+    })
+    .select()
+    .single()
+
+  if (error) return { data: null, error: error.message }
+
+  const dealId = await findDealId(supabase, source.product_id)
+  revalidatePath('/deals')
+  if (dealId) revalidatePath(`/deals/${dealId}`)
+  return { data: row as DealProductVariant, error: null }
+}
+
 export async function getVariantsForProduct(productId: string): Promise<DealProductVariant[]> {
   const supabase = await createClient()
   const { data } = await supabase
