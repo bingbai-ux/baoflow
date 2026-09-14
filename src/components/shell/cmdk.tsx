@@ -20,11 +20,11 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: 'go_settings', title: '設定', sub: '会社情報・銀行口座・既定値', badge: '', href: '/settings' },
 ]
 
-export function CmdK({ initial }: { initial: SearchHit[] }) {
+export function CmdK() {
   const router = useRouter()
   const { cmdkOpen, closeCmdk } = useUi()
   const [q, setQ] = useState('')
-  const [hits, setHits] = useState<SearchHit[]>(initial)
+  const [hits, setHits] = useState<SearchHit[]>([])
   const [idx, setIdx] = useState(0)
   const [, startSearch] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -33,10 +33,9 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
     if (cmdkOpen) {
       setTimeout(() => inputRef.current?.focus(), 30)
       setQ('')
-      setHits(initial)
       setIdx(0)
     }
-  }, [cmdkOpen, initial])
+  }, [cmdkOpen])
 
   // Debounced server search
   useEffect(() => {

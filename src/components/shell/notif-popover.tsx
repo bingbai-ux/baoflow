@@ -3,13 +3,26 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUi } from '@/components/ui/ui-store'
+import { listNotifications } from '@/lib/actions/notifications'
 import type { NotifItem } from '@/lib/actions/notifications-types'
 
-export function NotifPopover({ initial }: { initial: NotifItem[] }) {
+export function NotifPopover() {
   const router = useRouter()
   const { notifOpen, closeNotif } = useUi()
-  const [items, setItems] = useState<NotifItem[]>(initial)
+  const [items, setItems] = useState<NotifItem[] | null>(null)
   const popRef = useRef<HTMLDivElement>(null)
+
+  // 開いた瞬間に取得(毎ページの事前フェッチをやめ、表示速度を優先)
+  useEffect(() => {
+    if (!notifOpen) return
+    let alive = true
+    listNotifications().then((r) => {
+      if (alive) setItems(r)
+    })
+    return () => {
+      alive = false
+    }
+  }, [notifOpen])
 
   // Click outside to close
   useEffect(() => {
@@ -24,10 +37,6 @@ export function NotifPopover({ initial }: { initial: NotifItem[] }) {
     }
   }, [notifOpen, closeNotif])
 
-  useEffect(() => {
-    setItems(initial)
-  }, [initial])
-
   if (!notifOpen) return null
 
   const select = (n: NotifItem) => {
@@ -41,7 +50,7 @@ export function NotifPopover({ initial }: { initial: NotifItem[] }) {
       className="fixed top-[48px] right-4 w-[380px] bg-white border border-[#E2E1DA] rounded-[12px] shadow-[0_16px_40px_rgba(53,30,40,0.18)] z-[500] overflow-hidden"
     >
       <div className="px-4 py-3 border-b border-[#E2E1DA] flex items-center justify-between">
-        <div className="font-display text-[13px] font-semibold">通知 ({items.length})</div>
+        <div className="font-display text-[13px] font-semibold">通知{items ? ` (${items.length})` : ''}</div>
         <button
           onClick={() => setItems([])}
           className="text-[11px] text-[#84787D] hover:text-[#351E28]"
@@ -50,7 +59,9 @@ export function NotifPopover({ initial }: { initial: NotifItem[] }) {
         </button>
       </div>
       <div className="max-h-[420px] overflow-auto">
-        {items.length === 0 ? (
+        {items === null ? (
+          <div className="p-8 text-center text-[#84787D] text-[12px]">読み込み中…</div>
+        ) : items.length === 0 ? (
           <div className="p-8 text-center text-[#84787D] text-[12px]">通知はありません</div>
         ) : (
           items.map((n) => (

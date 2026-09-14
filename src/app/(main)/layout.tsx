@@ -4,20 +4,13 @@ import { UiProvider } from '@/components/ui/ui-store'
 import { ToastHost } from '@/components/ui/toast-host'
 import { CmdK } from '@/components/shell/cmdk'
 import { NotifPopover } from '@/components/shell/notif-popover'
-import { searchAll } from '@/lib/actions/search'
-import { listNotifications } from '@/lib/actions/notifications'
-
-export default async function MainLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Pre-fetch initial data for CmdK + Notifications so they appear instantly
-  const [searchSeed, notifications] = await Promise.all([
-    searchAll(''),
-    listNotifications(),
-  ])
-
+  // CmdK / 通知のデータは「開いた瞬間」にクライアント側から取得する。
+  // 以前はここで毎ページ事前フェッチしており、全ページの表示を遅くしていた。
   return (
     <UiProvider>
       <div className="flex h-screen w-full bg-[#EFEFEA] overflow-hidden">
@@ -28,8 +21,8 @@ export default async function MainLayout({
         </div>
       </div>
       <ToastHost />
-      <CmdK initial={searchSeed} />
-      <NotifPopover initial={notifications} />
+      <CmdK />
+      <NotifPopover />
     </UiProvider>
   )
 }
