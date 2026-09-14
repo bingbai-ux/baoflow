@@ -7,7 +7,8 @@ import {
   SIMPLE_STATUS_ORDER,
 } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
-import { WaitingOnBadge, normalizeWaitingOn, type WaitingOn } from '@/components/deals/waiting-on-badge'
+import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
+import { normalizeWaitingOn, type WaitingOn } from '@/lib/utils/waiting-on'
 
 // F&C Sprint 10 (A): ホーム=「きょうやること」。
 // 期限・停滞・ボール(waiting_on)から要対応を拾い、次のアクションに直結させる。

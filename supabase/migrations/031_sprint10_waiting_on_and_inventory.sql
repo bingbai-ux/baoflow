@@ -21,6 +21,13 @@ COMMENT ON COLUMN deals.waiting_on IS
 CREATE INDEX IF NOT EXISTS idx_deals_waiting_on ON deals(waiting_on);
 
 -- 2. 在庫アイテム ----------------------------------------------------
+-- migration 010 の旧在庫テーブル(product_name/current_stock 型・未使用)とは
+-- 別設計のため、旧テーブル群をここで廃止して作り直す(データ無しを確認済み)。
+DROP TABLE IF EXISTS inventory_movements CASCADE;
+DROP TABLE IF EXISTS shipment_order_items CASCADE;
+DROP TABLE IF EXISTS logistics_notifications CASCADE;
+DROP TABLE IF EXISTS inventory_items CASCADE;
+
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
