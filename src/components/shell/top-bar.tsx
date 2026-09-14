@@ -8,6 +8,7 @@ import { useUi } from '@/components/ui/ui-store'
 const PAGE_META: Record<string, { title: string; sub: string; primary?: { label: string; href: string } | null }> = {
   '/': { title: 'ホーム', sub: '今日のサマリー', primary: { label: '+ 新規案件', href: '/deals/new' } },
   '/deals': { title: '案件', sub: 'すべての受注・見積', primary: { label: '+ 新規案件', href: '/deals/new' } },
+  '/inventory': { title: '在庫', sub: '物流倉庫の入庫・在庫・出庫', primary: null },
   '/master': { title: '取引先', sub: 'クライアント・工場・担当者', primary: null },
   '/settings': { title: '設定', sub: '会社情報・既定値', primary: null },
 }

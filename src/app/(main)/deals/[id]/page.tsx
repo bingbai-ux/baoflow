@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChevronLeft, FileText } from 'lucide-react'
 import { DealProgressBar } from '@/components/deal-progress-bar'
 import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
+import { RepeatDealButton } from '@/components/deals/repeat-deal-button'
 import { DealDetailTabs } from './deal-detail-tabs'
 import { type SimpleStatus } from '@/lib/types'
 import { formatJPY } from '@/lib/utils/format'
@@ -139,7 +140,14 @@ export default async function DealDetailPage({ params }: Props) {
             {deal.client_name_text || '(クライアント未設定)'}
           </p>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 items-start">
+          <Link
+            href={`/deals/${id}/quote-builder`}
+            className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-full px-3.5 py-2 text-[12px] font-medium font-body no-underline inline-flex items-center gap-1 hover:bg-[#FBFAF6]"
+          >
+            見積を組み立てる
+          </Link>
+          <RepeatDealButton dealId={deal.id} dealName={deal.deal_name} />
           <Link
             href={`/deals/${id}/documents`}
             className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-[12px] px-3 py-2 text-[12px] font-medium font-body no-underline inline-flex items-center gap-1"

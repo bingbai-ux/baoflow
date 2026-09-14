@@ -17,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { k: 'home', label: 'ホーム', href: '/', match: (p) => p === '/' },
   { k: 'deals', label: '案件', href: '/deals', match: (p) => p.startsWith('/deals') },
+  { k: 'inventory', label: '在庫', href: '/inventory', match: (p) => p.startsWith('/inventory') },
   { k: 'archive', label: '案件履歴', href: '/archive', match: (p) => p.startsWith('/archive') },
   { k: 'master', label: '取引先', href: '/master', match: (p) => p.startsWith('/master') },
   { k: 'docs', label: '帳票', href: '/docs', match: (p) => p.startsWith('/docs') },
