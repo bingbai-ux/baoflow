@@ -660,3 +660,44 @@
 | invoice_file_url | text | YES | null |
 | created_at | timestamptz | NO | now() |
 | updated_at | timestamptz | NO | now() |
+
+### deals (Sprint 10 追加カラム)
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| waiting_on | text | NO | 'us' | -- us / client / factory / none
+
+### inventory_items (Sprint 10)
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| id | uuid | NO | gen_random_uuid() |
+| client_id | uuid | YES | null |
+| deal_id | uuid | YES | null |
+| product_id | uuid | YES | null |
+| item_name | text | NO | null |
+| item_code | text | YES | null |
+| spec_note | text | YES | null |
+| unit | text | NO | '個' |
+| quantity_on_hand | integer | NO | 0 |
+| cartons_on_hand | integer | YES | null |
+| warehouse_name | text | YES | null |
+| location_note | text | YES | null |
+| thumbnail_url | text | YES | null |
+| first_arrived_at | date | YES | null |
+| note | text | YES | null |
+| created_by | uuid | YES | null |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
+
+### inventory_transactions (Sprint 10)
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| id | uuid | NO | gen_random_uuid() |
+| item_id | uuid | NO | null |
+| tx_type | text | NO | null | -- inbound / outbound / adjust
+| quantity_delta | integer | NO | null | -- 符号つき増減
+| occurred_on | date | NO | CURRENT_DATE |
+| deal_id | uuid | YES | null |
+| destination | text | YES | null |
+| note | text | YES | null |
+| created_by | uuid | YES | null |
+| created_at | timestamptz | NO | now() |

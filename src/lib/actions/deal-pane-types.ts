@@ -11,6 +11,7 @@ export interface DealPaneData {
     desired_delivery_date: string | null
     memo: string | null
     simple_status: SimpleStatus
+    waiting_on: string | null
     created_at: string
     last_activity_at: string | null
     sales_user?: { display_name: string | null } | null

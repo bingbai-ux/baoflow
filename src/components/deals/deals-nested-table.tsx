@@ -9,6 +9,7 @@ import { DealExcelGrid } from './deal-excel-grid'
 import { DealPaneToggle } from './deal-pane-host'
 import { InlineCell } from './inline-cell'
 import { DealStatusDropdown } from './deal-status-dropdown'
+import { WaitingOnBadge } from './waiting-on-badge'
 import { ArchiveDealModal } from './archive-deal-modal'
 import { updateDealField } from '@/lib/actions/inline-edit'
 import { setDealsTableColumnWidths } from '@/lib/actions/user-preferences'
@@ -23,6 +24,7 @@ type ColKey =
   | 'expand'
   | 'id'
   | 'name'
+  | 'ball'
   | 'client'
   | 'status'
   | 'amount'
@@ -47,6 +49,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { key: 'name', label: '案件名', width: 260, minWidth: 120 },
   { key: 'client', label: 'クライアント', width: 160, minWidth: 100 },
   { key: 'status', label: 'ステータス', width: 110, minWidth: 80 },
+  { key: 'ball', label: 'ボール', width: 104, minWidth: 80 },
   { key: 'amount', label: '採用合計', width: 100, minWidth: 70, align: 'right' },
   { key: 'delivery', label: '納期', width: 90, minWidth: 60 },
   { key: 'updated', label: '更新', width: 90, minWidth: 60 },
@@ -72,6 +75,7 @@ interface DealRow {
   client_name_text: string | null
   desired_delivery_date: string | null
   simple_status: SimpleStatus
+  waiting_on: string | null
   last_activity_at: string
 }
 
@@ -709,7 +713,7 @@ function ClientGroupRows({
             <ChevronRight className="w-3 h-3 text-[#351E28] inline" />
           )}
         </td>
-        <td colSpan={8} className="px-2.5 py-1.5">
+        <td colSpan={9} className="px-2.5 py-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[12px] font-body font-semibold text-[#351E28] truncate">
               {group.clientName}
@@ -856,6 +860,9 @@ function DealRowItem({
         </td>
         <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
           <DealStatusDropdown dealId={deal.id} current={deal.simple_status} />
+        </td>
+        <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+          <WaitingOnBadge dealId={deal.id} value={deal.waiting_on} size="sm" />
         </td>
         <td className="px-2.5 py-1 text-right text-[11px] font-display tabular-nums text-[#666C14]">
           {approvedTax > 0 ? formatJPY(approvedTax) : '-'}

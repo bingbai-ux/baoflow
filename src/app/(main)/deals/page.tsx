@@ -30,7 +30,7 @@ export default async function DealsPage({ searchParams }: Props) {
   let dealsQuery = supabase
     .from('deals')
     .select(
-      'id, deal_code, deal_name, client_name_text, desired_delivery_date, simple_status, last_activity_at, sales_user_id'
+      'id, deal_code, deal_name, client_name_text, desired_delivery_date, simple_status, waiting_on, last_activity_at, sales_user_id'
     )
     // Sprint 9: アーカイブ案件は /archive に分離 (§0.5-6)
     .is('archived_at', null)

@@ -17,6 +17,8 @@ const ALLOWED_DEAL_FIELDS = new Set([
   // Sprint 9 (§0.5-6): アーカイブ後も編集可
   'archive_note',
   'tags',
+  // Sprint 10: ボール管理(us / client / factory / none)
+  'waiting_on',
 ])
 
 // Sprint 9 (§0.5-6): アーカイブ後に編集可能な deals フィールド

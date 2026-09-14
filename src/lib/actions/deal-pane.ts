@@ -10,7 +10,7 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
   const { data: deal } = await supabase
     .from('deals')
     .select(
-      `id, deal_code, deal_name, client_name_text, desired_delivery_date, memo, simple_status, created_at, last_activity_at,
+      `id, deal_code, deal_name, client_name_text, desired_delivery_date, memo, simple_status, waiting_on, created_at, last_activity_at,
        sales_user:profiles!deals_sales_user_id_fkey(display_name)`
     )
     .eq('id', dealId)

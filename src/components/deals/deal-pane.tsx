@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTransition } from 'react'
 import { X, FileText, ExternalLink, Send } from 'lucide-react'
 import { MiniPipeline } from './mini-pipeline'
+import { WaitingOnBadge } from './waiting-on-badge'
 import { PaneTabs } from './pane-tabs'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { RfqCreateModal } from './rfq-create-modal'
@@ -100,9 +101,12 @@ export function DealPane({ data }: Props) {
         </button>
       </div>
 
-      {/* Mini pipeline */}
-      <div className="px-4 py-2.5 border-b border-[#E2E1DA] bg-[#FBFAF6]">
-        <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
+      {/* Mini pipeline + ボール */}
+      <div className="px-4 py-2.5 border-b border-[#E2E1DA] bg-[#FBFAF6] flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
+        </div>
+        <WaitingOnBadge dealId={data.deal.id} value={data.deal.waiting_on} size="sm" />
       </div>
 
       {/* Sprint 7-5: パネル専用タブ (履歴 / 通信 / 添付 / 帳票) のみ。

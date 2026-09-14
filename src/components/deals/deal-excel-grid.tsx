@@ -5,7 +5,7 @@
 // directly editable via InlineCell — no need to navigate into a deal detail page.
 
 import Link from 'next/link'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { InlineCell } from './inline-cell'
@@ -79,6 +79,27 @@ export function DealExcelGrid({
 }: Props) {
   const sortedProducts = [...products].sort((a, b) => a.product_no - b.product_no)
 
+  const [view, setView] = useState<ViewKey>(() => {
+    if (typeof window === 'undefined') return 'work'
+    try {
+      const v = window.localStorage.getItem(VIEW_STORAGE_KEY) as ViewKey | null
+      return v && VIEW_DEFS.some((d) => d.key === v) ? v : 'work'
+    } catch {
+      return 'work'
+    }
+  })
+  const changeView = (v: ViewKey) => {
+    setView(v)
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, v)
+    } catch {
+      /* localStorage 不可でも表示は切り替える */
+    }
+  }
+  const viewDef = VIEW_DEFS.find((d) => d.key === view) || VIEW_DEFS[0]
+  const cols = viewDef.cols === 'all' ? COLS : COLS.filter((c) => (viewDef.cols as ColKey[]).includes(c.k))
+  const tableMinWidth = cols.reduce((sum, c) => sum + c.w, 0) + 24
+
   if (sortedProducts.length === 0) {
     return (
       <div className="bg-[#FBFAF6] px-3.5 py-4 text-[12px] text-[#84787D]">
@@ -90,36 +111,61 @@ export function DealExcelGrid({
 
   return (
     <div className="bg-[#FBFAF6] border-t border-b border-[rgba(53,30,40,0.06)]">
+      {/* 列ビュー切替チップ(F&C FilterChip) */}
+      <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-[#E2E1DA] flex-wrap">
+        <span className="text-[10.5px] text-[#84787D] font-body mr-1">表示:</span>
+        {VIEW_DEFS.map((d) => (
+          <button
+            key={d.key}
+            type="button"
+            onClick={() => changeView(d.key)}
+            className={`rounded-full px-3 py-1 text-[11px] font-bold leading-none transition-colors ${
+              view === d.key
+                ? 'bg-[#351E28] text-[#C9A2B8]'
+                : 'bg-white text-[#84787D] border border-[#E2E1DA] hover:text-[#351E28]'
+            }`}
+          >
+            {d.label}
+          </button>
+        ))}
+        {view !== 'all' && (
+          <span className="text-[10.5px] text-[#84787D] font-body ml-1">
+            {cols.length}列表示 · 全{COLS.length}列は「全列」で
+          </span>
+        )}
+      </div>
       <div className="overflow-x-auto">
         <table
           className="border-collapse text-[11px] font-body"
           style={{
             fontVariantNumeric: 'tabular-nums',
             tableLayout: 'fixed',
-            minWidth: 2900,
+            minWidth: view === 'all' ? 2900 : tableMinWidth,
           }}
         >
           <colgroup>
-            {COLS.map((c) => (
+            {cols.map((c) => (
               <col key={c.k} style={{ width: c.w }} />
             ))}
           </colgroup>
           <thead>
-            {/* Group header row */}
-            <tr className="bg-[#E2E1DA] text-[#351E28]">
-              {GROUPS.map((g) => (
-                <th
-                  key={g.label}
-                  colSpan={g.span}
-                  className="px-2 py-1.5 text-[10px] uppercase tracking-[0.06em] font-semibold border-b-2 border-r border-[rgba(53,30,40,0.08)] text-center"
-                >
-                  {g.label}
-                </th>
-              ))}
-            </tr>
+            {/* Group header row(全列表示のときだけ意味を持つ) */}
+            {view === 'all' && (
+              <tr className="bg-[#E2E1DA] text-[#351E28]">
+                {GROUPS.map((g) => (
+                  <th
+                    key={g.label}
+                    colSpan={g.span}
+                    className="px-2 py-1.5 text-[10px] uppercase tracking-[0.06em] font-semibold border-b-2 border-r border-[rgba(53,30,40,0.08)] text-center"
+                  >
+                    {g.label}
+                  </th>
+                ))}
+              </tr>
+            )}
             {/* Field header row */}
             <tr className="bg-[#EFEFEA] text-[#84787D]">
-              {COLS.map((c) => (
+              {cols.map((c) => (
                 <th
                   key={c.k}
                   className={`px-1.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.03em] border-b border-r border-[rgba(53,30,40,0.06)] whitespace-nowrap ${
@@ -149,6 +195,7 @@ export function DealExcelGrid({
                   product={p}
                   rows={variantRows}
                   palette={palette}
+                  cols={cols}
                   isExpanded={expandedProductIds.has(p.id)}
                   onToggle={() => onToggleProduct(p.id)}
                 />
@@ -206,12 +253,14 @@ function ProductBlock({
   product,
   rows,
   palette,
+  cols,
   isExpanded,
   onToggle,
 }: {
   product: ProductRow
   rows: RowData[]
   palette: { bar: string; wash: string; ink: string }
+  cols: ColumnDef[]
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -240,7 +289,7 @@ function ProductBlock({
       {/* Product header banner — クリックで該当商品のバリエ行を toggle */}
       <tr style={{ background: palette.wash }}>
         <td
-          colSpan={COLS.length}
+          colSpan={cols.length}
           className="border-b-2 border-t border-[rgba(53,30,40,0.08)] px-3 py-2 cursor-pointer hover:brightness-95"
           style={{ borderLeft: `3px solid ${palette.bar}` }}
           onClick={onToggle}
@@ -291,7 +340,7 @@ function ProductBlock({
             key={r.variant.id || `empty-${product.id}-${idx}`}
             className={`hover:bg-[#FBFAF6] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FBFAF6]'}`}
           >
-            {COLS.map((c, ci) => (
+            {cols.map((c, ci) => (
               <td
                 key={c.k}
                 className="border-b border-r border-[rgba(53,30,40,0.05)] p-0 align-middle"
@@ -650,3 +699,39 @@ const GROUPS: Array<{ label: string; span: number }> = [
   { label: 'リードタイム', span: 6 },
   { label: '配送', span: 3 },
 ]
+
+// Sprint 10 (B): 作業ビュー。既定は10列前後の「作業」で、
+// 列グループのチップで必要な束だけを呼び出す。全列表示はオプションとして温存。
+type ViewKey = 'work' | 'spec' | 'price' | 'logistics' | 'lead' | 'all'
+
+const VIEW_DEFS: Array<{ key: ViewKey; label: string; cols: ColKey[] | 'all' }> = [
+  {
+    key: 'work',
+    label: '作業',
+    cols: ['product_no', 'product_image', 'description', 'variant_label', 'qty', 'unit_usd', 'cost_ratio', 'unit_cost', 'total_tax', 'lead_total', 'address'],
+  },
+  {
+    key: 'spec',
+    label: '商品仕様',
+    cols: ['product_no', 'product_image', 'product_code', 'process', 'food_grade', 'food_check', 'description', 'variant_label', 'w', 'h', 'd', 'material', 'color', 'pantone', 'processing', 'other', 'print_colors', 'print_method'],
+  },
+  {
+    key: 'price',
+    label: '価格',
+    cols: ['product_no', 'description', 'variant_label', 'moq', 'qty', 'unit_usd', 'factory_freight', 'cost_ratio', 'unit_cost', 'total_pretax', 'total_tax', 'plate_fee', 'pantone_fee', 'sample_make', 'sample_ship', 'food_fee'],
+  },
+  {
+    key: 'logistics',
+    label: '物流',
+    cols: ['product_no', 'description', 'variant_label', 'pcs_ctn', 'ctns', 'cw', 'ch', 'cd', 'gw', 'volumetric', 'china_yuan', 'china_usd', 'domestic_usd', 'incoterm', 'packing', 'address'],
+  },
+  {
+    key: 'lead',
+    label: 'リードタイム',
+    cols: ['product_no', 'description', 'variant_label', 'sample_make_days', 'sample_ship_days', 'prod_days', 'ship_days', 'food_days', 'lead_total'],
+  },
+  { key: 'all', label: '全列', cols: 'all' },
+]
+
+const VIEW_STORAGE_KEY = 'deal-excel-grid:view'
+

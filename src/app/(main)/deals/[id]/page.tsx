@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, FileText } from 'lucide-react'
 import { DealProgressBar } from '@/components/deal-progress-bar'
+import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
 import { DealDetailTabs } from './deal-detail-tabs'
 import { type SimpleStatus } from '@/lib/types'
 import { formatJPY } from '@/lib/utils/format'
@@ -31,6 +32,7 @@ export default async function DealDetailPage({ params }: Props) {
       desired_delivery_date,
       memo,
       simple_status,
+      waiting_on,
       created_at,
       last_activity_at,
       sales_user:profiles!deals_sales_user_id_fkey(display_name)
@@ -127,9 +129,12 @@ export default async function DealDetailPage({ params }: Props) {
       <div className="flex justify-between items-start py-3 gap-4">
         <div className="min-w-0">
           <p className="text-[11px] text-[#84787D] font-body tabular-nums">{deal.deal_code}</p>
-          <h1 className="font-display text-[24px] font-semibold text-[#351E28] truncate">
-            {deal.deal_name || '(案件名未設定)'}
-          </h1>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="font-display text-[21px] font-extrabold text-[#351E28] truncate">
+              {deal.deal_name || '(案件名未設定)'}
+            </h1>
+            <WaitingOnBadge dealId={deal.id} value={deal.waiting_on} />
+          </div>
           <p className="text-[13px] text-[#351E28] font-body mt-1 truncate">
             {deal.client_name_text || '(クライアント未設定)'}
           </p>

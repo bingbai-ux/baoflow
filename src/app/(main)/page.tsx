@@ -1,21 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { TrendingUp, TrendingDown } from 'lucide-react'
 import {
   type SimpleStatus,
   SIMPLE_STATUS_CONFIG,
   SIMPLE_STATUS_ORDER,
 } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
+import { WaitingOnBadge, normalizeWaitingOn, type WaitingOn } from '@/components/deals/waiting-on-badge'
 
-const STEP_COLOR_MAP: Record<string, string> = {
-  pending: '#AEB8A0',
-  confirmed: '#E9F056',
-  warning: '#FF5C34',
-  active: '#351E28',
-  shipping: '#84787D',
-}
+// F&C Sprint 10 (A): ホーム=「きょうやること」。
+// 期限・停滞・ボール(waiting_on)から要対応を拾い、次のアクションに直結させる。
 
 function daysUntil(dateStr: string | null): number {
   if (!dateStr) return 9999
@@ -34,9 +29,16 @@ interface DealAgg {
   client_id: string | null
   desired_delivery_date: string | null
   simple_status: SimpleStatus
+  waiting_on: string | null
   last_activity_at: string
   updated_at: string
   approvedTotal: number
+}
+
+// ステータス別「次のアクション」の行き先
+function nextActionHref(d: DealAgg): string {
+  if (d.simple_status === 'quote_confirmed') return `/deals/${d.id}/documents`
+  return `/deals/${d.id}`
 }
 
 export default async function DashboardPage() {
@@ -58,8 +60,9 @@ export default async function DashboardPage() {
       supabase
         .from('deals')
         .select(
-          'id, deal_code, deal_name, client_name_text, client_id, desired_delivery_date, simple_status, last_activity_at, updated_at'
+          'id, deal_code, deal_name, client_name_text, client_id, desired_delivery_date, simple_status, waiting_on, last_activity_at, updated_at'
         )
+        .is('archived_at', null)
         .order('last_activity_at', { ascending: false }),
       supabase
         .from('deal_quotes')
@@ -70,7 +73,7 @@ export default async function DashboardPage() {
           'id, deal_id, from_simple_status, to_simple_status, changed_at, note, kind, deals(deal_code, deal_name, client_name_text)'
         )
         .order('changed_at', { ascending: false })
-        .limit(10),
+        .limit(8),
       supabase.from('clients').select('id, company_name, short_name'),
     ])
 
@@ -114,38 +117,49 @@ export default async function DashboardPage() {
         ) / 10
       : 0
 
+  // ---- きょうやることキュー -------------------------------------------
+  type QueueItem = DealAgg & { dDays: number; sDays: number }
+  const withDays = (d: DealAgg): QueueItem => ({
+    ...d,
+    dDays: daysUntil(d.desired_delivery_date),
+    sDays: daysSince(d.last_activity_at),
+  })
+
+  const active = inProgress.map(withDays)
+
+  // 1) 期限: 納期超過 or 14日以内
+  const deadline = active
+    .filter((d) => d.desired_delivery_date && d.dDays <= 14)
+    .sort((a, b) => a.dDays - b.dDays)
+
+  const deadlineIds = new Set(deadline.map((d) => d.id))
+
+  // 2) 自分の番(ボール=us)
+  const myTurn = active
+    .filter((d) => !deadlineIds.has(d.id) && normalizeWaitingOn(d.waiting_on) === 'us')
+    .sort((a, b) => b.sDays - a.sDays)
+
+  // 3) 返答待ちが3日以上 → 催促どき
+  const chase = active
+    .filter((d) => {
+      const w = normalizeWaitingOn(d.waiting_on)
+      return !deadlineIds.has(d.id) && (w === 'client' || w === 'factory') && d.sDays >= 3
+    })
+    .sort((a, b) => b.sDays - a.sDays)
+
+  const todoCount = deadline.length + myTurn.length + chase.length
+
+  // ---- パイプライン・クライアント集計(下段) --------------------------
   const counts: Record<SimpleStatus, number> = {
     quoting: 0, quote_confirmed: 0, paid: 0, data_confirmed: 0,
     in_production: 0, shipped: 0, delivered: 0,
   }
-  const amountsByStatus: Record<SimpleStatus, number> = {
-    quoting: 0, quote_confirmed: 0, paid: 0, data_confirmed: 0,
-    in_production: 0, shipped: 0, delivered: 0,
-  }
+  const amountsByStatus: Record<SimpleStatus, number> = { ...counts }
   for (const d of deals) {
     counts[d.simple_status]++
     amountsByStatus[d.simple_status] += d.approvedTotal
   }
   const maxCount = Math.max(1, ...Object.values(counts))
-
-  const attention = deals
-    .filter((d) => d.simple_status !== 'delivered')
-    .map((d) => {
-      const dDays = daysUntil(d.desired_delivery_date)
-      const sDays = daysSince(d.last_activity_at)
-      const urgent = dDays <= 14 && dDays >= 0
-      const stale = sDays >= 5
-      const overdue = dDays < 0 && d.desired_delivery_date != null
-      if (overdue || urgent || stale) return { ...d, dDays, sDays, urgent, stale, overdue }
-      return null
-    })
-    .filter((d): d is DealAgg & { dDays: number; sDays: number; urgent: boolean; stale: boolean; overdue: boolean } => d !== null)
-    .sort((a, b) => {
-      if (a.overdue && !b.overdue) return -1
-      if (!a.overdue && b.overdue) return 1
-      return a.dDays - b.dDays
-    })
-    .slice(0, 8)
 
   const clientMap = new Map((clients || []).map((c) => [c.id, c]))
   const clientAgg = new Map<string, { name: string; total: number; dealCount: number; inProgress: number }>()
@@ -170,47 +184,66 @@ export default async function DashboardPage() {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
   })
 
-  const sparkInProgress = generateSpark(inProgress.length, 12, 0.15)
-  const sparkAmount = generateSpark(inProgressApprovedTax / 1_000_000, 12, 0.18)
-  const sparkBilled = generateSpark(billedThisMonth / 1_000_000, 12, 0.2)
-  const sparkProfit = generateSpark(avgProfit, 12, 0.05)
-
   return (
     <div>
-      <div className="flex items-end justify-between py-[18px]">
-        <div>
-          <h1 className="font-display text-[22px] font-semibold text-[#351E28] tracking-tight">
-            ダッシュボード
-          </h1>
-          <p className="text-[11px] text-[#84787D] font-body mt-0.5">
-            {today}{displayName ? ` · ${displayName} のサマリ` : ''}
+      {/* 画面見出し + 読み方(F&C ScreenHeader) */}
+      <div className="py-[18px]">
+        <h1 className="font-display text-[21px] font-extrabold text-[#351E28]">
+          きょうやること
+        </h1>
+        <p className="text-[12.5px] text-[#84787D] font-body mt-1">
+          {today}
+          {displayName ? ` · ${displayName}` : ''} · 納期・ボール・停滞から拾った{' '}
+          <span className="fc-num tabular-nums">{todoCount}件</span>。上から順に片づけてください。
+        </p>
+      </div>
+
+      {/* 数値の帯(D79: 数値データ = Cool Blue 面) */}
+      <div className="rounded-[16px] bg-[#D7EFFF] px-5 py-4 mb-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Stat label="進行中の案件" value={`${inProgress.length}件`} sub={`全${deals.length}件中`} />
+        <Stat label="進行中の総額(採用見積・税込)" value={formatJPY(inProgressApprovedTax)} sub={inProgressApprovedTax === 0 ? '採用見積なし' : undefined} />
+        <Stat label="今月の請求(概算)" value={formatJPY(billedThisMonth)} sub={`納品完了 ${delivered.length}件`} />
+        <Stat label="平均粗利率(採用見積)" value={approvedQuotes.length > 0 ? `${avgProfit.toFixed(1)}%` : '—'} sub={approvedQuotes.length === 0 ? '算定できる見積なし' : `${approvedQuotes.length}件から算定`} />
+      </div>
+
+      {/* きょうやることキュー(主役・全幅) */}
+      <div className="bg-white rounded-[16px] border border-[#E2E1DA] mb-3 overflow-hidden">
+        {todoCount === 0 ? (
+          <p className="text-[12.5px] text-[#84787D] font-body px-5 py-6">
+            いま対応が必要な案件はありません。新しい動きがあるとここに並びます。
           </p>
-        </div>
-        <PeriodSelector />
+        ) : (
+          <>
+            <QueueSection
+              title="納期が近い・過ぎている"
+              hint="納期14日以内と超過分。最優先です"
+              items={deadline}
+              tone="alert"
+            />
+            <QueueSection
+              title="自分の番"
+              hint="ボールがこちらにある案件。次のアクションへ"
+              items={myTurn}
+              tone="normal"
+            />
+            <QueueSection
+              title="返事を待って3日以上"
+              hint="そろそろ催促のタイミングです"
+              items={chase}
+              tone="muted"
+            />
+          </>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3.5">
-        <KpiCard label="進行中の案件" value={inProgress.length} unit="件" sub={`全${deals.length}件中`} spark={sparkInProgress} />
-        <KpiCard label="進行中の総額" value={`¥${(inProgressApprovedTax / 1_000_000).toFixed(1)}`} unit="M" sub="採用見積 税込" spark={sparkAmount} />
-        <KpiCard label="今月 請求済" value={`¥${(billedThisMonth / 1_000_000).toFixed(2)}`} unit="M" sub={`${delivered.length}件 納品完了`} spark={sparkBilled} sparkColor="#E9F056" />
-        <KpiCard label="平均粗利率" value={avgProfit.toFixed(1)} unit="%" sub="採用見積ベース" spark={sparkProfit} sparkColor="#FF5C34" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5 mb-2.5">
-        <Card className="lg:col-span-2">
+      {/* 下段: パイプライン / クライアント別 / 最近の更新 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+        <div className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
           <div className="flex items-baseline justify-between mb-1.5">
-            <h2 className="font-display font-semibold text-[13px] text-[#351E28]">パイプライン</h2>
-            <span className="text-[10px] text-[#84787D] font-body">ステータス別 案件数 / 金額</span>
+            <h2 className="font-display font-bold text-[15px] text-[#351E28]">パイプライン</h2>
+            <span className="text-[11px] text-[#84787D] font-body">段階別の件数 / 金額</span>
           </div>
-          <table className="w-full text-[11px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            <thead>
-              <tr className="text-[9px] uppercase tracking-[0.06em] text-[#AEB8A0] border-b border-[rgba(53,30,40,0.04)]">
-                <th className="text-left py-1 pr-2 w-[80px]">段階</th>
-                <th className="text-left py-1 pr-2"></th>
-                <th className="text-right py-1 pr-2 w-[40px]">件数</th>
-                <th className="text-right py-1 w-[80px]">金額</th>
-              </tr>
-            </thead>
+          <table className="w-full text-[12.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <tbody>
               {SIMPLE_STATUS_ORDER.map((status) => {
                 const cfg = SIMPLE_STATUS_CONFIG[status]
@@ -218,100 +251,53 @@ export default async function DashboardPage() {
                 const amount = amountsByStatus[status]
                 const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
                 return (
-                  <tr key={status} className="border-b border-[rgba(53,30,40,0.04)]">
-                    <td className="py-1.5 pr-2">
-                      <Link href={`/deals?status=${status}`} className="inline-flex items-center gap-1 no-underline text-[#351E28]">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: STEP_COLOR_MAP[cfg.color] }} />
-                        <span className="text-[10px]">{cfg.label}</span>
+                  <tr key={status} className="border-b border-[#EFEFEA]">
+                    <td className="py-1.5 pr-2 w-[120px]">
+                      <Link href={`/deals?status=${status}`} className="no-underline text-[#351E28] text-[11px]">
+                        {cfg.label}
                       </Link>
                     </td>
                     <td className="py-1.5 pr-2">
-                      <div className="h-[18px] bg-[#EFEFEA] rounded-[3px] overflow-hidden">
-                        <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: STEP_COLOR_MAP[cfg.color], opacity: 0.85 }} />
+                      {/* D78: 細いバー。現在値 = Wasabi */}
+                      <div className="h-[6px] bg-[#EFEFEA] rounded-[2px] overflow-hidden">
+                        <div className="h-full bg-[#E9F056]" style={{ width: `${pct}%` }} />
                       </div>
                     </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums font-display">{count}</td>
-                    <td className="py-1.5 text-right tabular-nums font-display text-[#84787D]">
-                      {amount > 0 ? `¥${Math.round(amount / 1000)}k` : '-'}
+                    <td className="py-1.5 pr-2 text-right fc-num w-[48px]">{count}件</td>
+                    <td className="py-1.5 text-right fc-num text-[#84787D] w-[80px] text-[11px]">
+                      {amount > 0 ? formatJPY(amount) : '—'}
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-        </Card>
+        </div>
 
-        <Card>
+        <div className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
           <div className="flex items-baseline justify-between mb-1.5">
-            <h2 className="font-display font-semibold text-[13px] text-[#351E28]">要対応 ({attention.length})</h2>
-            {attention.length > 0 && (
-              <Link href="/deals" className="text-[10px] text-[#351E28] no-underline border-b border-[#351E28] pb-px">すべて見る</Link>
-            )}
-          </div>
-          {attention.length === 0 ? (
-            <p className="text-[11px] text-[#84787D] font-body mt-2">対応すべき案件はありません</p>
-          ) : (
-            <ul className="space-y-1.5 mt-1 divide-y divide-[#EFEFEA]">
-              {attention.map((d) => (
-                <li key={d.id} className="pt-1.5">
-                  <Link href={`/deals/${d.id}`} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center no-underline text-[#351E28] hover:bg-[#FBFAF6] -mx-1 px-1 py-1 rounded">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-body truncate">{d.deal_name || '(未設定)'}</p>
-                      <p className="text-[10px] text-[#84787D] truncate">
-                        {d.client_name_text || '-'} · {d.deal_code}
-                      </p>
-                    </div>
-                    <span className={`text-[9px] font-body px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                      d.overdue ? 'bg-[#FFD8C2] text-[#B03616]'
-                        : d.urgent ? 'bg-[#FFD8C2] text-[#B03616]'
-                          : 'bg-[#FBFAF6] text-[#84787D]'
-                    }`}>
-                      {d.overdue ? `納期 ${Math.abs(d.dDays)}日経過` : d.urgent ? `納期 ${d.dDays}日` : `停滞 ${d.sDays}日`}
-                    </span>
-                    <span className="text-[10px] text-[#84787D] tabular-nums whitespace-nowrap">
-                      {d.desired_delivery_date ? formatDate(d.desired_delivery_date) : ''}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-        <Card>
-          <div className="flex items-baseline justify-between mb-1.5">
-            <h2 className="font-display font-semibold text-[13px] text-[#351E28]">クライアント別 取引額</h2>
-            <span className="text-[10px] text-[#84787D] font-body">累計 (進行中 + 納品済)</span>
+            <h2 className="font-display font-bold text-[15px] text-[#351E28]">クライアント別 取引額</h2>
+            <span className="text-[11px] text-[#84787D] font-body">累計・上位{topClients.length}社</span>
           </div>
           {topClients.length === 0 ? (
-            <p className="text-[11px] text-[#84787D] font-body mt-2">クライアントがありません</p>
+            <p className="text-[12.5px] text-[#84787D] font-body mt-2">
+              まだクライアントがいません。案件を作るとここに並びます。
+            </p>
           ) : (
-            <table className="w-full text-[11px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              <thead>
-                <tr className="text-[9px] uppercase tracking-[0.06em] text-[#AEB8A0] border-b border-[rgba(53,30,40,0.04)]">
-                  <th className="text-left py-1 pr-2">クライアント</th>
-                  <th className="text-right py-1 pr-2 w-[40px]">件数</th>
-                  <th className="text-right py-1 w-[80px]">累計</th>
-                </tr>
-              </thead>
+            <table className="w-full text-[12.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <tbody>
-                {topClients.map((c, i) => (
-                  <tr key={c.name} className="border-b border-[rgba(53,30,40,0.04)]">
-                    <td className="py-1.5 pr-2">
-                      <p className="text-[11px] font-body truncate">
-                        <span className="text-[10px] text-[#AEB8A0] tabular-nums mr-1">{i + 1}</span>
-                        {c.name}
-                      </p>
-                      <p className="text-[10px] text-[#84787D]">進行中 {c.inProgress} / 全{c.dealCount}件</p>
+                {topClients.map((c) => (
+                  <tr key={c.name} className="border-b border-[#EFEFEA]">
+                    <td className="py-1.5 pr-2 min-w-0">
+                      <p className="text-[11.5px] truncate">{c.name}</p>
+                      <p className="text-[10.5px] text-[#84787D]">進行中 {c.inProgress} / 全{c.dealCount}件</p>
                     </td>
-                    <td className="py-1.5 pr-2 text-right">
-                      <div className="h-[14px] bg-[#EFEFEA] rounded-[3px] overflow-hidden inline-block w-full">
-                        <div className="h-full bg-[#351E28]" style={{ width: `${(c.total / maxClientTotal) * 100}%`, opacity: 0.85 }} />
+                    <td className="py-1.5 pr-2 w-[70px]">
+                      <div className="h-[6px] bg-[#EFEFEA] rounded-[2px] overflow-hidden">
+                        <div className="h-full bg-[#D7EFFF]" style={{ width: `${(c.total / maxClientTotal) * 100}%` }} />
                       </div>
                     </td>
-                    <td className="py-1.5 text-right tabular-nums font-display text-[#351E28]">
+                    <td className="py-1.5 text-right fc-num text-[#351E28] w-[90px] text-[11.5px]">
                       {formatJPY(c.total)}
                     </td>
                   </tr>
@@ -319,35 +305,30 @@ export default async function DashboardPage() {
               </tbody>
             </table>
           )}
-        </Card>
+        </div>
 
-        <Card>
+        <div className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
           <div className="flex items-baseline justify-between mb-1.5">
-            <h2 className="font-display font-semibold text-[13px] text-[#351E28]">最近の更新</h2>
-            <span className="text-[10px] text-[#84787D] font-body">直近 {(history || []).length} 件</span>
+            <h2 className="font-display font-bold text-[15px] text-[#351E28]">最近の更新</h2>
+            <span className="text-[11px] text-[#84787D] font-body">直近{(history || []).length}件</span>
           </div>
           {!history || history.length === 0 ? (
-            <p className="text-[11px] text-[#84787D] font-body mt-2">まだ活動履歴がありません</p>
+            <p className="text-[12.5px] text-[#84787D] font-body mt-2">
+              まだ動きがありません。案件が動くとここに並びます。
+            </p>
           ) : (
-            <ul className="space-y-1.5 mt-1 divide-y divide-[#EFEFEA]">
+            <ul className="divide-y divide-[#EFEFEA]">
               {history.map((h) => {
                 const deal = Array.isArray(h.deals) ? h.deals[0] : h.deals
                 const to = h.to_simple_status ? SIMPLE_STATUS_CONFIG[h.to_simple_status as SimpleStatus]?.label : null
                 return (
-                  <li key={h.id} className="pt-1.5">
-                    <Link href={`/deals/${h.deal_id}`} className="grid grid-cols-[60px_1fr] gap-2 items-baseline no-underline text-[#351E28] hover:bg-[#FBFAF6] -mx-1 px-1 py-1 rounded">
-                      <span className="text-[10px] tabular-nums text-[#84787D]">
-                        {formatDate(h.changed_at)}
-                      </span>
+                  <li key={h.id}>
+                    <Link href={`/deals/${h.deal_id}`} className="grid grid-cols-[52px_1fr] gap-2 items-baseline no-underline text-[#351E28] hover:bg-[#FBFAF6] -mx-1 px-1 py-1.5 rounded-[8px]">
+                      <span className="text-[10.5px] fc-num text-[#84787D]">{formatDate(h.changed_at)}</span>
                       <div className="min-w-0">
-                        <p className="text-[11px] truncate">
-                          <span className="text-[10px] text-[#84787D]">
-                            {deal?.client_name_text || '-'} · {deal?.deal_code}
-                          </span>
-                          <span className="ml-1">{deal?.deal_name || '案件'}</span>
-                        </p>
-                        <p className="text-[10px] text-[#351E28]">
-                          {to ? `→ ${to}` : h.note ? `${h.kind || ''} ${h.note}` : '-'}
+                        <p className="text-[11.5px] truncate">{deal?.deal_name || '案件'}</p>
+                        <p className="text-[10.5px] text-[#84787D] truncate">
+                          {deal?.client_name_text || '—'} · {to ? `→ ${to}` : h.note || ''}
                         </p>
                       </div>
                     </Link>
@@ -356,101 +337,108 @@ export default async function DashboardPage() {
               })}
             </ul>
           )}
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-function KpiCard({
-  label, value, unit, delta, sub, spark, sparkColor,
-}: {
-  label: string
-  value: number | string
-  unit?: string
-  delta?: { up: boolean; text: string } | null
-  sub?: string
-  spark?: number[]
-  sparkColor?: string
-}) {
-  return (
-    <div className="rounded-[12px] border border-[rgba(53,30,40,0.06)] bg-white p-4 flex flex-col gap-1.5">
-      <p className="text-[10px] font-body text-[#84787D] uppercase tracking-[0.08em]">{label}</p>
-      <p className="font-display tabular-nums text-[#351E28] leading-none">
-        <span className="text-[28px] font-medium">{value}</span>
-        {unit && <span className="text-[14px] text-[#84787D] ml-1">{unit}</span>}
-      </p>
-      <div className="flex items-center gap-2">
-        {delta && (
-          <span className={`text-[10px] font-display tabular-nums inline-flex items-center gap-1 ${delta.up ? 'text-[#666C14]' : 'text-[#B03616]'}`}>
-            {delta.up ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-            {delta.text}
-          </span>
-        )}
-        {sub && <span className="text-[10px] text-[#84787D] font-body">{sub}</span>}
-      </div>
-      {spark && spark.length > 1 && (
-        <div className="mt-auto pt-1">
-          <Sparkline data={spark} color={sparkColor || '#351E28'} />
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-function Sparkline({ data, color = '#351E28', height = 36 }: { data: number[]; color?: string; height?: number }) {
-  const width = 260
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  const stepX = width / (data.length - 1)
-  const pts = data.map((v, i) => {
-    const x = i * stepX
-    const y = height - ((v - min) / range) * (height - 4) - 2
-    return [x, y] as [number, number]
-  })
-  const path = pts.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ')
-  const area = `${path} L${width},${height} L0,${height} Z`
-  const last = pts[pts.length - 1]
+// ---- 部品 ------------------------------------------------------------
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block', height }}>
-      <path d={area} fill={color} opacity={0.07} />
-      <path d={path} stroke={color} strokeWidth={1.4} fill="none" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={last[0]} cy={last[1]} r={2.2} fill={color} />
-    </svg>
+    <div className="min-w-0">
+      <p className="text-[11px] font-body font-bold text-[#33566F] leading-tight">{label}</p>
+      <p className="fc-num text-[24px] font-extrabold text-[#33566F] leading-none mt-1.5">{value}</p>
+      {sub && <p className="text-[10.5px] font-body text-[#33566F] opacity-80 mt-1">{sub}</p>}
+    </div>
   )
 }
 
-function PeriodSelector() {
-  const items = ['今週', '今月', '四半期', 'YTD']
-  const active = '今月'
+function QueueSection({
+  title,
+  hint,
+  items,
+  tone,
+}: {
+  title: string
+  hint: string
+  items: Array<{
+    id: string
+    deal_code: string
+    deal_name: string | null
+    client_name_text: string | null
+    desired_delivery_date: string | null
+    simple_status: SimpleStatus
+    waiting_on: string | null
+    dDays: number
+    sDays: number
+  }>
+  tone: 'alert' | 'normal' | 'muted'
+}) {
+  if (items.length === 0) return null
   return (
-    <div className="inline-flex bg-white border border-[rgba(53,30,40,0.06)] rounded-[12px] overflow-hidden text-[11px] no-print">
-      {items.map((it) => (
-        <span key={it} className={`px-3 py-1 ${it === active ? 'bg-[#351E28] text-[#C9A2B8] font-medium' : 'text-[#351E28]'}`}>
-          {it}
+    <div>
+      <div className={`px-5 py-2.5 border-b border-[#E2E1DA] flex items-baseline gap-2 ${
+        tone === 'alert' ? 'bg-[#FFD8C2]' : 'bg-[#FBFAF6]'
+      }`}>
+        <h2 className={`font-display font-bold text-[13px] ${tone === 'alert' ? 'text-[#B03616]' : 'text-[#351E28]'}`}>
+          {title} <span className="fc-num">{items.length}件</span>
+        </h2>
+        <span className={`text-[11px] font-body ${tone === 'alert' ? 'text-[#B03616] opacity-80' : 'text-[#84787D]'}`}>
+          {hint}
         </span>
-      ))}
+      </div>
+      <ul>
+        {items.map((d) => {
+          const cfg = SIMPLE_STATUS_CONFIG[d.simple_status]
+          const overdue = d.desired_delivery_date && d.dDays < 0
+          const w = normalizeWaitingOn(d.waiting_on) as WaitingOn
+          const actionLabel =
+            w === 'client' || w === 'factory'
+              ? '催促する'
+              : cfg.nextAction || '開く'
+          const href =
+            d.simple_status === 'quote_confirmed' && w === 'us'
+              ? `/deals/${d.id}/documents`
+              : `/deals/${d.id}`
+          return (
+            <li key={d.id} className="border-b border-[#EFEFEA] last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-5 py-2.5 hover:bg-[#FBFAF6]">
+                <Link href={`/deals/${d.id}`} className="min-w-0 no-underline text-[#351E28]">
+                  <p className="text-[12.5px] font-bold truncate">{d.deal_name || '(名称未設定)'}</p>
+                  <p className="text-[11px] text-[#84787D] truncate">
+                    {d.client_name_text || '—'} · <span className="fc-num">{d.deal_code}</span> · {cfg.label}
+                  </p>
+                </Link>
+                <WaitingOnBadge dealId={d.id} value={d.waiting_on} size="sm" />
+                <span className={`text-[10.5px] fc-num whitespace-nowrap px-2 py-[3px] rounded-full font-bold ${
+                  overdue
+                    ? 'bg-[#FFD8C2] text-[#B03616]'
+                    : d.desired_delivery_date && d.dDays <= 14
+                      ? 'bg-[#FFD8C2] text-[#B03616]'
+                      : 'bg-[#EFEFEA] text-[#84787D] border border-[#E2E1DA]'
+                }`}>
+                  {overdue
+                    ? `納期 ${Math.abs(d.dDays)}日超過`
+                    : d.desired_delivery_date && d.dDays <= 14
+                      ? `納期まで ${d.dDays}日`
+                      : `動きなし ${d.sDays}日`}
+                </span>
+                <span className="text-[10.5px] fc-num text-[#84787D] whitespace-nowrap w-[76px] text-right">
+                  {d.desired_delivery_date ? formatDate(d.desired_delivery_date) : ''}
+                </span>
+                <Link
+                  href={href}
+                  className="no-underline whitespace-nowrap rounded-full bg-[#351E28] text-[#C9A2B8] text-[11px] font-bold px-3.5 py-1.5 hover:brightness-95 transition-[filter]"
+                >
+                  {actionLabel}
+                </Link>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
-}
-
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`bg-white rounded-[12px] border border-[rgba(53,30,40,0.06)] p-4 flex flex-col ${className || ''}`}>
-      {children}
-    </div>
-  )
-}
-
-function generateSpark(latest: number, n = 12, variance = 0.15): number[] {
-  const pts: number[] = []
-  let v = Math.max(0.1, latest * 0.6)
-  for (let i = 0; i < n - 1; i++) {
-    const drift = 1 + (Math.sin(i * 1.3) + Math.cos(i * 0.7)) * variance * 0.5 + variance * 0.3
-    v = Math.max(0.1, v * drift)
-    pts.push(v)
-  }
-  pts.push(Math.max(0.1, latest))
-  return pts
 }
