@@ -5,6 +5,7 @@ import { ChevronLeft, FileText } from 'lucide-react'
 import { DealProgressBar } from '@/components/deal-progress-bar'
 import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
 import { RepeatDealButton } from '@/components/deals/repeat-deal-button'
+import { NextStepGuide, buildGuideCounts } from '@/components/deals/next-step-guide'
 import { DealDetailTabs } from './deal-detail-tabs'
 import { type SimpleStatus } from '@/lib/types'
 import { formatJPY } from '@/lib/utils/format'
@@ -52,6 +53,7 @@ export default async function DealDetailPage({ params }: Props) {
     { data: designFiles },
     { data: statusHistory },
     { data: communications },
+    { data: documents },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -66,7 +68,7 @@ export default async function DealDetailPage({ params }: Props) {
     supabase
       .from('deal_quotes')
       .select(
-        'id, spec_id, variant_id, version, quantity, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, created_at'
+        'id, spec_id, variant_id, version, quantity, factory_unit_price_usd, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, created_at'
       )
       .eq('deal_id', id)
       .order('created_at', { ascending: false }),
@@ -92,6 +94,10 @@ export default async function DealDetailPage({ params }: Props) {
       .select('*')
       .eq('deal_id', id)
       .order('occurred_at', { ascending: false }),
+    supabase
+      .from('documents')
+      .select('id, document_type')
+      .eq('deal_id', id),
   ])
 
   // strip the joined deal_products from variants
@@ -178,6 +184,20 @@ export default async function DealDetailPage({ params }: Props) {
           </div>
         </div>
       )}
+
+      <div className="mb-3">
+        <NextStepGuide
+          dealId={id}
+          status={(deal.simple_status || 'quoting') as SimpleStatus}
+          waitingOn={deal.waiting_on}
+          counts={buildGuideCounts({
+            products: products || [],
+            variants,
+            quotes: (quotes || []) as never,
+            documents: (documents || []) as never,
+          })}
+        />
+      </div>
 
       <div className="mb-4">
         <DealProgressBar

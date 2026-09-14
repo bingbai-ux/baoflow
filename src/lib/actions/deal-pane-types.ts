@@ -19,6 +19,7 @@ export interface DealPaneData {
   products: unknown[]
   variants: unknown[]
   quotes: unknown[]
+  documents: Array<{ id: string; document_type: string | null }>
   fees: unknown[]
   designFiles: unknown[]
   statusHistory: unknown[]

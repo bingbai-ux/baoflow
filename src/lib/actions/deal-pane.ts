@@ -26,6 +26,7 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
     { data: designFiles },
     { data: statusHistory },
     { data: communications },
+    { data: documents },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -69,6 +70,10 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
       .select('*')
       .eq('deal_id', dealId)
       .order('occurred_at', { ascending: false }),
+    supabase
+      .from('documents')
+      .select('id, document_type')
+      .eq('deal_id', dealId),
   ])
 
   // strip the joined deal_products from variants
@@ -87,6 +92,7 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
     products: products || [],
     variants,
     quotes: quotes || [],
+    documents: documents || [],
     fees: fees || [],
     designFiles: (designFiles || []).map((f) => ({
       ...(f as Record<string, unknown>),

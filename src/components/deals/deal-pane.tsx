@@ -6,6 +6,7 @@ import { useTransition } from 'react'
 import { X, FileText, ExternalLink, Send } from 'lucide-react'
 import { MiniPipeline } from './mini-pipeline'
 import { WaitingOnBadge } from './waiting-on-badge'
+import { NextStepGuide, buildGuideCounts } from './next-step-guide'
 import { PaneTabs } from './pane-tabs'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { RfqCreateModal } from './rfq-create-modal'
@@ -107,6 +108,22 @@ export function DealPane({ data }: Props) {
           <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
         </div>
         <WaitingOnBadge dealId={data.deal.id} value={data.deal.waiting_on} size="sm" />
+      </div>
+
+      {/* 次の一歩ガイド */}
+      <div className="px-3 pt-3">
+        <NextStepGuide
+          dealId={data.deal.id}
+          status={data.deal.simple_status}
+          waitingOn={data.deal.waiting_on}
+          counts={buildGuideCounts({
+            products: data.products,
+            variants: data.variants,
+            quotes: data.quotes as never,
+            documents: data.documents,
+          })}
+          compact
+        />
       </div>
 
       {/* Sprint 7-5: パネル専用タブ (履歴 / 通信 / 添付 / 帳票) のみ。
