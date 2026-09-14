@@ -118,9 +118,10 @@ export function DealPane({ data }: Props) {
           waitingOn={data.deal.waiting_on}
           counts={buildGuideCounts({
             products: data.products,
-            variants: data.variants,
+            variants: data.variants as never,
             quotes: data.quotes as never,
             documents: data.documents,
+            rfqs: data.rfqCount,
           })}
           compact
         />

@@ -10,7 +10,9 @@ import { normalizeWaitingOn } from '@/lib/utils/waiting-on'
 export interface GuideCounts {
   products: number
   variants: number
+  rfqs: number // 工場への見積依頼(RFQ)数
   pricedQuotes: number // 数量と工場単価が入った見積行
+  cartonReadyVariants: number // カートン情報(PCS/CTN・箱サイズ・G.W)が揃ったバリエ
   approvedQuotes: number // 採用済み
   quoteDocs: number // 発行済み見積書
   invoiceDocs: number // 発行済み請求書
@@ -31,24 +33,31 @@ function buildSteps(
 ): { title: string; steps: Step[]; hint?: string } {
   const w = normalizeWaitingOn(waitingOn)
   switch (status) {
-    case 'quoting':
+    case 'quoting': {
+      const cartonOk = c.cartonReadyVariants > 0
       return {
-        title: '見積を出すまで',
+        title: 'クライアントに見積を出すまで',
         steps: [
           {
-            label: `商品とバリエを登録する${c.products > 0 ? `(${c.products}商品)` : ''}`,
+            label: `商品仕様を登録する — サイズ・素材・印刷・数量${c.products > 0 ? `(${c.products}商品)` : ''}`,
             done: c.products > 0 && c.variants > 0,
             href: `/deals?selected=${dealId}`,
             actionLabel: '一覧のグリッドで登録',
           },
           {
-            label: `数量と工場単価$を入れる${c.pricedQuotes > 0 ? `(${c.pricedQuotes}パターン)` : ''}`,
-            done: c.pricedQuotes > 0,
-            href: `/deals/${dealId}/quote-builder`,
-            actionLabel: '見積ビルダーで入力',
+            label: `工場に見積依頼(RFQ)を送る${c.rfqs > 0 ? `(${c.rfqs}件送付済み)` : ''}`,
+            done: c.rfqs > 0,
+            href: `/deals?selected=${dealId}`,
+            actionLabel: 'パネルの「見積依頼」から',
           },
           {
-            label: '掛率を決めて「この価格で採用」する',
+            label: `工場の回答を記録する — 単価$${c.pricedQuotes > 0 ? '✓' : ''} と カートン情報(PCS/CTN・箱サイズ・G.W)${cartonOk ? '✓' : ''}`,
+            done: c.pricedQuotes > 0 && cartonOk,
+            href: `/deals?selected=${dealId}`,
+            actionLabel: 'グリッドの価格・物流ビューへ',
+          },
+          {
+            label: '掛率を決めて「この価格で採用」する(原価は送料込みで確認)',
             done: c.approvedQuotes > 0,
             href: `/deals/${dealId}/quote-builder`,
             actionLabel: '見積ビルダーで比較',
@@ -61,10 +70,13 @@ function buildSteps(
           },
         ],
         hint:
-          c.quoteDocs > 0 && w === 'us'
-            ? '見積書を送ったら、上のボールを「クライアント待ち」に切り替えてください。返事が来たらステータスを「見積確定」へ。'
-            : '工場に見積を依頼する場合は、案件詳細の「見積依頼」から RFQ を送れます。',
+          c.pricedQuotes > 0 && !cartonOk
+            ? 'カートン情報(PCS/CTN・箱サイズ・G.W)が入っていません。これが無いと送料が計算できず、原価が固まりません。工場に確認してグリッドの「物流」ビューに入力してください。'
+            : c.quoteDocs > 0 && w === 'us'
+              ? '見積書を送ったら、上のボールを「クライアント待ち」に切り替えてください。返事が来たらステータスを「見積確定」へ。'
+              : 'RFQを送ったらボールを「工場待ち」に。回答が来たら単価とカートン情報を記録してから売値を組み立てます。',
       }
+    }
     case 'quote_confirmed':
       return {
         title: '入金まで',
@@ -203,12 +215,27 @@ export function NextStepGuide({
 // 実データから完了判定に使う件数をまとめる補助
 export function buildGuideCounts(args: {
   products: Array<unknown>
-  variants: Array<unknown>
+  variants: Array<{
+    pcs_per_carton?: number | null
+    carton_width_cm?: number | null
+    carton_height_cm?: number | null
+    carton_depth_cm?: number | null
+    gross_weight_kg?: number | null
+  }>
   quotes: Array<{ quantity?: number | null; factory_unit_price_usd?: number | null; status?: string | null }>
   documents: Array<{ document_type?: string | null }>
+  rfqs: number
 }): GuideCounts {
   const priced = args.quotes.filter(
     (q) => q.quantity != null && q.factory_unit_price_usd != null
+  ).length
+  const cartonReady = args.variants.filter(
+    (v) =>
+      v.pcs_per_carton != null &&
+      v.carton_width_cm != null &&
+      v.carton_height_cm != null &&
+      v.carton_depth_cm != null &&
+      v.gross_weight_kg != null
   ).length
   const approved = args.quotes.filter((q) => q.status === 'approved').length
   const quoteDocs = args.documents.filter((d) => d.document_type === 'quotation').length
@@ -216,7 +243,9 @@ export function buildGuideCounts(args: {
   return {
     products: args.products.length,
     variants: args.variants.length,
+    rfqs: args.rfqs,
     pricedQuotes: priced,
+    cartonReadyVariants: cartonReady,
     approvedQuotes: approved,
     quoteDocs,
     invoiceDocs,

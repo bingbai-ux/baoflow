@@ -54,6 +54,7 @@ export default async function DealDetailPage({ params }: Props) {
     { data: statusHistory },
     { data: communications },
     { data: documents },
+    { count: rfqCount },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -97,6 +98,10 @@ export default async function DealDetailPage({ params }: Props) {
     supabase
       .from('documents')
       .select('id, document_type')
+      .eq('deal_id', id),
+    supabase
+      .from('rfq_requests')
+      .select('id', { count: 'exact', head: true })
       .eq('deal_id', id),
   ])
 
@@ -192,9 +197,10 @@ export default async function DealDetailPage({ params }: Props) {
           waitingOn={deal.waiting_on}
           counts={buildGuideCounts({
             products: products || [],
-            variants,
+            variants: variants as never,
             quotes: (quotes || []) as never,
             documents: (documents || []) as never,
+            rfqs: rfqCount || 0,
           })}
         />
       </div>

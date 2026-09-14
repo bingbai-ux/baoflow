@@ -20,6 +20,7 @@ export interface DealPaneData {
   variants: unknown[]
   quotes: unknown[]
   documents: Array<{ id: string; document_type: string | null }>
+  rfqCount: number
   fees: unknown[]
   designFiles: unknown[]
   statusHistory: unknown[]

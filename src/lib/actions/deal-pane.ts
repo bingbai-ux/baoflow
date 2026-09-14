@@ -27,6 +27,7 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
     { data: statusHistory },
     { data: communications },
     { data: documents },
+    { count: rfqCount },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -74,6 +75,10 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
       .from('documents')
       .select('id, document_type')
       .eq('deal_id', dealId),
+    supabase
+      .from('rfq_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('deal_id', dealId),
   ])
 
   // strip the joined deal_products from variants
@@ -93,6 +98,7 @@ export async function getDealPaneData(dealId: string): Promise<DealPaneData | nu
     variants,
     quotes: quotes || [],
     documents: documents || [],
+    rfqCount: rfqCount || 0,
     fees: fees || [],
     designFiles: (designFiles || []).map((f) => ({
       ...(f as Record<string, unknown>),
