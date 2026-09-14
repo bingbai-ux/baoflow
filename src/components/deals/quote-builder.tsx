@@ -72,8 +72,12 @@ export function QuoteBuilder({
   quotes: BuilderQuote[]
 }) {
   const byVariant = new Map<string, BuilderQuote[]>()
+  const dealLevelQuotes: BuilderQuote[] = []
   for (const q of quotes) {
-    if (!q.variant_id) continue
+    if (!q.variant_id) {
+      dealLevelQuotes.push(q)
+      continue
+    }
     const list = byVariant.get(q.variant_id) || []
     list.push(q)
     byVariant.set(q.variant_id, list)
@@ -114,9 +118,21 @@ export function QuoteBuilder({
         </div>
       </div>
 
-      {variants.length === 0 && (
+      {variants.length === 0 && dealLevelQuotes.length === 0 && (
         <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
           商品・バリエーションがまだありません。まず案件に商品を追加してください。
+        </div>
+      )}
+
+      {dealLevelQuotes.length > 0 && (
+        <div className="mb-4">
+          <h2 className="font-display font-bold text-[15px] text-[#351E28] mb-1.5">
+            案件全体の見積
+            <span className="text-[11px] font-body font-normal text-[#84787D] ml-2">
+              商品に紐づいていない見積(旧形式・そのまま採用できます)
+            </span>
+          </h2>
+          <QuoteTable deal={deal} quotes={dealLevelQuotes} />
         </div>
       )}
 
@@ -146,6 +162,37 @@ export function QuoteBuilder({
           </Link>
         </div>
       )}
+    </div>
+  )
+}
+
+function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQuote[] }) {
+  return (
+    <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <thead>
+            <tr className="bg-[#FBFAF6] text-[#84787D] text-[10.5px] font-bold border-b border-[#E2E1DA]">
+              <th className="text-left px-3 py-1.5 whitespace-nowrap">パターン</th>
+              <th className="text-right px-3 py-1.5">数量</th>
+              <th className="text-right px-3 py-1.5">工場単価$</th>
+              <th className="text-right px-3 py-1.5">送料計$</th>
+              <th className="text-right px-3 py-1.5">原価計$</th>
+              <th className="text-right px-3 py-1.5">為替</th>
+              <th className="text-right px-3 py-1.5">掛率(原価÷売値)</th>
+              <th className="text-right px-3 py-1.5">売単価¥</th>
+              <th className="text-right px-3 py-1.5">税込合計¥</th>
+              <th className="text-right px-3 py-1.5">粗利率</th>
+              <th className="text-right px-3 py-1.5 w-[120px]"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {quotes.map((q, i) => (
+              <QuoteRow key={q.id} deal={deal} q={q} index={i} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
