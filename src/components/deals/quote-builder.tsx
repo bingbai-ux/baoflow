@@ -12,7 +12,7 @@ import { selectQuote, unselectQuote } from '@/lib/actions/quotes'
 import { useUi } from '@/components/ui/ui-store'
 import { formatJPY } from '@/lib/utils/format'
 
-interface DealHead {
+export interface DealHead {
   id: string
   deal_code: string
   deal_name: string | null
@@ -23,7 +23,7 @@ interface ProductHead {
   product_no: number
   description: string
 }
-interface VariantHead {
+export interface VariantHead {
   id: string
   product_id: string
   variant_label: string
@@ -166,7 +166,7 @@ export function QuoteBuilder({
   )
 }
 
-function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQuote[] }) {
+export function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQuote[] }) {
   return (
     <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-hidden">
       <div className="overflow-x-auto">
@@ -197,7 +197,7 @@ function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQuote[] }
   )
 }
 
-function VariantQuoteTable({
+export function VariantQuoteTable({
   deal,
   variant,
   quotes,
