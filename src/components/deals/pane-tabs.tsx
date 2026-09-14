@@ -80,7 +80,7 @@ export function PaneTabs({
   return (
     <div className="flex flex-col h-full">
       {/* Tab strip */}
-      <div className="flex gap-0 px-3 border-b border-[#e8e8e6] flex-shrink-0">
+      <div className="flex gap-0 px-3 border-b border-[#E2E1DA] flex-shrink-0">
         {TABS.map((t) => {
           const isActive = active === t.id
           return (
@@ -90,15 +90,15 @@ export function PaneTabs({
               onClick={() => setActive(t.id)}
               className={`px-2.5 py-2 text-[11px] font-body cursor-pointer border-b-2 -mb-px ${
                 isActive
-                  ? 'text-[#0a0a0a] font-semibold border-[#0a0a0a]'
-                  : 'text-[#888] border-transparent hover:text-[#555]'
+                  ? 'text-[#351E28] font-semibold border-[#351E28]'
+                  : 'text-[#84787D] border-transparent hover:text-[#351E28]'
               }`}
             >
               {t.label}
               {t.id === 'comm' && communications.length > 0 && (
                 <span
                   className={`ml-1 text-[9.5px] tabular-nums ${
-                    unreadComm > 0 ? 'text-[#22c55e] font-semibold' : 'text-[#888]'
+                    unreadComm > 0 ? 'text-[#666C14] font-semibold' : 'text-[#84787D]'
                   }`}
                 >
                   {communications.length}
@@ -106,12 +106,12 @@ export function PaneTabs({
                 </span>
               )}
               {t.id === 'attach' && designFiles.length > 0 && (
-                <span className="ml-1 text-[9.5px] text-[#888] tabular-nums">
+                <span className="ml-1 text-[9.5px] text-[#84787D] tabular-nums">
                   {designFiles.length}
                 </span>
               )}
               {t.id === 'history' && statusHistory.length > 0 && (
-                <span className="ml-1 text-[9.5px] text-[#888] tabular-nums">
+                <span className="ml-1 text-[9.5px] text-[#84787D] tabular-nums">
                   {statusHistory.length}
                 </span>
               )}
@@ -141,7 +141,7 @@ export function PaneTabs({
 // /deals/[id] 詳細ページの HistoryTab はリッチなフィルタ付きで残置。
 function HistoryTab({ rows }: { rows: StatusHistoryLite[] }) {
   if (rows.length === 0) {
-    return <p className="text-[#888] text-center py-6">まだ履歴がありません</p>
+    return <p className="text-[#84787D] text-center py-6">まだ履歴がありません</p>
   }
 
   return (
@@ -150,11 +150,11 @@ function HistoryTab({ rows }: { rows: StatusHistoryLite[] }) {
         const fromCfg = h.from_simple_status ? SIMPLE_STATUS_CONFIG[h.from_simple_status] : null
         const toCfg = h.to_simple_status ? SIMPLE_STATUS_CONFIG[h.to_simple_status] : null
         return (
-          <li key={h.id} className="flex gap-2.5 py-1 border-b border-[#f5f4f0] last:border-b-0">
-            <span className="text-[10px] text-[#aaa] tabular-nums w-[58px] flex-shrink-0 font-display">
+          <li key={h.id} className="flex gap-2.5 py-1 border-b border-[#EFEFEA] last:border-b-0">
+            <span className="text-[10px] text-[#84787D] tabular-nums w-[58px] flex-shrink-0 font-display">
               {formatDate(h.changed_at)}
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0a0a0a] mt-1.5 flex-shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#351E28] mt-1.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[11px]">
                 {h.changer?.display_name && (
@@ -163,25 +163,25 @@ function HistoryTab({ rows }: { rows: StatusHistoryLite[] }) {
                 {toCfg ? (
                   <>
                     が
-                    <span className="mx-1 inline-flex items-center px-1.5 py-0.5 bg-[#fafaf9] border border-[#e8e8e6] rounded-[4px] text-[10px]">
+                    <span className="mx-1 inline-flex items-center px-1.5 py-0.5 bg-[#FBFAF6] border border-[#E2E1DA] rounded-[4px] text-[10px]">
                       {fromCfg ? `${fromCfg.label} → ` : ''}
                       {toCfg.label}
                     </span>
                     に変更
                   </>
                 ) : (
-                  <span className="text-[#555]">{h.kind || '更新'}</span>
+                  <span className="text-[#351E28]">{h.kind || '更新'}</span>
                 )}
               </p>
               {h.note && (
-                <p className="text-[10px] text-[#888] mt-0.5 italic">"{h.note}"</p>
+                <p className="text-[10px] text-[#84787D] mt-0.5 italic">"{h.note}"</p>
               )}
             </div>
           </li>
         )
       })}
       {rows.length > 30 && (
-        <p className="text-[10px] text-[#888] text-center pt-2">
+        <p className="text-[10px] text-[#84787D] text-center pt-2">
           + 他 {rows.length - 30} 件
         </p>
       )}
@@ -202,17 +202,17 @@ function DocsTab({
       <button
         type="button"
         onClick={onOpenModal}
-        className="w-full px-3 py-2.5 rounded-[8px] bg-[#0a0a0a] text-white text-[12px] font-medium font-body inline-flex items-center justify-center gap-1.5 hover:bg-[#222]"
+        className="w-full px-3 py-2.5 rounded-[12px] bg-[#351E28] text-[#C9A2B8] text-[12px] font-medium font-body inline-flex items-center justify-center gap-1.5 hover:brightness-95"
       >
         <FileText className="w-3.5 h-3.5" />
         見積書 / 請求書 / 納品書 / RFQ 発行
       </button>
-      <p className="text-[10px] text-[#888] leading-relaxed">
+      <p className="text-[10px] text-[#84787D] leading-relaxed">
         モーダルが開き、4 種の帳票テンプレートから選択して PDF 化できます。
       </p>
       <Link
         href={`/deals/${dealId}/documents`}
-        className="block text-center text-[10px] text-[#888] no-underline hover:text-[#0a0a0a]"
+        className="block text-center text-[10px] text-[#84787D] no-underline hover:text-[#351E28]"
       >
         <ExternalLink className="w-3 h-3 inline mr-1 align-text-bottom" />
         フルページで帳票を管理

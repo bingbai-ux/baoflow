@@ -112,7 +112,7 @@ export function InlineCell({
 
   if (disabled) {
     return (
-      <span className={`block px-1.5 py-0.5 text-[#888] ${alignClass} ${className}`}>
+      <span className={`block px-1.5 py-0.5 text-[#84787D] ${alignClass} ${className}`}>
         {display || placeholder}
       </span>
     )
@@ -135,7 +135,7 @@ export function InlineCell({
         }}
         disabled={pending}
         data-col={dataCol}
-        className={`block w-full px-1.5 py-1 text-[11px] font-body bg-[#fffaf2] border border-[#e5a32e] rounded-[2px] focus:outline-none ${alignClass} ${className}`}
+        className={`block w-full px-1.5 py-1 text-[11px] font-body bg-[#FFD8C2] border border-[#FF5C34] rounded-[2px] focus:outline-none ${alignClass} ${className}`}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -172,8 +172,8 @@ export function InlineCell({
           disabled={pending}
           list={suggestions && suggestions.length ? listId.current : undefined}
           data-col={dataCol}
-          className={`block w-full px-1.5 py-1 text-[11px] font-body bg-[#fffaf2] border border-[#e5a32e] rounded-[2px] focus:outline-none ${alignClass} ${className} ${
-            error ? 'border-[#cf5a3a]' : ''
+          className={`block w-full px-1.5 py-1 text-[11px] font-body bg-[#FFD8C2] border border-[#FF5C34] rounded-[2px] focus:outline-none ${alignClass} ${className} ${
+            error ? 'border-[#FF5C34]' : ''
           }`}
           title={error || ''}
         />
@@ -201,9 +201,9 @@ export function InlineCell({
         }
       }}
       data-col={dataCol}
-      className={`block w-full px-1.5 py-1 text-[11px] font-body cursor-text hover:bg-[#fafaf8] hover:ring-1 hover:ring-[#e8e8e6] focus:bg-[#fafaf8] focus:ring-1 focus:ring-[#e5a32e] focus:outline-none rounded-[2px] ${alignClass} ${className}`}
+      className={`block w-full px-1.5 py-1 text-[11px] font-body cursor-text hover:bg-[#FBFAF6] hover:ring-1 hover:ring-[#E2E1DA] focus:bg-[#FBFAF6] focus:ring-1 focus:ring-[#FF5C34] focus:outline-none rounded-[2px] ${alignClass} ${className}`}
     >
-      {display || <span className="text-[#bbb]">{placeholder}</span>}
+      {display || <span className="text-[#AEB8A0]">{placeholder}</span>}
     </button>
   )
 }

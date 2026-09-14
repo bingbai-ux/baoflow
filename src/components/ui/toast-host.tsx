@@ -10,12 +10,12 @@ export function ToastHost() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`px-[18px] py-[10px] rounded-[10px] text-[12px] font-body shadow-[0_8px_24px_rgba(0,0,0,0.2)] flex items-center gap-2.5 ${
+          className={`px-[18px] py-[10px] rounded-[12px] text-[12px] font-body shadow-[0_8px_24px_rgba(53,30,40,0.2)] flex items-center gap-2.5 ${
             t.tone === 'warn'
-              ? 'bg-[#c0392b] text-white'
+              ? 'bg-[#FFD8C2] text-[#B03616] border-[1.5px] border-[#FF5C34]'
               : t.tone === 'info'
-                ? 'bg-white text-[#0a0a0a] border border-[#e8e8e6]'
-                : 'bg-[#0a0a0a] text-white'
+                ? 'bg-white text-[#351E28] border border-[#E2E1DA]'
+                : 'bg-[#351E28] text-[#C9A2B8]'
           }`}
         >
           <span>{t.msg}</span>

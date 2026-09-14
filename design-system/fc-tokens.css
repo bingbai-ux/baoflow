@@ -1,0 +1,112 @@
+/* ============================================================
+   F&C Design System — tokens (BAO Flow 取り込み版)
+   出典: FC_Portal_UI_mockups (tokens/*.css)。
+   フォントは next/font で読み込むため Google Fonts の @import は
+   ここには置かない(--font-manrope / --font-mplus 変数を参照)。
+   基本5色 + 派生12色。これ以外の色は作らない。
+   ============================================================ */
+:root {
+  /* --- 基本5色 --- */
+  --fc-wasabi: #E9F056;
+  --fc-orange: #FF5C34;
+  --fc-coolblue: #D7EFFF;
+  --fc-cassis: #351E28;
+  --fc-sauge: #AEB8A0;
+
+  /* --- 派生12色 --- */
+  --fc-orange-tint: #FFD8C2;
+  --fc-bg: #EFEFEA;
+  --fc-card: #FFFFFF;
+  --fc-card-soft: #FBFAF6;
+  --fc-line: #E2E1DA;
+  --fc-ink-soft: #84787D;
+  --fc-wasabi-ink: #666C14;
+  --fc-blue-ink: #33566F;
+  --fc-orange-ink: #B03616;
+  --fc-sauge-ink: #4C5544;
+  --fc-cassis-tint: #C9A2B8;
+  --fc-cassis-soft: #9C8290;
+
+  /* --- 意味づけ(画面はこちらを使う) --- */
+  --fc-surface-page: var(--fc-bg);
+  --fc-surface-card: var(--fc-card);
+  --fc-surface-row: var(--fc-card-soft);
+  --fc-surface-dark: var(--fc-cassis);
+  --fc-surface-data: var(--fc-coolblue);   /* 数値・データのカード(D79) */
+  --fc-surface-note: var(--fc-wasabi);     /* ひとこと・AIのきづき(D79) */
+  --fc-surface-alert: var(--fc-orange-tint);
+
+  --fc-text-body: var(--fc-cassis);
+  --fc-text-muted: var(--fc-ink-soft);
+  --fc-text-on-dark: var(--fc-cassis-tint);
+  --fc-text-on-dark-muted: var(--fc-cassis-soft);
+  --fc-text-on-data: var(--fc-blue-ink);
+  --fc-text-on-note: var(--fc-wasabi-ink);
+  --fc-text-on-alert: var(--fc-orange-ink);
+  --fc-text-on-sauge: var(--fc-sauge-ink);
+
+  --fc-border: var(--fc-line);
+  --fc-border-strong: var(--fc-cassis);
+  --fc-border-alert: var(--fc-orange);
+  --fc-focus-ring: var(--fc-cassis);
+  --fc-accent-form: var(--fc-cassis);      /* checkbox / radio の accent-color */
+
+  --fc-bar-past: var(--fc-coolblue);       /* 過去の値(D78) */
+  --fc-bar-now: var(--fc-wasabi);          /* 現在の値(D79) */
+  --fc-bar-warn: var(--fc-orange);         /* 警告(D78) */
+  --fc-bar-track: var(--fc-line);
+  --fc-bar-baseline: var(--fc-cassis);     /* 基準線・予算線 */
+  --fc-avatar-bg: var(--fc-coolblue);      /* 顔アイコンは Cool Blue(D78) */
+  --fc-avatar-ink: var(--fc-blue-ink);
+  --fc-disabled-bg: var(--fc-bg);
+  --fc-disabled-ink: var(--fc-sauge);
+
+  /* --- 文字 --- */
+  --fc-font: var(--font-manrope, "Manrope"), var(--font-mplus, "M PLUS 2"), system-ui, sans-serif;
+  --fc-font-num: var(--fc-font);
+
+  --fc-fs-xl: 21px;    /* 画面タイトル / 800 */
+  --fc-fs-lg: 15px;    /* セクション見出し / 700 */
+  --fc-fs-md: 14px;    /* 本文 / 400 */
+  --fc-fs-sm: 12.5px;  /* 補助・表 */
+  --fc-fs-xs: 11px;    /* バッジ・注釈 */
+  --fc-fs-num-lg: 24px;/* 主要な数値 / 800 */
+
+  --fc-fw-normal: 400;
+  --fc-fw-medium: 500;
+  --fc-fw-bold: 700;
+  --fc-fw-black: 800;
+
+  --fc-lh-body: 1.75;
+  --fc-lh-tight: 1.3;
+  --fc-lh-flat: 1;
+  --fc-tracking-en: .04em;   /* 英字ラベル・ロゴピル */
+
+  /* --- 余白(8pxの倍数のみ。4pxは半歩) --- */
+  --fc-sp-1: 4px;
+  --fc-sp-2: 8px;
+  --fc-sp-3: 16px;
+  --fc-sp-4: 24px;
+  --fc-sp-5: 32px;
+  --fc-sp-6: 48px;
+  --fc-tap-min: 44px;
+  --fc-sidebar-w: 236px;
+
+  /* --- 角丸(形で役割が分かる) --- */
+  --fc-r-pill: 999px;   /* ボタン・バッジ・チップ */
+  --fc-r-card: 16px;    /* カード・リスト行・表の外周 */
+  --fc-r-input: 12px;   /* 入力欄・メニュー項目 */
+  --fc-r-frame: 24px;   /* 画面の外枠・サイドバー */
+  --fc-r-tab: 12px 12px 0 0;          /* ファイルタブ */
+  --fc-r-tab-panel: 0 16px 16px 16px; /* ファイルタブのパネル */
+
+  /* --- 影(画面の外枠1箇所のみ。カードは浮かせない) --- */
+  --fc-shadow-frame: 0 20px 50px rgba(53, 30, 40, .12);
+  --fc-shadow-none: none;
+
+  /* --- 動き(色と不透明度だけを短く変える) --- */
+  --fc-dur-fast: 120ms;
+  --fc-dur-base: 180ms;
+  --fc-ease: cubic-bezier(.2, .6, .3, 1);
+  --fc-hover-dim: .96;
+}

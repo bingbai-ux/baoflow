@@ -5,11 +5,11 @@ import {
 } from '@/lib/types'
 
 const STEP_COLOR_MAP: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
+  pending: '#AEB8A0',
+  confirmed: '#E9F056',
+  warning: '#FF5C34',
+  active: '#351E28',
+  shipping: '#84787D',
 }
 
 interface DealMiniProgressProps {
@@ -27,10 +27,10 @@ export function DealMiniProgress({ currentStatus }: DealMiniProgressProps) {
           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: STEP_COLOR_MAP[config.color] }}
         />
-        <span className="text-[11px] font-body text-[#0a0a0a] font-semibold">
+        <span className="text-[11px] font-body text-[#351E28] font-semibold">
           {config.label}
         </span>
-        <span className="text-[10px] font-body text-[#888] tabular-nums">
+        <span className="text-[10px] font-body text-[#84787D] tabular-nums">
           {currentIndex + 1}/{SIMPLE_STATUS_ORDER.length}
         </span>
       </div>
@@ -39,10 +39,10 @@ export function DealMiniProgress({ currentStatus }: DealMiniProgressProps) {
           const isDone = index < currentIndex
           const isCurrent = index === currentIndex
           const segColor = isDone
-            ? '#22c55e'
+            ? '#E9F056'
             : isCurrent
               ? STEP_COLOR_MAP[SIMPLE_STATUS_CONFIG[status].color]
-              : '#e8e8e6'
+              : '#E2E1DA'
           return (
             <div
               key={status}

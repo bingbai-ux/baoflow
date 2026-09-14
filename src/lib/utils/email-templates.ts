@@ -18,7 +18,7 @@ function wrapEmail(content: string): string {
       font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f2f2f0;
+      background-color: #EFEFEA;
     }
     .container {
       max-width: 600px;
@@ -33,27 +33,27 @@ function wrapEmail(content: string): string {
     .header {
       font-size: 20px;
       font-weight: 600;
-      color: #0a0a0a;
+      color: #351E28;
       margin-bottom: 24px;
     }
     .logo {
       font-size: 16px;
       font-weight: 500;
-      color: #0a0a0a;
+      color: #351E28;
       margin-bottom: 32px;
     }
     .logo span {
       opacity: 0.5;
     }
     p {
-      color: #555555;
+      color: #351E28;
       font-size: 14px;
       line-height: 1.7;
       margin: 0 0 16px 0;
     }
     .button {
       display: inline-block;
-      background: #0a0a0a;
+      background: #351E28;
       color: #ffffff !important;
       text-decoration: none;
       padding: 12px 24px;
@@ -63,27 +63,27 @@ function wrapEmail(content: string): string {
       margin: 16px 0;
     }
     .info-box {
-      background: #f2f2f0;
+      background: #EFEFEA;
       border-radius: 8px;
       padding: 16px;
       margin: 16px 0;
     }
     .info-label {
       font-size: 11px;
-      color: #888888;
+      color: #84787D;
       margin-bottom: 4px;
     }
     .info-value {
       font-size: 14px;
-      color: #0a0a0a;
+      color: #351E28;
       font-weight: 500;
     }
     .footer {
       margin-top: 32px;
       padding-top: 16px;
-      border-top: 1px solid #e8e8e6;
+      border-top: 1px solid #E2E1DA;
       font-size: 11px;
-      color: #888888;
+      color: #84787D;
     }
   </style>
 </head>

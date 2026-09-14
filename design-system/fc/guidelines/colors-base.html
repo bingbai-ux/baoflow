@@ -1,0 +1,22 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="基本5色" subtitle="この5色だけが出発点。派生以外の色は作らない" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>基本5色</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div class="sw" style="grid-template-columns:repeat(5,1fr)">
+<div class="chipbox"><div class="c" style="background:#E9F056"></div><div class="m"><b>Wasabi</b><span>#E9F056 · 主要ボタン・選択中・今日</span></div></div>
+<div class="chipbox"><div class="c" style="background:#FF5C34"></div><div class="m"><b>Orange Topaze</b><span>#FF5C34 · 緊急・期限・エラーのみ</span></div></div>
+<div class="chipbox"><div class="c" style="background:#D7EFFF"></div><div class="m"><b>Cool Blue</b><span>#D7EFFF · データ面・顔アイコン</span></div></div>
+<div class="chipbox"><div class="c" style="background:#351E28"></div><div class="m"><b>Cassis</b><span>#351E28 · サイドバー・本文</span></div></div>
+<div class="chipbox"><div class="c" style="background:#AEB8A0"></div><div class="m"><b>Vert Sauge</b><span>#AEB8A0 · 罫線・無効のみ</span></div></div>
+</div></body></html>

@@ -53,7 +53,7 @@ export function InviteButton({ kind }: Props) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="text-[11px] px-2.5 py-1 border border-[#e0dfd9] rounded-[6px] bg-white hover:bg-[#fafaf9] inline-flex items-center gap-1 disabled:opacity-50"
+        className="text-[11px] px-2.5 py-1 border border-[#E2E1DA] rounded-[8px] bg-white hover:bg-[#FBFAF6] inline-flex items-center gap-1 disabled:opacity-50"
         title={kind === 'client' ? 'クライアント招待リンクを生成' : '工場招待リンクを生成'}
       >
         <LinkIcon className="w-3 h-3" />
@@ -66,7 +66,7 @@ export function InviteButton({ kind }: Props) {
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white rounded-[14px] shadow-2xl max-w-md w-full p-5"
+            className="bg-white rounded-[16px] shadow-2xl max-w-md w-full p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -76,15 +76,15 @@ export function InviteButton({ kind }: Props) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="p-1 text-[#888] hover:bg-[#fafaf9] rounded"
+                className="p-1 text-[#84787D] hover:bg-[#FBFAF6] rounded"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[11px] text-[#555] mb-3">
+            <p className="text-[11px] text-[#351E28] mb-3">
               このリンクを WeChat / メール / Slack 等で先方に送ってください。**有効期限は 7 日**。
             </p>
-            <div className="flex items-center gap-2 bg-[#fafaf9] border border-[#e8e8e6] rounded-[8px] px-3 py-2 mb-3">
+            <div className="flex items-center gap-2 bg-[#FBFAF6] border border-[#E2E1DA] rounded-[12px] px-3 py-2 mb-3">
               <input
                 value={url}
                 readOnly
@@ -94,13 +94,13 @@ export function InviteButton({ kind }: Props) {
               <button
                 type="button"
                 onClick={copy}
-                className="text-[11px] px-2.5 py-1 bg-[#0a0a0a] text-white rounded-[6px] inline-flex items-center gap-1 hover:bg-[#222]"
+                className="text-[11px] px-2.5 py-1 bg-[#351E28] text-[#C9A2B8] rounded-[8px] inline-flex items-center gap-1 hover:brightness-95"
               >
                 <Copy className="w-3 h-3" />
                 コピー
               </button>
             </div>
-            <p className="text-[10px] text-[#888]">
+            <p className="text-[10px] text-[#84787D]">
               リンクを開くと相手側の入力フォームが表示され、送信後に自動で
               {kind === 'client' ? 'クライアント' : '工場'}マスターに登録されます。
             </p>

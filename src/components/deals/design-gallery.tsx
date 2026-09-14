@@ -69,7 +69,7 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
   return (
     <>
       {error && (
-        <div className="bg-[#fef2f2] border border-[#fca5a5] rounded-[8px] px-3 py-2 text-[12px] text-[#b91c1c] font-body mb-3">
+        <div className="bg-[#FFD8C2] border border-[#FF5C34] rounded-[12px] px-3 py-2 text-[12px] text-[#B03616] font-body mb-3">
           {error}
         </div>
       )}
@@ -81,8 +81,8 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
           onClick={() => setFilterCategory('all')}
           className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
             filterCategory === 'all'
-              ? 'bg-[#0a0a0a] text-white'
-              : 'bg-white text-[#555] border border-[#e8e8e6]'
+              ? 'bg-[#351E28] text-[#C9A2B8]'
+              : 'bg-white text-[#351E28] border border-[#E2E1DA]'
           }`}
         >
           すべて <span className="tabular-nums opacity-70">{initial.length}</span>
@@ -98,8 +98,8 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
               onClick={() => setFilterCategory(c)}
               className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full ${
                 filterCategory === c
-                  ? 'bg-[#0a0a0a] text-white'
-                  : 'bg-white text-[#555] border border-[#e8e8e6]'
+                  ? 'bg-[#351E28] text-[#C9A2B8]'
+                  : 'bg-white text-[#351E28] border border-[#E2E1DA]'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
@@ -121,31 +121,31 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
           setDragging(false)
           handleFiles(e.dataTransfer.files)
         }}
-        className={`rounded-[14px] border-2 border-dashed p-6 text-center transition-colors ${
-          isDragging ? 'border-[#0a0a0a] bg-[#fafafa]' : 'border-[#e8e8e6] bg-white'
+        className={`rounded-[16px] border-2 border-dashed p-6 text-center transition-colors ${
+          isDragging ? 'border-[#351E28] bg-[#EFEFEA]' : 'border-[#E2E1DA] bg-white'
         }`}
       >
-        <Upload className="w-5 h-5 mx-auto text-[#888]" />
-        <p className="mt-2 text-[13px] font-body text-[#0a0a0a]">
+        <Upload className="w-5 h-5 mx-auto text-[#84787D]" />
+        <p className="mt-2 text-[13px] font-body text-[#351E28]">
           画像をドラッグ＆ドロップ、または
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="ml-1 text-[#22c55e] underline"
+            className="ml-1 text-[#666C14] underline"
             disabled={isUploading}
           >
             ファイルを選択
           </button>
         </p>
-        <p className="mt-1 text-[11px] font-body text-[#888]">
+        <p className="mt-1 text-[11px] font-body text-[#84787D]">
           JPEG / PNG / WebP / GIF · 1 ファイル最大 10MB · 複数枚対応
         </p>
         <div className="mt-2 inline-flex items-center gap-1.5">
-          <span className="text-[10px] text-[#888]">アップロード時カテゴリ:</span>
+          <span className="text-[10px] text-[#84787D]">アップロード時カテゴリ:</span>
           <select
             value={uploadCategory}
             onChange={(e) => setUploadCategory(e.target.value as FileCategory)}
-            className="text-[11px] font-body bg-white border border-[#e8e8e6] rounded-[4px] px-1.5 py-0.5 focus:outline-none"
+            className="text-[11px] font-body bg-white border border-[#E2E1DA] rounded-[4px] px-1.5 py-0.5 focus:outline-none"
             disabled={isUploading}
           >
             {CATEGORIES.map((c) => (
@@ -162,13 +162,13 @@ export function DesignGallery({ dealId, initial }: DesignGalleryProps) {
           className="hidden"
         />
         {isUploading && (
-          <p className="mt-2 text-[11px] font-body text-[#22c55e]">アップロード中...</p>
+          <p className="mt-2 text-[11px] font-body text-[#666C14]">アップロード中...</p>
         )}
       </div>
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <p className="mt-6 text-center text-[13px] font-body text-[#888]">
+        <p className="mt-6 text-center text-[13px] font-body text-[#84787D]">
           {filterCategory === 'all' ? 'まだ画像が登録されていません。' : 'このカテゴリの画像はまだありません。'}
         </p>
       ) : (
@@ -210,11 +210,11 @@ function DesignCard({
   busy: boolean
 }) {
   return (
-    <div className="bg-white rounded-[10px] border border-[#e8e8e6] overflow-hidden">
+    <div className="bg-white rounded-[12px] border border-[#E2E1DA] overflow-hidden">
       <button
         type="button"
         onClick={onView}
-        className="block w-full aspect-square bg-[#f5f5f4] focus:outline-none"
+        className="block w-full aspect-square bg-[#EFEFEA] focus:outline-none"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -226,28 +226,28 @@ function DesignCard({
       </button>
       <div className="p-2">
         <div className="flex items-center justify-between gap-1 mb-0.5">
-          <p className="text-[11px] font-body text-[#0a0a0a] truncate flex-1" title={file.file_name || ''}>
+          <p className="text-[11px] font-body text-[#351E28] truncate flex-1" title={file.file_name || ''}>
             {file.file_name || '(無題)'}
           </p>
           {file.category && (
             <span
-              className="text-[8px] uppercase tracking-wider px-1 py-0.5 rounded text-white"
-              style={{ backgroundColor: FILE_CATEGORY_LABELS[file.category as FileCategory]?.color || '#888' }}
+              className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#EFEFEA] border border-[#E2E1DA]"
+              style={{ color: FILE_CATEGORY_LABELS[file.category as FileCategory]?.color || '#84787D' }}
             >
               {FILE_CATEGORY_LABELS[file.category as FileCategory]?.label || file.category}
             </span>
           )}
         </div>
         {file.comment && (
-          <p className="text-[10px] font-body text-[#555] mt-0.5 line-clamp-2">{file.comment}</p>
+          <p className="text-[10px] font-body text-[#351E28] mt-0.5 line-clamp-2">{file.comment}</p>
         )}
-        <div className="mt-1 flex items-center justify-between text-[10px] font-body text-[#888]">
+        <div className="mt-1 flex items-center justify-between text-[10px] font-body text-[#84787D]">
           <span className="tabular-nums">{formatDate(file.created_at)}</span>
           <button
             type="button"
             onClick={onDelete}
             disabled={busy}
-            className="text-[#ef4444] p-1 rounded-[4px] hover:bg-[#fef2f2] disabled:opacity-50"
+            className="text-[#B03616] p-1 rounded-[4px] hover:bg-[#FFD8C2] disabled:opacity-50"
             title="削除"
           >
             <Trash2 className="w-3 h-3" />
@@ -293,22 +293,22 @@ function Lightbox({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-[14px] max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-[16px] max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#e8e8e6]">
-          <p className="text-[13px] font-body text-[#0a0a0a] truncate flex-1">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#E2E1DA]">
+          <p className="text-[13px] font-body text-[#351E28] truncate flex-1">
             {file.file_name || '(無題)'}
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-[#f5f5f4]"
+            className="p-1.5 rounded-full hover:bg-[#EFEFEA]"
             aria-label="閉じる"
           >
-            <X className="w-4 h-4 text-[#555]" />
+            <X className="w-4 h-4 text-[#351E28]" />
           </button>
         </div>
-        <div className="flex-1 overflow-auto bg-[#0a0a0a] flex items-center justify-center min-h-0">
+        <div className="flex-1 overflow-auto bg-[#351E28] flex items-center justify-center min-h-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={file.file_url}
@@ -316,20 +316,20 @@ function Lightbox({
             className="max-w-full max-h-[60vh] object-contain"
           />
         </div>
-        <div className="p-4 border-t border-[#e8e8e6] space-y-2">
+        <div className="p-4 border-t border-[#E2E1DA] space-y-2">
           <label className="block">
-            <span className="text-[11px] font-body text-[#888]">メモ (300 文字まで)</span>
+            <span className="text-[11px] font-body text-[#84787D]">メモ (300 文字まで)</span>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value.slice(0, 300))}
               onBlur={handleSaveComment}
               rows={2}
-              className="mt-1 w-full px-3 py-2 text-[12px] font-body bg-white border border-[#e8e8e6] rounded-[8px] focus:outline-none focus:border-[#0a0a0a] resize-y"
+              className="mt-1 w-full px-3 py-2 text-[12px] font-body bg-white border border-[#E2E1DA] rounded-[12px] focus:outline-none focus:border-[#351E28] resize-y"
               placeholder="この画像に関するメモ"
             />
           </label>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-body text-[#888] tabular-nums">
+            <span className="text-[11px] font-body text-[#84787D] tabular-nums">
               {comment.length} / 300
               {isSaving && ' · 保存中...'}
               {savedNotice && ' · 保存しました'}
@@ -338,7 +338,7 @@ function Lightbox({
               type="button"
               onClick={onDelete}
               disabled={busy}
-              className="text-[12px] font-body text-[#ef4444] hover:underline disabled:opacity-50 inline-flex items-center gap-1"
+              className="text-[12px] font-body text-[#B03616] hover:underline disabled:opacity-50 inline-flex items-center gap-1"
             >
               <Trash2 className="w-3 h-3" />
               削除

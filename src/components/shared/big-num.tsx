@@ -14,7 +14,7 @@ export function BigNum({ integer, decimal, unit = '%', size = 44 }: BigNumProps)
         fontSize: size,
         letterSpacing: '-0.03em',
         lineHeight: 1,
-        color: '#0a0a0a',
+        color: '#351E28',
         display: 'flex',
         alignItems: 'flex-start',
         fontVariantNumeric: 'tabular-nums',
@@ -31,7 +31,7 @@ export function BigNum({ integer, decimal, unit = '%', size = 44 }: BigNumProps)
           style={{
             fontSize: size * 0.3,
             fontWeight: 400,
-            color: '#888888',
+            color: '#84787D',
             marginTop: 2,
             marginLeft: 1,
           }}

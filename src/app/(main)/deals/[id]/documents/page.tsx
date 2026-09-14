@@ -87,16 +87,16 @@ export default async function DocumentsPage({ params }: Props) {
     <>
       <Link
         href={`/deals/${id}`}
-        className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2 no-print"
+        className="inline-flex items-center gap-1 text-[13px] text-[#84787D] font-body no-underline hover:text-[#351E28] mt-4 mb-2 no-print"
       >
         <ChevronLeft className="w-4 h-4" />
         案件詳細に戻る
       </Link>
 
       <div className="py-3 no-print">
-        <p className="text-[11px] text-[#888] font-body tabular-nums">{deal.deal_code}</p>
-        <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">帳票発行</h1>
-        <p className="text-[12px] font-body text-[#888] mt-1">
+        <p className="text-[11px] text-[#84787D] font-body tabular-nums">{deal.deal_code}</p>
+        <h1 className="font-display text-[24px] font-semibold text-[#351E28]">帳票発行</h1>
+        <p className="text-[12px] font-body text-[#84787D] mt-1">
           見積書/請求書/納品書 = 採用見積ベース。RFQ = 全バリエーションの仕様を工場へ送付。
         </p>
       </div>

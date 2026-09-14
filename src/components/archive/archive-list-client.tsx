@@ -107,10 +107,10 @@ export function ArchiveListClient({
   return (
     <div>
       {/* フィルタバー */}
-      <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[12px] p-3 mb-3">
+      <div className="bg-white border border-[rgba(53,30,40,0.06)] rounded-[12px] p-3 mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#888]" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#84787D]" />
             <input
               type="text"
               value={q}
@@ -119,13 +119,13 @@ export function ArchiveListClient({
                 if (e.key === 'Enter') updateParam('q', q)
               }}
               placeholder="案件名 / クライアント / 案件番号で検索"
-              className="w-full pl-7 pr-3 py-1.5 text-[12px] border border-[#e8e8e6] rounded-[8px] bg-white focus:outline-none focus:border-[#888]"
+              className="w-full pl-7 pr-3 py-1.5 text-[12px] border border-[#E2E1DA] rounded-[12px] bg-white focus:outline-none focus:border-[#84787D]"
             />
           </div>
           <button
             type="button"
             onClick={() => updateParam('q', q)}
-            className="text-[11px] px-3 py-1.5 bg-[#0a0a0a] text-white rounded-[6px] hover:bg-[#222]"
+            className="text-[11px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] hover:brightness-95"
           >
             検索
           </button>
@@ -138,8 +138,8 @@ export function ArchiveListClient({
                 onClick={() => updateParam('reason', r)}
                 className={`text-[11px] px-2.5 py-1 rounded-full border ${
                   currentReason === r
-                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
-                    : 'bg-white text-[#555] border-[#e8e8e6] hover:bg-[#fafaf9]'
+                    ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
+                    : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
                 }`}
               >
                 {r === 'all' ? 'すべて' : ARCHIVE_REASON_LABEL[r]}
@@ -150,35 +150,35 @@ export function ArchiveListClient({
       </div>
 
       {/* テーブル */}
-      <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[12px] overflow-hidden">
+      <div className="bg-white border border-[rgba(53,30,40,0.06)] rounded-[12px] overflow-hidden">
         <table className="w-full text-[11px]">
-          <thead className="bg-[#fafaf9] border-b border-[rgba(0,0,0,0.08)]">
+          <thead className="bg-[#FBFAF6] border-b border-[rgba(53,30,40,0.08)]">
             <tr>
-              <th className="px-3 py-2 text-left font-body font-medium text-[#888] uppercase tracking-[0.02em]">
+              <th className="px-3 py-2 text-left font-body font-medium text-[#84787D] uppercase tracking-[0.02em]">
                 案件番号
               </th>
               <th
-                className="px-3 py-2 text-left font-body font-medium text-[#888] uppercase tracking-[0.02em] cursor-pointer hover:text-[#0a0a0a]"
+                className="px-3 py-2 text-left font-body font-medium text-[#84787D] uppercase tracking-[0.02em] cursor-pointer hover:text-[#351E28]"
                 onClick={() => toggleSort('deal_name')}
               >
                 案件名 {sortLabel('deal_name')}
               </th>
-              <th className="px-3 py-2 text-left font-body font-medium text-[#888] uppercase tracking-[0.02em]">
+              <th className="px-3 py-2 text-left font-body font-medium text-[#84787D] uppercase tracking-[0.02em]">
                 クライアント
               </th>
-              <th className="px-3 py-2 text-left font-body font-medium text-[#888] uppercase tracking-[0.02em]">
+              <th className="px-3 py-2 text-left font-body font-medium text-[#84787D] uppercase tracking-[0.02em]">
                 理由
               </th>
-              <th className="px-3 py-2 text-right font-body font-medium text-[#888] uppercase tracking-[0.02em]">
+              <th className="px-3 py-2 text-right font-body font-medium text-[#84787D] uppercase tracking-[0.02em]">
                 採用合計
               </th>
               <th
-                className="px-3 py-2 text-left font-body font-medium text-[#888] uppercase tracking-[0.02em] cursor-pointer hover:text-[#0a0a0a]"
+                className="px-3 py-2 text-left font-body font-medium text-[#84787D] uppercase tracking-[0.02em] cursor-pointer hover:text-[#351E28]"
                 onClick={() => toggleSort('archived_at')}
               >
                 アーカイブ日 {sortLabel('archived_at')}
               </th>
-              <th className="px-3 py-2 text-right font-body font-medium text-[#888] uppercase tracking-[0.02em]">
+              <th className="px-3 py-2 text-right font-body font-medium text-[#84787D] uppercase tracking-[0.02em]">
                 アクション
               </th>
             </tr>
@@ -186,23 +186,23 @@ export function ArchiveListClient({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-[#888]">
+                <td colSpan={7} className="px-3 py-8 text-center text-[#84787D]">
                   該当するアーカイブ案件がありません
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id} className="border-b border-[rgba(0,0,0,0.05)] hover:bg-[#fafaf9]">
-                  <td className="px-3 py-2 tabular-nums text-[#888]">{r.deal_code}</td>
+                <tr key={r.id} className="border-b border-[rgba(53,30,40,0.05)] hover:bg-[#FBFAF6]">
+                  <td className="px-3 py-2 tabular-nums text-[#84787D]">{r.deal_code}</td>
                   <td className="px-3 py-2">
                     <Link
                       href={`/deals/${r.id}`}
-                      className="text-[#0a0a0a] hover:underline font-medium"
+                      className="text-[#351E28] hover:underline font-medium"
                     >
                       {r.deal_name || '(無題)'}
                     </Link>
                     {r.archive_note && (
-                      <div className="text-[10px] text-[#888] mt-0.5 truncate max-w-[280px]">
+                      <div className="text-[10px] text-[#84787D] mt-0.5 truncate max-w-[280px]">
                         📝 {r.archive_note}
                       </div>
                     )}
@@ -211,7 +211,7 @@ export function ArchiveListClient({
                         {r.tags.map((t) => (
                           <span
                             key={t}
-                            className="text-[9.5px] px-1.5 py-0.5 bg-[#f5f5f4] text-[#555] rounded-full"
+                            className="text-[9.5px] px-1.5 py-0.5 bg-[#EFEFEA] text-[#351E28] rounded-full"
                           >
                             {t}
                           </span>
@@ -219,10 +219,10 @@ export function ArchiveListClient({
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-[#555]">{r.client_name_text || '-'}</td>
+                  <td className="px-3 py-2 text-[#351E28]">{r.client_name_text || '-'}</td>
                   <td className="px-3 py-2">
                     {r.archive_reason && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-[#f5f5f4] text-[#555] rounded">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#EFEFEA] text-[#351E28] rounded">
                         {ARCHIVE_REASON_LABEL[r.archive_reason]}
                       </span>
                     )}
@@ -230,7 +230,7 @@ export function ArchiveListClient({
                   <td className="px-3 py-2 text-right tabular-nums font-display">
                     {r.approved_total_jpy > 0 ? formatJPY(r.approved_total_jpy) : '-'}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-[#888]">
+                  <td className="px-3 py-2 tabular-nums text-[#84787D]">
                     {r.archived_at ? formatDate(r.archived_at) : '-'}
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -239,7 +239,7 @@ export function ArchiveListClient({
                         type="button"
                         disabled={pending && reorderingId === r.id}
                         onClick={() => handleReorder(r.id, r.deal_name || r.deal_code)}
-                        className="text-[10px] px-2 py-1 bg-[#0a0a0a] text-white rounded-[6px] hover:bg-[#222] disabled:opacity-50 inline-flex items-center gap-1"
+                        className="text-[10px] px-2 py-1 bg-[#351E28] text-[#C9A2B8] rounded-[8px] hover:brightness-95 disabled:opacity-50 inline-flex items-center gap-1"
                         title="複製して新規案件を作成"
                       >
                         <RotateCw className="w-2.5 h-2.5" />
@@ -249,7 +249,7 @@ export function ArchiveListClient({
                         type="button"
                         disabled={pending}
                         onClick={() => handleUnarchive(r.id, r.deal_name || r.deal_code)}
-                        className="text-[10px] px-2 py-1 border border-[#e8e8e6] rounded-[6px] hover:bg-[#fafaf9] disabled:opacity-50 inline-flex items-center gap-1"
+                        className="text-[10px] px-2 py-1 border border-[#E2E1DA] rounded-[8px] hover:bg-[#FBFAF6] disabled:opacity-50 inline-flex items-center gap-1"
                         title="アーカイブを解除"
                       >
                         <RotateCcw className="w-2.5 h-2.5" />
@@ -263,7 +263,7 @@ export function ArchiveListClient({
           </tbody>
         </table>
       </div>
-      <p className="text-[10px] text-[#888] mt-2">
+      <p className="text-[10px] text-[#84787D] mt-2">
         {rows.length} 件 · リオーダーは商品・バリエ構成のみコピーされ、見積は再依頼が必要です
       </p>
     </div>

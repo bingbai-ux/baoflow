@@ -42,8 +42,8 @@ export default async function SettingsPage() {
   return (
     <>
       <div className="py-[18px]">
-        <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">設定</h1>
-        <p className="text-[12px] text-[#888] font-body mt-1">
+        <h1 className="font-display text-[24px] font-semibold text-[#351E28]">設定</h1>
+        <p className="text-[12px] text-[#84787D] font-body mt-1">
           見積計算のデフォルトとプロフィール情報を管理します。
         </p>
       </div>

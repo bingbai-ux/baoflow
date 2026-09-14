@@ -1,17 +1,19 @@
 import type { Metadata } from 'next'
-import { Fraunces, Zen_Kaku_Gothic_New } from 'next/font/google'
+import { Manrope, M_PLUS_2 } from 'next/font/google'
 import '@/styles/globals.css'
 
-const fraunces = Fraunces({
+// F&C Design System: 英数 = Manrope / かなカナ漢字 = M PLUS 2(指定順で自動振り分け)
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-fraunces',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-manrope',
   display: 'swap',
 })
 
-const zenKaku = Zen_Kaku_Gothic_New({
+const mplus2 = M_PLUS_2({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-zen-kaku',
+  weight: ['400', '500', '700', '800'],
+  variable: '--font-mplus',
   display: 'swap',
 })
 
@@ -26,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja" className={`${fraunces.variable} ${zenKaku.variable}`}>
-      <body className="bg-[#f2f2f0] text-[#0a0a0a] font-body">
+    <html lang="ja" className={`${manrope.variable} ${mplus2.variable}`}>
+      <body className="bg-[#EFEFEA] text-[#351E28] font-body">
         {children}
       </body>
     </html>

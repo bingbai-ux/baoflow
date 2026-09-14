@@ -1,3 +1,5 @@
+> **[旧版]** 本カタログは旧デザインシステム(v7/Fraunces)のものです。現行は F&C Design System(`design-system/fc/` と `fc-tokens.css`)を使用してください。
+
 # BAO Flow コンポーネントカタログ
 
 > v7 ダッシュボードプロトタイプから抽出。shadcn/ui をベースにカスタマイズ。

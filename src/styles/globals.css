@@ -1,22 +1,36 @@
+@import '../../design-system/fc-tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   * {
-    border-color: rgba(0, 0, 0, 0.06);
+    border-color: var(--fc-line);
   }
 
   body {
-    background-color: #f2f2f0;
-    color: #0a0a0a;
+    background-color: var(--fc-surface-page);
+    color: var(--fc-text-body);
+    font-feature-settings: 'palt';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--fc-accent-form);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--fc-focus-ring);
+    outline-offset: 2px;
   }
 }
 
 @layer utilities {
-  /* Number display utility */
+  /* Number display utility — Manrope + tabular-nums (F&C: 数字は常に桁揃え) */
   .num {
-    font-family: var(--font-fraunces), 'Fraunces', serif;
+    font-family: var(--fc-font-num);
     font-variant-numeric: tabular-nums;
   }
 
@@ -29,7 +43,7 @@
     width: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #e8e8e6;
+    background: var(--fc-line);
     border-radius: 2px;
   }
 }
@@ -45,7 +59,7 @@
 .document-frame {
   display: flex;
   justify-content: center;
-  background: #f2f2f0;
+  background: var(--fc-surface-page);
 }
 
 @media print {

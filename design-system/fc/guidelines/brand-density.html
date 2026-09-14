@@ -1,0 +1,31 @@
+<!-- @dsCard group="Brand" viewport="700x240" name="一覧性ファースト（D80）" subtitle="1行=1件の密な表。状態は列に固定する" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>一覧</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:grid;grid-template-columns:1fr;gap:10px">
+  <div>
+    <div class="lbl"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✓</span>状態を列に固定 — 縦に走査するだけで詰まりが見える</div>
+    <div style="border:1px solid var(--fc-line);border-radius:12px;overflow:hidden;font-size:11.5px">
+      <div style="display:grid;grid-template-columns:110px 1fr 90px;background:var(--fc-card-soft);border-bottom:1px solid var(--fc-line);color:var(--fc-text-muted);font-weight:700"><span style="padding:7px 10px">スタッフ</span><span style="padding:7px 10px">取得/付与</span><span style="padding:7px 10px">状態</span></div>
+      <div style="display:grid;grid-template-columns:110px 1fr 90px;border-bottom:1px solid var(--fc-line)"><span style="padding:7px 10px;font-weight:700">山田 花子</span><span style="padding:7px 10px;color:var(--fc-text-muted)">7 / 12日</span><span style="padding:7px 10px"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px">達成</span></span></div>
+      <div style="display:grid;grid-template-columns:110px 1fr 90px;background:var(--fc-orange-tint)"><span style="padding:7px 10px;font-weight:700;color:var(--fc-orange-ink)">高橋 みなみ</span><span style="padding:7px 10px;color:var(--fc-orange-ink)">2 / 10日</span><span style="padding:7px 10px"><span style="background:var(--fc-card);color:var(--fc-orange-ink);font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px">要対応</span></span></div>
+    </div>
+  </div>
+  <div>
+    <div class="lbl"><span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✗</span>フローのピル連結（横に伸びて一覧性が落ちる）</div>
+    <div style="display:flex;gap:6px;align-items:center;font-size:10.5px">
+      <span style="background:var(--fc-wasabi);color:var(--fc-wasabi-ink);border:1px solid var(--fc-line);font-weight:700;padding:5px 10px;border-radius:999px">申請</span><span style="color:var(--fc-sauge)">→</span><span style="background:var(--fc-bg);color:var(--fc-text-muted);border:1px solid var(--fc-line);font-weight:700;padding:5px 10px;border-radius:999px">店長承認</span><span style="color:var(--fc-sauge)">→</span><span style="background:var(--fc-bg);color:var(--fc-text-muted);border:1px solid var(--fc-line);font-weight:700;padding:5px 10px;border-radius:999px">人事確認</span><span style="color:var(--fc-sauge)">→</span><span style="background:var(--fc-bg);color:var(--fc-text-muted);border:1px solid var(--fc-line);font-weight:700;padding:5px 10px;border-radius:999px">反映</span>
+    </div>
+  </div>
+</div></body></html>

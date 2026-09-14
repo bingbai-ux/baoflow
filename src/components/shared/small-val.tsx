@@ -10,7 +10,7 @@ export function SmallVal({ children }: SmallValProps) {
       style={{
         fontSize: 13,
         fontWeight: 600,
-        color: '#0a0a0a',
+        color: '#351E28',
         fontFamily: "'Fraunces', serif",
         fontVariantNumeric: 'tabular-nums',
       }}

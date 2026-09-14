@@ -1,0 +1,19 @@
+<!-- @dsCard group="Spacing" viewport="700x140" name="余白の段階" subtitle="8pxの倍数のみ（4pxは半歩）" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>余白</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div class="row" style="align-items:flex-end">
+<div style="text-align:center"><div style="width:4px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">4</div></div><div style="text-align:center"><div style="width:8px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">8</div></div><div style="text-align:center"><div style="width:16px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">16</div></div><div style="text-align:center"><div style="width:24px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">24</div></div><div style="text-align:center"><div style="width:32px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">32</div></div><div style="text-align:center"><div style="width:48px;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><div class="lbl" style="margin:6px 0 0">48</div></div>
+  <div style="margin-left:16px;font-size:var(--fc-fs-xs);color:var(--fc-text-muted);line-height:1.7">カード内=16px<br>セクション間=24px<br>画面の左右=26px</div>
+</div></body></html>

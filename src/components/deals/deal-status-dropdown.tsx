@@ -12,11 +12,11 @@ import {
 } from '@/lib/types'
 
 const STEP_COLOR_MAP: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
+  pending: '#AEB8A0',
+  confirmed: '#E9F056',
+  warning: '#FF5C34',
+  active: '#351E28',
+  shipping: '#84787D',
 }
 
 interface Props {
@@ -78,7 +78,7 @@ export function DealStatusDropdown({ dealId, current }: Props) {
           setOpen((v) => !v)
         }}
         disabled={pending}
-        className="inline-flex items-center gap-1 w-full text-[10px] text-[#555] cursor-pointer hover:bg-[#fafaf8] rounded-[3px] px-1.5 py-0.5 disabled:opacity-50"
+        className="inline-flex items-center gap-1 w-full text-[10px] text-[#351E28] cursor-pointer hover:bg-[#FBFAF6] rounded-[3px] px-1.5 py-0.5 disabled:opacity-50"
         title="クリックでステータス変更"
       >
         <span
@@ -86,11 +86,11 @@ export function DealStatusDropdown({ dealId, current }: Props) {
           style={{ backgroundColor: dot }}
         />
         <span className="truncate">{cfg.label}</span>
-        <ChevronDown className="w-2.5 h-2.5 text-[#888] ml-auto flex-shrink-0" />
+        <ChevronDown className="w-2.5 h-2.5 text-[#84787D] ml-auto flex-shrink-0" />
       </button>
       {open && (
         <div
-          className="absolute top-full left-0 z-30 mt-0.5 min-w-[160px] bg-white border border-[#e8e8e6] rounded-[8px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] py-1 text-[11px] font-body"
+          className="absolute top-full left-0 z-30 mt-0.5 min-w-[160px] bg-white border border-[#E2E1DA] rounded-[12px] shadow-[0_8px_24px_rgba(53,30,40,0.12)] py-1 text-[11px] font-body"
           onClick={(e) => e.stopPropagation()}
         >
           {SIMPLE_STATUS_ORDER.map((s) => {
@@ -102,8 +102,8 @@ export function DealStatusDropdown({ dealId, current }: Props) {
                 type="button"
                 onClick={() => setStatus(s)}
                 disabled={isCurrent}
-                className={`w-full text-left px-3 py-1.5 inline-flex items-center gap-2 hover:bg-[#fafaf9] ${
-                  isCurrent ? 'bg-[#fff8e8] cursor-default' : ''
+                className={`w-full text-left px-3 py-1.5 inline-flex items-center gap-2 hover:bg-[#FBFAF6] ${
+                  isCurrent ? 'bg-[#FFD8C2] cursor-default' : ''
                 }`}
               >
                 <span
@@ -111,7 +111,7 @@ export function DealStatusDropdown({ dealId, current }: Props) {
                   style={{ backgroundColor: STEP_COLOR_MAP[c.color] }}
                 />
                 <span className="flex-1">{c.label}</span>
-                {isCurrent && <Check className="w-3 h-3 text-[#22c55e]" />}
+                {isCurrent && <Check className="w-3 h-3 text-[#666C14]" />}
               </button>
             )
           })}

@@ -93,7 +93,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
       onClick={closeCmdk}
     >
       <div
-        className="w-[600px] max-w-[92vw] bg-white rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden font-body"
+        className="w-[600px] max-w-[92vw] bg-white rounded-[16px] shadow-[0_20px_60px_rgba(53,30,40,0.3)] overflow-hidden font-body"
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -105,7 +105,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
           }}
           onKeyDown={onKey}
           placeholder="案件番号 · 案件名 · 取引先 · 工場名で検索…"
-          className="w-full px-5 py-4 text-[14px] border-b border-[#e8e8e6] outline-none font-body box-border"
+          className="w-full px-5 py-4 text-[14px] border-b border-[#E2E1DA] outline-none font-body box-border"
         />
         <div className="max-h-[420px] overflow-auto">
           {actions.length > 0 && <Group label="クイックアクション" />}
@@ -115,7 +115,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
               active={idx === i}
               onClick={() => select(i)}
               onHover={() => setIdx(i)}
-              icon={<span className="font-display text-[#0a0a0a] font-semibold">›</span>}
+              icon={<span className="font-display text-[#351E28] font-semibold">›</span>}
               title={a.title}
               sub={a.sub}
               badge={a.badge}
@@ -131,7 +131,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
                 active={idx === k}
                 onClick={() => select(k)}
                 onHover={() => setIdx(k)}
-                icon={<span className="w-2 h-2 rounded-full bg-[#888]" />}
+                icon={<span className="w-2 h-2 rounded-full bg-[#84787D]" />}
                 title={h.title}
                 sub={h.sub}
                 badge={h.badge}
@@ -148,7 +148,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
                 active={idx === k}
                 onClick={() => select(k)}
                 onHover={() => setIdx(k)}
-                icon={<span className="font-display text-[#0a0a0a]">◯</span>}
+                icon={<span className="font-display text-[#351E28]">◯</span>}
                 title={h.title}
                 sub={h.sub}
                 badge={h.badge}
@@ -165,7 +165,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
                 active={idx === k}
                 onClick={() => select(k)}
                 onHover={() => setIdx(k)}
-                icon={<span className="font-display text-[#0a0a0a]">▣</span>}
+                icon={<span className="font-display text-[#351E28]">▣</span>}
                 title={h.title}
                 sub={h.sub}
                 badge={h.badge}
@@ -174,10 +174,10 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
           })}
 
           {flat.length === 0 && (
-            <div className="p-8 text-center text-[#aaa] text-[12px]">該当なし</div>
+            <div className="p-8 text-center text-[#84787D] text-[12px]">該当なし</div>
           )}
         </div>
-        <div className="px-4 py-2.5 border-t border-[#e8e8e6] text-[10px] text-[#aaa] flex gap-3.5">
+        <div className="px-4 py-2.5 border-t border-[#E2E1DA] text-[10px] text-[#84787D] flex gap-3.5">
           <span>
             <Kbd>↑↓</Kbd> 移動
           </span>
@@ -195,7 +195,7 @@ export function CmdK({ initial }: { initial: SearchHit[] }) {
 
 function Group({ label }: { label: string }) {
   return (
-    <div className="px-3.5 pt-2 pb-1 text-[9.5px] text-[#999] font-semibold uppercase tracking-[0.08em]">
+    <div className="px-3.5 pt-2 pb-1 text-[9.5px] text-[#84787D] font-semibold uppercase tracking-[0.08em]">
       {label}
     </div>
   )
@@ -223,16 +223,16 @@ function Row({
       onClick={onClick}
       onMouseEnter={onHover}
       className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-[12.5px] ${
-        active ? 'bg-[#fafaf9]' : ''
+        active ? 'bg-[#FBFAF6]' : ''
       }`}
     >
       <span className="w-[18px] flex items-center justify-center">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{title}</div>
-        <div className="text-[10px] text-[#888] truncate">{sub}</div>
+        <div className="text-[10px] text-[#84787D] truncate">{sub}</div>
       </div>
       {badge && (
-        <span className="text-[9.5px] text-[#888] font-display tracking-[0.04em]">
+        <span className="text-[9.5px] text-[#84787D] font-display tracking-[0.04em]">
           {badge}
         </span>
       )}
@@ -242,7 +242,7 @@ function Row({
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="bg-[#fafaf9] border border-[#e8e8e6] rounded-[3px] px-1.5 py-0.5 font-mono text-[9px]">
+    <span className="bg-[#FBFAF6] border border-[#E2E1DA] rounded-[3px] px-1.5 py-0.5 font-mono text-[9px]">
       {children}
     </span>
   )

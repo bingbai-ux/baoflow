@@ -217,24 +217,24 @@ export function ClientRegistrationForm({ token }: { token: string }) {
             type="button"
             onClick={addAddress}
             className="inline-flex items-center gap-1 text-[12px]"
-            style={{ color: '#e5a32e' }}
+            style={{ color: '#B03616' }}
           >
             <Plus className="w-3.5 h-3.5" /> 配送先を追加
           </button>
         }
       >
-        <p className="text-[11px] text-[#888] mb-2">複数の配送先がある場合は「+ 追加」してください。</p>
+        <p className="text-[11px] text-[#84787D] mb-2">複数の配送先がある場合は「+ 追加」してください。</p>
         <div className="space-y-3">
           {form.addresses.map((addr, idx) => (
             <div
               key={idx}
-              className="bg-white border rounded-[10px] p-3"
+              className="bg-white border rounded-[12px] p-3"
               style={{ borderColor: 'rgba(229,163,46,0.2)' }}
             >
               <div className="flex items-center gap-2 mb-2">
                 <span
                   className="text-[10px] font-display font-bold tracking-wider"
-                  style={{ color: '#e5a32e' }}
+                  style={{ color: '#B03616' }}
                 >
                   #{idx + 1}
                 </span>
@@ -251,7 +251,7 @@ export function ClientRegistrationForm({ token }: { token: string }) {
                   <button
                     type="button"
                     onClick={() => removeAddress(idx)}
-                    className="ml-auto text-[#c0392b] hover:bg-[#fef2f2] rounded p-1"
+                    className="ml-auto text-[#B03616] hover:bg-[#FFD8C2] rounded p-1"
                     title="削除"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -322,8 +322,8 @@ export function ClientRegistrationForm({ token }: { token: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full py-3 rounded-[10px] text-white font-medium font-body text-[14px] disabled:opacity-50 transition-colors"
-        style={{ background: pending ? '#888' : '#e5a32e' }}
+        className="w-full py-3 rounded-full font-medium font-body text-[14px] disabled:opacity-50 transition-colors"
+        style={{ background: pending ? '#EFEFEA' : '#E9F056', color: pending ? '#AEB8A0' : '#666C14' }}
       >
         {pending ? '送信中…' : '送信する'}
       </button>
@@ -334,7 +334,7 @@ export function ClientRegistrationForm({ token }: { token: string }) {
 // ---- styling helpers ----
 
 const inputCls =
-  'w-full px-3 py-2 text-[13px] border border-[#e8e8e6] rounded-[8px] bg-white focus:outline-none focus:border-[#e5a32e] focus:ring-1 focus:ring-[#e5a32e]'
+  'w-full px-3 py-2 text-[13px] border border-[#E2E1DA] rounded-[12px] bg-white focus:outline-none focus:border-[#FF5C34] focus:ring-1 focus:ring-[#FF5C34]'
 
 function Section({
   title,
@@ -351,7 +351,7 @@ function Section({
       style={{ borderColor: 'rgba(229,163,46,0.15)' }}
     >
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="font-display text-[14px] font-semibold text-[#1a1a1a]">{title}</h2>
+        <h2 className="font-display text-[14px] font-semibold text-[#351E28]">{title}</h2>
         {right && <div className="ml-auto">{right}</div>}
       </div>
       <div className="space-y-2.5">{children}</div>
@@ -370,9 +370,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-[#555] mb-1 font-medium">
+      <span className="block text-[11px] text-[#351E28] mb-1 font-medium">
         {label}
-        {required && <span className="text-[#c0392b] ml-1">*</span>}
+        {required && <span className="text-[#B03616] ml-1">*</span>}
       </span>
       {children}
     </label>

@@ -116,10 +116,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
     <form onSubmit={handleSave} className="space-y-6 max-w-3xl">
       {message && (
         <div
-          className={`rounded-[8px] px-3 py-2 text-[12px] font-body ${
+          className={`rounded-[12px] px-3 py-2 text-[12px] font-body ${
             message.type === 'success'
-              ? 'bg-[#f0fdf4] border border-[#86efac] text-[#166534]'
-              : 'bg-[#fef2f2] border border-[#fca5a5] text-[#b91c1c]'
+              ? 'bg-[rgba(233,240,86,0.28)] border border-[#E9F056] text-[#666C14]'
+              : 'bg-[#FFD8C2] border border-[#FF5C34] text-[#B03616]'
           }`}
         >
           {message.text}
@@ -127,10 +127,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       )}
 
       {/* 計算デフォルト */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-4">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 space-y-4">
         <div>
-          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">見積計算のデフォルト</h2>
-          <p className="text-[11px] text-[#888] font-body mt-0.5">
+          <h2 className="text-[14px] font-body font-semibold text-[#351E28]">見積計算のデフォルト</h2>
+          <p className="text-[11px] text-[#84787D] font-body mt-0.5">
             新規見積でフォームの初期値として使われます。各見積で個別に上書き可能です。
           </p>
         </div>
@@ -149,7 +149,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
               type="button"
               onClick={handleFetchRate}
               disabled={isFetching || isPending}
-              className="bg-white text-[#555] border border-[#e8e8e6] rounded-[8px] px-3 text-[12px] font-body whitespace-nowrap inline-flex items-center gap-1 disabled:opacity-50"
+              className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-[12px] px-3 text-[12px] font-body whitespace-nowrap inline-flex items-center gap-1 disabled:opacity-50"
             >
               <RefreshCw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
               {isFetching ? '取得中...' : '最新を取得'}
@@ -181,7 +181,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#f0f0ed]">
+        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#EFEFEA]">
           <Field label="元/USD レート" hint="例: 7.2">
             <input
               type="number"
@@ -216,10 +216,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       </div>
 
       {/* 会社情報 */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-4">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 space-y-4">
         <div>
-          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">会社情報 (帳票発行用)</h2>
-          <p className="text-[11px] text-[#888] font-body mt-0.5">
+          <h2 className="text-[14px] font-body font-semibold text-[#351E28]">会社情報 (帳票発行用)</h2>
+          <p className="text-[11px] text-[#84787D] font-body mt-0.5">
             見積書/請求書/納品書の右上に表示されます。
           </p>
         </div>
@@ -253,31 +253,31 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       </div>
 
       {/* 振込先 */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-3">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 space-y-3">
         <div className="flex items-baseline justify-between">
           <div>
-            <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">振込先銀行口座</h2>
-            <p className="text-[11px] text-[#888] font-body mt-0.5">請求書に表示されます。</p>
+            <h2 className="text-[14px] font-body font-semibold text-[#351E28]">振込先銀行口座</h2>
+            <p className="text-[11px] text-[#84787D] font-body mt-0.5">請求書に表示されます。</p>
           </div>
           <button
             type="button"
             onClick={() => setBanks([...banks, { bank_name: '' }])}
-            className="text-[12px] font-body text-[#22c55e] hover:underline inline-flex items-center gap-1"
+            className="text-[12px] font-body text-[#666C14] hover:underline inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" /> 追加
           </button>
         </div>
         {banks.length === 0 && (
-          <p className="text-[12px] text-[#888] font-body">銀行口座が登録されていません。</p>
+          <p className="text-[12px] text-[#84787D] font-body">銀行口座が登録されていません。</p>
         )}
         {banks.map((bank, i) => (
-          <div key={i} className="border border-[#e8e8e6] rounded-[8px] p-3 space-y-2">
+          <div key={i} className="border border-[#E2E1DA] rounded-[12px] p-3 space-y-2">
             <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-[#888]">口座 {i + 1}</span>
+              <span className="text-[11px] text-[#84787D]">口座 {i + 1}</span>
               <button
                 type="button"
                 onClick={() => setBanks(banks.filter((_, j) => j !== i))}
-                className="text-[#ef4444] hover:underline text-[11px] inline-flex items-center gap-1"
+                className="text-[#B03616] hover:underline text-[11px] inline-flex items-center gap-1"
               >
                 <Trash2 className="w-3 h-3" /> 削除
               </button>
@@ -297,10 +297,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       </div>
 
       {/* 配送先 */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-3">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 space-y-3">
         <div>
-          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">デフォルト配送先 (納品書用)</h2>
-          <p className="text-[11px] text-[#888] font-body mt-0.5">
+          <h2 className="text-[14px] font-body font-semibold text-[#351E28]">デフォルト配送先 (納品書用)</h2>
+          <p className="text-[11px] text-[#84787D] font-body mt-0.5">
             納品書発行時に初期値として使われます。各納品書で個別に上書き可能。
           </p>
         </div>
@@ -308,10 +308,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       </div>
 
       {/* Sprint 9: 帳票定型文 */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 space-y-4">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 space-y-4">
         <div>
-          <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a]">帳票の定型文</h2>
-          <p className="text-[11px] text-[#888] font-body mt-0.5">
+          <h2 className="text-[14px] font-body font-semibold text-[#351E28]">帳票の定型文</h2>
+          <p className="text-[11px] text-[#84787D] font-body mt-0.5">
             帳票発行時に「備考」欄に自動投入される定型文。発行画面で個別に編集可能です。
           </p>
         </div>
@@ -354,21 +354,21 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       </div>
 
       {/* プロフィール (読み取り専用) */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
-        <h2 className="text-[14px] font-body font-semibold text-[#0a0a0a] mb-3">プロフィール</h2>
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5">
+        <h2 className="text-[14px] font-body font-semibold text-[#351E28] mb-3">プロフィール</h2>
         <dl className="space-y-2 text-[13px] font-body">
           <Row label="表示名" value={profile.display_name || '(未設定)'} />
           <Row label="メール" value={profile.email || '-'} />
           <Row label="役割" value={profile.role || '-'} />
         </dl>
-        <p className="mt-3 text-[11px] text-[#888] font-body">※ プロフィール編集は Phase 2 で対応予定です。</p>
+        <p className="mt-3 text-[11px] text-[#84787D] font-body">※ プロフィール編集は Phase 2 で対応予定です。</p>
       </div>
 
       <div className="sticky bottom-4">
         <button
           type="submit"
           disabled={isPending || isFetching}
-          className="bg-[#0a0a0a] text-white rounded-[8px] px-6 py-2.5 text-[13px] font-medium font-body disabled:opacity-50 shadow"
+          className="bg-[#351E28] text-[#C9A2B8] rounded-full px-6 py-2.5 text-[13px] font-medium font-body disabled:opacity-50 shadow"
         >
           {isPending ? '保存中...' : 'すべて保存'}
         </button>
@@ -382,7 +382,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
 }
 
 const inputClass =
-  'w-full px-3 py-2 text-[13px] font-body bg-white border border-[#e8e8e6] rounded-[8px] focus:outline-none focus:border-[#0a0a0a]'
+  'w-full px-3 py-2 text-[13px] font-body bg-white border border-[#E2E1DA] rounded-[12px] focus:outline-none focus:border-[#351E28]'
 
 function Field({
   label,
@@ -395,9 +395,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="flex items-baseline justify-between text-[12px] font-body text-[#555] mb-1">
+      <span className="flex items-baseline justify-between text-[12px] font-body text-[#351E28] mb-1">
         <span>{label}</span>
-        {hint && <span className="text-[11px] text-[#888]">{hint}</span>}
+        {hint && <span className="text-[11px] text-[#84787D]">{hint}</span>}
       </span>
       {children}
     </label>
@@ -407,8 +407,8 @@ function Field({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3 py-1">
-      <dt className="text-[11px] text-[#888] w-24 flex-shrink-0">{label}</dt>
-      <dd className="text-[13px] text-[#0a0a0a]">{value}</dd>
+      <dt className="text-[11px] text-[#84787D] w-24 flex-shrink-0">{label}</dt>
+      <dd className="text-[13px] text-[#351E28]">{value}</dd>
     </div>
   )
 }

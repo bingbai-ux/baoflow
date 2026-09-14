@@ -19,10 +19,10 @@ export default async function ClientRegistrationPage({ params }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-[24px] font-bold text-[#1a1a1a]">
+        <h1 className="font-display text-[24px] font-bold text-[#351E28]">
           会社情報のご入力
         </h1>
-        <p className="text-[12px] text-[#555] mt-1 leading-relaxed">
+        <p className="text-[12px] text-[#351E28] mt-1 leading-relaxed">
           パッケージ製作のお見積もり・発注に必要な情報をご入力ください。
           ご入力いただいた情報は kokon の担当者のみが確認します。
         </p>

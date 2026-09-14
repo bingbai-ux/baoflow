@@ -58,11 +58,11 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
 const STORAGE_KEY = 'deals-nested-table:column-widths'
 
 const STEP_COLOR_MAP: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
+  pending: '#AEB8A0',
+  confirmed: '#E9F056',
+  warning: '#FF5C34',
+  active: '#351E28',
+  shipping: '#84787D',
 }
 
 interface DealRow {
@@ -425,9 +425,9 @@ export function DealsNestedTable({
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
 
   return (
-    <div className="bg-white border border-[rgba(0,0,0,0.06)] rounded-[14px] overflow-hidden">
+    <div className="bg-white border border-[rgba(53,30,40,0.06)] rounded-[16px] overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-[rgba(0,0,0,0.06)] flex-wrap">
+      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-[rgba(53,30,40,0.06)] flex-wrap">
         <div className="flex flex-wrap gap-1">
           <FilterChip label="すべて" count={deals.length} active={currentStatus === 'all'} onClick={() => setParam('status', null)} />
           {SIMPLE_STATUS_ORDER.map((s) => {
@@ -444,20 +444,20 @@ export function DealsNestedTable({
             )
           })}
           {urgentCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body text-[#e5a32e] bg-[#fffaf2] border border-[#f5d7a8] rounded-full">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body text-[#B03616] bg-[#FFD8C2] border border-[#FFD8C2] rounded-full">
               <AlertCircle className="w-2.5 h-2.5" />
               納期 ≤14日 {urgentCount}
             </span>
           )}
           {staleCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body text-[#888] bg-[#fafaf9] border border-[#e8e8e6] rounded-full">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body text-[#84787D] bg-[#FBFAF6] border border-[#E2E1DA] rounded-full">
               停滞 {staleCount}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#888]" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#84787D]" />
             <input
               type="text"
               value={searchValue}
@@ -472,13 +472,13 @@ export function DealsNestedTable({
                 if (searchValue !== currentSearch) setParam('q', searchValue)
               }}
               placeholder="検索..."
-              className="pl-7 pr-2 py-1 text-[11px] font-body bg-white border border-[#e8e8e6] rounded-[6px] focus:outline-none focus:border-[#0a0a0a] w-44"
+              className="pl-7 pr-2 py-1 text-[11px] font-body bg-white border border-[#E2E1DA] rounded-[8px] focus:outline-none focus:border-[#351E28] w-44"
             />
           </div>
           <button
             type="button"
             onClick={collapseAllVariants}
-            className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8]"
+            className="text-[11px] font-body text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 bg-white hover:bg-[#FBFAF6]"
             title="全商品のバリエを閉じる (案件・商品の見出しは維持)"
           >
             全バリエ閉じる
@@ -486,7 +486,7 @@ export function DealsNestedTable({
           <button
             type="button"
             onClick={resetWidths}
-            className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8]"
+            className="text-[11px] font-body text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 bg-white hover:bg-[#FBFAF6]"
             title="列幅をデフォルトに戻す"
           >
             列幅リセット
@@ -511,7 +511,7 @@ export function DealsNestedTable({
             ))}
           </colgroup>
           <thead>
-            <tr className="bg-[#fafaf9]">
+            <tr className="bg-[#FBFAF6]">
               {DEFAULT_COLUMNS.map((c) => (
                 <Th
                   key={c.key}
@@ -527,14 +527,14 @@ export function DealsNestedTable({
           <tbody>
             {clientGroups.length === 0 ? (
               <tr>
-                <td colSpan={DEFAULT_COLUMNS.length} className="text-center py-12 text-[12px] text-[#888]">
+                <td colSpan={DEFAULT_COLUMNS.length} className="text-center py-12 text-[12px] text-[#84787D]">
                   {currentStatus !== 'all' || currentSearch
                     ? '条件に合う案件がありません'
                     : 'まだ案件がありません'}
                   {currentStatus === 'all' && !currentSearch && (
                     <Link
                       href="/deals/new"
-                      className="ml-2 text-[#22c55e] no-underline hover:underline"
+                      className="ml-2 text-[#666C14] no-underline hover:underline"
                     >
                       最初の案件を作成 →
                     </Link>
@@ -566,11 +566,11 @@ export function DealsNestedTable({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3.5 py-2 border-t border-[rgba(0,0,0,0.06)] bg-[#fafaf9] text-[10px] text-[#888] font-body">
+      <div className="flex items-center justify-between px-3.5 py-2 border-t border-[rgba(53,30,40,0.06)] bg-[#FBFAF6] text-[10px] text-[#84787D] font-body">
         <span>
           {clientGroups.length} クライアント · {deals.length} 案件 · {quotes.filter((q) => q.status === 'approved').length} 採用見積
         </span>
-        <span className="tabular-nums font-display text-[#0a0a0a]">
+        <span className="tabular-nums font-display text-[#351E28]">
           採用合計{' '}
           {formatJPY(deals.reduce((s, d) => s + approvedTotalForDeal(quotesByDeal.get(d.id) || []), 0))}
         </span>
@@ -608,7 +608,7 @@ function Th({
 }) {
   return (
     <th
-      className={`relative px-2.5 py-2 text-[10px] font-body font-medium text-[#888] uppercase tracking-[0.02em] border-b border-[rgba(0,0,0,0.08)] whitespace-nowrap overflow-hidden text-ellipsis ${
+      className={`relative px-2.5 py-2 text-[10px] font-body font-medium text-[#84787D] uppercase tracking-[0.02em] border-b border-[rgba(53,30,40,0.08)] whitespace-nowrap overflow-hidden text-ellipsis ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${className || ''}`}
     >
@@ -621,7 +621,7 @@ function Th({
           aria-label="列幅をドラッグで変更"
           role="separator"
         >
-          <span className="block w-px h-3/5 bg-[#e8e8e6] group-hover:bg-[#0a0a0a] group-active:bg-[#0a0a0a]" />
+          <span className="block w-px h-3/5 bg-[#E2E1DA] group-hover:bg-[#351E28] group-active:bg-[#351E28]" />
         </span>
       )}
     </th>
@@ -645,8 +645,8 @@ function FilterChip({
       onClick={onClick}
       className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full transition-colors ${
         active
-          ? 'bg-[#0a0a0a] text-white'
-          : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#fafaf8]'
+          ? 'bg-[#351E28] text-[#C9A2B8]'
+          : 'bg-white text-[#351E28] border border-[#E2E1DA] hover:bg-[#FBFAF6]'
       }`}
     >
       <span>{label}</span>
@@ -699,22 +699,22 @@ function ClientGroupRows({
   return (
     <>
       <tr
-        className="bg-[#f5f5f4] cursor-pointer hover:bg-[#eeeeec]"
+        className="bg-[#EFEFEA] cursor-pointer hover:bg-[#EFEFEA]"
         onClick={() => setExpanded(!expanded)}
       >
         <td className="px-2 py-1.5 text-center" style={{ height: 32 }}>
           {visible ? (
-            <ChevronDown className="w-3 h-3 text-[#555] inline" />
+            <ChevronDown className="w-3 h-3 text-[#351E28] inline" />
           ) : (
-            <ChevronRight className="w-3 h-3 text-[#555] inline" />
+            <ChevronRight className="w-3 h-3 text-[#351E28] inline" />
           )}
         </td>
         <td colSpan={8} className="px-2.5 py-1.5">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[12px] font-body font-semibold text-[#0a0a0a] truncate">
+            <span className="text-[12px] font-body font-semibold text-[#351E28] truncate">
               {group.clientName}
             </span>
-            <span className="text-[10px] text-[#888] flex-shrink-0">
+            <span className="text-[10px] text-[#84787D] flex-shrink-0">
               {group.deals.length} 件 · 進行中 {inProgress}
             </span>
             {primaryDealId && (
@@ -724,7 +724,7 @@ function ClientGroupRows({
                   e.stopPropagation()
                   onOpenDocModal(primaryDealId)
                 }}
-                className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-body text-[#0a0a0a] bg-white border border-[#e8e8e6] rounded-[4px] px-1.5 py-0.5 hover:bg-[#fafaf8]"
+                className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-body text-[#351E28] bg-white border border-[#E2E1DA] rounded-[4px] px-1.5 py-0.5 hover:bg-[#FBFAF6]"
                 title={
                   group.deals.length > 1
                     ? `見積書 / 請求書 / 納品書 / RFQ (最新案件: ${group.deals[0].deal_name || group.deals[0].deal_code})`
@@ -738,7 +738,7 @@ function ClientGroupRows({
           </div>
         </td>
         <td colSpan={2} className="px-2.5 py-1.5 text-right">
-          <span className="text-[11px] font-display tabular-nums text-[#22c55e]">
+          <span className="text-[11px] font-display tabular-nums text-[#666C14]">
             {formatJPY(totalApproved)}
           </span>
         </td>
@@ -802,14 +802,14 @@ function DealRowItem({
   const [showRowMenu, setShowRowMenu] = useState(false)
 
   const baseBg = overdue
-    ? 'bg-[#fef2f2] hover:bg-[#fde8e8]'
+    ? 'bg-[#FFD8C2] hover:bg-[#FFD8C2]'
     : urgent
-      ? 'bg-[#fffaf2] hover:bg-[#fff3e0]'
+      ? 'bg-[#FFD8C2] hover:bg-[#FFD8C2]'
       : stale
-        ? 'bg-[#fafaf9] hover:bg-[#f0f0ed]'
-        : 'bg-white hover:bg-[#fafaf9]'
+        ? 'bg-[#FBFAF6] hover:bg-[#EFEFEA]'
+        : 'bg-white hover:bg-[#FBFAF6]'
   const rowBg = isSelected
-    ? 'bg-[#fff8e8] hover:bg-[#fff8e8] ring-1 ring-inset ring-[#e5a32e]'
+    ? 'bg-[#FFD8C2] hover:bg-[#FFD8C2] ring-1 ring-inset ring-[#FF5C34]'
     : baseBg
 
   return (
@@ -827,15 +827,15 @@ function DealRowItem({
           }}
         >
           {visible ? (
-            <ChevronDown className="w-2.5 h-2.5 text-[#888] inline" />
+            <ChevronDown className="w-2.5 h-2.5 text-[#84787D] inline" />
           ) : (
-            <ChevronRight className="w-2.5 h-2.5 text-[#888] inline" />
+            <ChevronRight className="w-2.5 h-2.5 text-[#84787D] inline" />
           )}
         </td>
-        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888] truncate">{deal.deal_code}</td>
+        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#84787D] truncate">{deal.deal_code}</td>
         <td className="px-1.5 py-0.5 truncate" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
-            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#e5a32e] flex-shrink-0" />}
+            {urgent && <span className="inline-block w-1 h-1 rounded-full bg-[#FF5C34] flex-shrink-0" />}
             <span className="flex-1 min-w-0">
               <InlineCell
                 value={deal.deal_name}
@@ -857,7 +857,7 @@ function DealRowItem({
         <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
           <DealStatusDropdown dealId={deal.id} current={deal.simple_status} />
         </td>
-        <td className="px-2.5 py-1 text-right text-[11px] font-display tabular-nums text-[#22c55e]">
+        <td className="px-2.5 py-1 text-right text-[11px] font-display tabular-nums text-[#666C14]">
           {approvedTax > 0 ? formatJPY(approvedTax) : '-'}
         </td>
         <td className="px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
@@ -869,16 +869,16 @@ function DealRowItem({
             dataCol="desired_delivery_date"
           />
         </td>
-        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#888]">
+        <td className="px-2.5 py-1 text-[10px] tabular-nums text-[#84787D]">
           {formatDate(deal.last_activity_at)}
         </td>
-        <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{products.length}</td>
-        <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#555]">{quotes.length}</td>
+        <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#351E28]">{products.length}</td>
+        <td className="px-2.5 py-1 text-right text-[10px] tabular-nums text-[#351E28]">{quotes.length}</td>
         <td className="px-2.5 py-1 text-right relative">
           <div className="inline-flex items-center gap-1">
             <Link
               href={`/deals/${deal.id}`}
-              className="text-[10px] text-[#22c55e] no-underline hover:underline"
+              className="text-[10px] text-[#666C14] no-underline hover:underline"
               onClick={(e) => e.stopPropagation()}
               title="フルページで開く"
             >
@@ -890,7 +890,7 @@ function DealRowItem({
                 e.stopPropagation()
                 setShowRowMenu((s) => !s)
               }}
-              className="text-[#888] hover:bg-[#fafaf9] rounded p-0.5"
+              className="text-[#84787D] hover:bg-[#FBFAF6] rounded p-0.5"
               aria-label="案件メニュー"
               title="メニュー"
             >
@@ -907,7 +907,7 @@ function DealRowItem({
                 }}
               />
               <div
-                className="absolute right-2 top-7 z-[1001] bg-white border border-[#e8e8e6] rounded-[8px] shadow-lg py-1 min-w-[160px]"
+                className="absolute right-2 top-7 z-[1001] bg-white border border-[#E2E1DA] rounded-[12px] shadow-lg py-1 min-w-[160px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -916,9 +916,9 @@ function DealRowItem({
                     setShowRowMenu(false)
                     onArchiveDeal(deal.id, deal.deal_name || deal.deal_code)
                   }}
-                  className="w-full text-left text-[11px] px-3 py-1.5 hover:bg-[#fafaf9] inline-flex items-center gap-1.5 text-[#0a0a0a]"
+                  className="w-full text-left text-[11px] px-3 py-1.5 hover:bg-[#FBFAF6] inline-flex items-center gap-1.5 text-[#351E28]"
                 >
-                  <Archive className="w-3 h-3 text-[#888]" />
+                  <Archive className="w-3 h-3 text-[#84787D]" />
                   案件をクローズ
                 </button>
               </div>
@@ -928,7 +928,7 @@ function DealRowItem({
       </tr>
       {visible && (
         <tr>
-          <td colSpan={DEFAULT_COLUMNS.length} className="p-0 border-b border-[rgba(0,0,0,0.04)]">
+          <td colSpan={DEFAULT_COLUMNS.length} className="p-0 border-b border-[rgba(53,30,40,0.04)]">
             <DealExcelGrid
               dealId={deal.id}
               products={products}

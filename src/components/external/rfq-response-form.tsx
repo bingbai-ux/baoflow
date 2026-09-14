@@ -110,7 +110,7 @@ export function RfqResponseForm({
 
       {/* Per-product / per-variant 入力 */}
       <Section titleEn="Quotation by product" titleCn="按产品报价">
-        <p className="text-[11px] text-[#888] mb-3">
+        <p className="text-[11px] text-[#84787D] mb-3">
           Please fill in your unit price (USD), MOQ, lead time, and packaging info per item.<br />
           请按每个产品填写单价 (美金)、起订量、交期和包装信息。
         </p>
@@ -124,7 +124,7 @@ export function RfqResponseForm({
             return (
               <div
                 key={p.id}
-                className="bg-white border rounded-[10px] p-3"
+                className="bg-white border rounded-[12px] p-3"
                 style={{ borderColor: 'rgba(229,163,46,0.2)' }}
               >
                 <p className="font-display text-[13px] font-semibold mb-2">{p.description}</p>
@@ -139,8 +139,8 @@ export function RfqResponseForm({
                     {p.variants.map((v, vi) => {
                       const idx = startIdx + vi
                       return (
-                        <div key={v.id} className="bg-[#fafaf9] rounded-[8px] p-2.5">
-                          <div className="flex flex-wrap gap-2 text-[10.5px] text-[#555] mb-2">
+                        <div key={v.id} className="bg-[#FBFAF6] rounded-[12px] p-2.5">
+                          <div className="flex flex-wrap gap-2 text-[10.5px] text-[#351E28] mb-2">
                             <span className="font-semibold">{v.label || '(variant)'}</span>
                             {v.width_mm && (
                               <span>
@@ -190,8 +190,8 @@ export function RfqResponseForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full py-3 rounded-[10px] text-white font-medium text-[14px] disabled:opacity-50"
-        style={{ background: pending ? '#888' : '#e5a32e' }}
+        className="w-full py-3 rounded-full font-medium text-[14px] disabled:opacity-50"
+        style={{ background: pending ? '#EFEFEA' : '#E9F056', color: pending ? '#AEB8A0' : '#666C14' }}
       >
         {pending ? 'Submitting… / 提交中…' : 'Submit quotation / 提交报价'}
       </button>
@@ -293,9 +293,9 @@ function ProductLineInputs({
 }
 
 const inputCls =
-  'w-full px-3 py-2 text-[13px] border border-[#e8e8e6] rounded-[8px] bg-white focus:outline-none focus:border-[#e5a32e] focus:ring-1 focus:ring-[#e5a32e]'
+  'w-full px-3 py-2 text-[13px] border border-[#E2E1DA] rounded-[12px] bg-white focus:outline-none focus:border-[#FF5C34] focus:ring-1 focus:ring-[#FF5C34]'
 const smallInputCls =
-  'w-full px-2 py-1 text-[11px] border border-[#e8e8e6] rounded-[6px] bg-white focus:outline-none focus:border-[#e5a32e]'
+  'w-full px-2 py-1 text-[11px] border border-[#E2E1DA] rounded-[8px] bg-white focus:outline-none focus:border-[#FF5C34]'
 
 function Section({
   titleEn,
@@ -312,7 +312,7 @@ function Section({
       style={{ borderColor: 'rgba(229,163,46,0.15)' }}
     >
       <h2 className="font-display text-[14px] font-semibold mb-3">
-        {titleEn} <span className="text-[#888] font-body font-normal">· {titleCn}</span>
+        {titleEn} <span className="text-[#84787D] font-body font-normal">· {titleCn}</span>
       </h2>
       <div className="space-y-2.5">{children}</div>
     </section>
@@ -330,8 +330,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-[#555] mb-1 font-medium">
-        {labelEn} <span className="text-[#888]">/ {labelCn}</span>
+      <span className="block text-[11px] text-[#351E28] mb-1 font-medium">
+        {labelEn} <span className="text-[#84787D]">/ {labelCn}</span>
       </span>
       {children}
     </label>
@@ -341,7 +341,7 @@ function Field({
 function SmallField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[9.5px] text-[#888] mb-0.5">{label}</span>
+      <span className="block text-[9.5px] text-[#84787D] mb-0.5">{label}</span>
       {children}
     </label>
   )

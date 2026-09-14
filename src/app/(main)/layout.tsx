@@ -20,9 +20,9 @@ export default async function MainLayout({
 
   return (
     <UiProvider>
-      <div className="flex h-screen w-full bg-[#f6f5f2] overflow-hidden">
+      <div className="flex h-screen w-full bg-[#EFEFEA] overflow-hidden">
         <Sidebar />
-        <div className="ml-[64px] flex-1 flex flex-col min-w-0">
+        <div className="ml-[236px] flex-1 flex flex-col min-w-0">
           <TopBar />
           <main className="flex-1 overflow-auto px-5 pb-6">{children}</main>
         </div>

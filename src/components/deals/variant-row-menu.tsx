@@ -93,7 +93,7 @@ export function VariantRowMenu({ variantId, isSelected, variantLabel }: Props) {
           setOpen((v) => !v)
         }}
         disabled={pending}
-        className="inline-flex items-center justify-center w-5 h-5 rounded-[4px] text-[#888] hover:text-[#0a0a0a] hover:bg-[#f0f0ed] disabled:opacity-40"
+        className="inline-flex items-center justify-center w-5 h-5 rounded-[4px] text-[#84787D] hover:text-[#351E28] hover:bg-[#EFEFEA] disabled:opacity-40"
         title="バリエ操作"
         aria-label="バリエ操作メニュー"
       >
@@ -101,27 +101,27 @@ export function VariantRowMenu({ variantId, isSelected, variantLabel }: Props) {
       </button>
       {open && (
         <div
-          className="absolute top-6 right-0 z-30 min-w-[140px] bg-white border border-[#e8e8e6] rounded-[8px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] py-1 text-[11px] font-body"
+          className="absolute top-6 right-0 z-30 min-w-[140px] bg-white border border-[#E2E1DA] rounded-[12px] shadow-[0_8px_24px_rgba(53,30,40,0.12)] py-1 text-[11px] font-body"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={onAdopt}
-            className="w-full text-left px-3 py-1.5 hover:bg-[#fafaf9]"
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FBFAF6]"
           >
             {isSelected ? '採用を解除' : '採用にする'}
           </button>
           <button
             type="button"
             onClick={onDuplicate}
-            className="w-full text-left px-3 py-1.5 hover:bg-[#fafaf9]"
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FBFAF6]"
           >
             複製
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="w-full text-left px-3 py-1.5 text-[#c0392b] hover:bg-[#fef2f2]"
+            className="w-full text-left px-3 py-1.5 text-[#B03616] hover:bg-[#FFD8C2]"
           >
             削除
           </button>

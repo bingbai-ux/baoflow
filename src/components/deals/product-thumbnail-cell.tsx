@@ -80,8 +80,8 @@ export function ProductThumbnailCell({ productId, thumbnailUrl }: Props) {
         onClick={handlePick}
         disabled={pending}
         className={`block w-8 h-8 rounded-[4px] overflow-hidden border ${
-          thumbnailUrl ? 'border-[#e8e8e6]' : 'border-dashed border-[#d8d8d4] bg-[#fafaf9]'
-        } hover:ring-1 hover:ring-[#e5a32e] disabled:opacity-50`}
+          thumbnailUrl ? 'border-[#E2E1DA]' : 'border-dashed border-[#E2E1DA] bg-[#FBFAF6]'
+        } hover:ring-1 hover:ring-[#FF5C34] disabled:opacity-50`}
         title={thumbnailUrl ? '画像を差し替える' : '画像をアップロード'}
       >
         {thumbnailUrl ? (
@@ -92,7 +92,7 @@ export function ProductThumbnailCell({ productId, thumbnailUrl }: Props) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <span className="flex items-center justify-center w-full h-full text-[#bbb]">
+          <span className="flex items-center justify-center w-full h-full text-[#AEB8A0]">
             <ImageIcon className="w-3.5 h-3.5" />
           </span>
         )}
@@ -102,7 +102,7 @@ export function ProductThumbnailCell({ productId, thumbnailUrl }: Props) {
           type="button"
           onClick={handleClear}
           disabled={pending}
-          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-[#e8e8e6] flex items-center justify-center text-[#c0392b] hover:bg-[#fef2f2] disabled:opacity-50"
+          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-[#E2E1DA] flex items-center justify-center text-[#B03616] hover:bg-[#FFD8C2] disabled:opacity-50"
           title="画像を削除"
           aria-label="画像を削除"
         >

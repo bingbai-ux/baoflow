@@ -102,14 +102,14 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
   if (createdInvites.length > 0) {
     return (
       <Modal onClose={onClose} title="見積依頼を作成しました">
-        <p className="text-[12px] text-[#555] mb-3">
+        <p className="text-[12px] text-[#351E28] mb-3">
           各工場用の依頼 URL です。WeChat / メール等で送信してください。**有効期限は 7 日**。
         </p>
         <div className="space-y-2">
           {createdInvites.map((inv, i) => (
             <div
               key={i}
-              className="bg-[#fafaf9] border border-[#e8e8e6] rounded-[8px] p-2.5"
+              className="bg-[#FBFAF6] border border-[#E2E1DA] rounded-[12px] p-2.5"
             >
               <p className="text-[12px] font-semibold mb-1.5">{inv.factoryName}</p>
               <div className="flex gap-2 items-center">
@@ -117,17 +117,17 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
                   value={inv.url}
                   readOnly
                   onFocus={(e) => e.currentTarget.select()}
-                  className="flex-1 px-2 py-1 text-[10px] font-mono bg-white border border-[#e8e8e6] rounded-[4px]"
+                  className="flex-1 px-2 py-1 text-[10px] font-mono bg-white border border-[#E2E1DA] rounded-[4px]"
                 />
                 {inv.url.startsWith('http') ? (
                   <button
                     onClick={() => copy(inv.url)}
-                    className="text-[11px] px-2 py-1 bg-[#0a0a0a] text-white rounded-[5px] inline-flex items-center gap-1 hover:bg-[#222]"
+                    className="text-[11px] px-2 py-1 bg-[#351E28] text-[#C9A2B8] rounded-[5px] inline-flex items-center gap-1 hover:brightness-95"
                   >
                     <Copy className="w-3 h-3" /> コピー
                   </button>
                 ) : (
-                  <span className="text-[10px] text-[#888]">手動紐付け要</span>
+                  <span className="text-[10px] text-[#84787D]">手動紐付け要</span>
                 )}
               </div>
             </div>
@@ -136,7 +136,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         <div className="flex justify-end mt-4">
           <button
             onClick={onClose}
-            className="text-[12px] px-3 py-1.5 bg-[#0a0a0a] text-white rounded-[6px]"
+            className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px]"
           >
             閉じる
           </button>
@@ -152,9 +152,9 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         {/* 商品選択 */}
         <Section title="対象商品">
           {products.length === 0 ? (
-            <p className="text-[11px] text-[#888]">この案件には商品がまだありません</p>
+            <p className="text-[11px] text-[#84787D]">この案件には商品がまだありません</p>
           ) : (
-            <ul className="space-y-1.5 max-h-44 overflow-auto border border-[#e8e8e6] rounded-[6px] p-2">
+            <ul className="space-y-1.5 max-h-44 overflow-auto border border-[#E2E1DA] rounded-[8px] p-2">
               {products.map((p) => (
                 <li key={p.id}>
                   <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer">
@@ -163,7 +163,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
                       checked={productIds.has(p.id)}
                       onChange={() => toggleProduct(p.id)}
                     />
-                    <span className="font-display tabular-nums text-[10px] text-[#888]">
+                    <span className="font-display tabular-nums text-[10px] text-[#84787D]">
                       #{p.product_no}
                     </span>
                     <span>{p.description || '(未設定)'}</span>
@@ -177,11 +177,11 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         {/* 工場選択 */}
         <Section title={`依頼先工場 (${factoryIds.size} 選択中)`}>
           {factories.length === 0 ? (
-            <div className="text-[11px] text-[#888] bg-[#fffbf2] border border-[#f5d7a8] rounded-[6px] p-2.5">
+            <div className="text-[11px] text-[#84787D] bg-[#FFD8C2] border border-[#FFD8C2] rounded-[8px] p-2.5">
               工場マスターが空です。先に「工場招待リンク」で工場を登録してもらうか、自社で手動登録してください。
             </div>
           ) : (
-            <ul className="space-y-1.5 max-h-44 overflow-auto border border-[#e8e8e6] rounded-[6px] p-2">
+            <ul className="space-y-1.5 max-h-44 overflow-auto border border-[#E2E1DA] rounded-[8px] p-2">
               {factories.map((f) => {
                 const eligible = f.basic_info_completed
                 return (
@@ -198,9 +198,9 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
                         disabled={!eligible}
                       />
                       <span>{f.factory_name}</span>
-                      {f.name_cn && <span className="text-[10px] text-[#888]">/ {f.name_cn}</span>}
+                      {f.name_cn && <span className="text-[10px] text-[#84787D]">/ {f.name_cn}</span>}
                       {!eligible && (
-                        <span className="text-[9px] text-[#c0392b] bg-[#fef2f2] px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] text-[#B03616] bg-[#FFD8C2] px-1.5 py-0.5 rounded">
                           基本情報未入力
                         </span>
                       )}
@@ -215,22 +215,22 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         {/* 期限 + メッセージ */}
         <Section title="補足">
           <label className="block">
-            <span className="block text-[10px] text-[#555] mb-1">回答期限 (任意)</span>
+            <span className="block text-[10px] text-[#351E28] mb-1">回答期限 (任意)</span>
             <input
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full px-2 py-1.5 text-[12px] border border-[#e8e8e6] rounded-[6px]"
+              className="w-full px-2 py-1.5 text-[12px] border border-[#E2E1DA] rounded-[8px]"
             />
           </label>
           <label className="block mt-2">
-            <span className="block text-[10px] text-[#555] mb-1">メッセージ (任意)</span>
+            <span className="block text-[10px] text-[#351E28] mb-1">メッセージ (任意)</span>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={2}
               placeholder="特記事項があれば"
-              className="w-full px-2 py-1.5 text-[12px] border border-[#e8e8e6] rounded-[6px] resize-y"
+              className="w-full px-2 py-1.5 text-[12px] border border-[#E2E1DA] rounded-[8px] resize-y"
             />
           </label>
         </Section>
@@ -238,14 +238,14 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="text-[12px] px-3 py-1.5 border border-[#e8e8e6] rounded-[6px]"
+            className="text-[12px] px-3 py-1.5 border border-[#E2E1DA] rounded-[8px]"
           >
             キャンセル
           </button>
           <button
             onClick={handleSubmit}
             disabled={pending || productIds.size === 0 || factoryIds.size === 0}
-            className="text-[12px] px-3 py-1.5 bg-[#0a0a0a] text-white rounded-[6px] disabled:opacity-50 inline-flex items-center gap-1"
+            className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] disabled:opacity-50 inline-flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />
             {pending ? '作成中…' : 'RFQ を作成'}
@@ -271,12 +271,12 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-[14px] shadow-2xl max-w-lg w-full max-h-[80vh] overflow-auto p-5"
+        className="bg-white rounded-[16px] shadow-2xl max-w-lg w-full max-h-[80vh] overflow-auto p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-display text-[14px] font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-1 text-[#888] hover:bg-[#fafaf9] rounded">
+          <button onClick={onClose} className="p-1 text-[#84787D] hover:bg-[#FBFAF6] rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -289,7 +289,7 @@ function Modal({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-[0.06em] text-[#888] mb-1.5">{title}</p>
+      <p className="text-[10px] uppercase tracking-[0.06em] text-[#84787D] mb-1.5">{title}</p>
       {children}
     </div>
   )

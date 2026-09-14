@@ -1,0 +1,34 @@
+<!-- @dsCard group="Brand" viewport="700x200" name="タブ2種の使い分け（D80）" subtitle="中身の切替=ファイルタブ / 絞り込み=チップ" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>タブ</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div>
+    <div class="lbl">中身の切替 = ファイルタブ</div>
+    <div style="display:flex;gap:4px;align-items:flex-end">
+      <span style="padding:8px 16px;border:1px solid var(--fc-line);border-bottom:none;border-radius:12px 12px 0 0;background:var(--fc-card);font-size:11.5px;font-weight:700;margin-bottom:-1px;position:relative;z-index:2">評価シート</span>
+      <span style="padding:8px 16px 7px;border:1px solid var(--fc-line);border-bottom:none;border-radius:12px 12px 0 0;background:var(--fc-card-soft);color:var(--fc-text-muted);font-size:11.5px;font-weight:700">給与テーブル</span>
+    </div>
+    <div style="border:1px solid var(--fc-line);border-radius:0 16px 16px 16px;padding:12px;font-size:11px;color:var(--fc-text-muted)">パネルと1枚の紙につながる</div>
+  </div>
+  <div>
+    <div class="lbl">絞り込み = チップ</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <span style="background:var(--fc-cassis);color:var(--fc-cassis-tint);font-size:11.5px;font-weight:700;padding:8px 14px;border-radius:999px">全店舗</span>
+      <span style="background:var(--fc-card);color:var(--fc-text-muted);border:1px solid var(--fc-line);font-size:11.5px;font-weight:700;padding:8px 14px;border-radius:999px">渋谷店</span>
+      <span style="background:var(--fc-card);color:var(--fc-text-muted);border:1px solid var(--fc-line);font-size:11.5px;font-weight:700;padding:8px 14px;border-radius:999px">要対応のみ</span>
+    </div>
+    <div style="margin-top:10px;border:1px solid var(--fc-line);border-radius:16px;padding:12px;font-size:11px;color:var(--fc-text-muted)">下の一覧が絞られるだけ</div>
+  </div>
+</div></body></html>

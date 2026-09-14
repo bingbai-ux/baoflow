@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" viewport="700x400" name="Navigation（サイドバー・ボトムナビ・見出し）" subtitle="Cassis面の2層構造。選択中だけWasabi" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{background:var(--fc-card);padding:16px}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.FCDesign || Object.values(window).find(v => v && v.Sidebar && v.BottomNav) || {};
+const { Sidebar, BottomNav, ScreenHeader, MobileHeader, UserChip, FilterChip, FaceAvatar } = NS;
+function Demo() {
+  const [id, setId] = React.useState('leave');
+  const [tab, setTab] = React.useState('home');
+  return (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: 368 }}>
+      <Sidebar hub="HR HUB" roleLabel="本社・人事" activeId={id} onSelect={setId}
+        items={[
+          { kind: 'category', label: '法令・勤怠' },
+          { kind: 'item', id: 'leave', label: '有給5日ダッシュボード', badge: '3' },
+          { kind: 'item', id: 'closing', label: '月次締めフロー', badge: '4' },
+          { kind: 'category', label: '人と組織' },
+          { kind: 'item', id: 'ledger', label: 'スタッフ台帳' },
+          { kind: 'item', id: 'org', label: '組織図' },
+        ]}
+        footer={<UserChip face="森" name="森田 かおり" role="本社 人事" />}
+        style={{ borderRadius: 'var(--fc-r-frame)' }} />
+      <div style={{ flex: 1, minWidth: 0, border: '1px solid var(--fc-line)', borderRadius: 'var(--fc-r-frame)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <ScreenHeader title="有給5日取得の進捗" meta="対象21名 · バーの黒線＝義務の5日"
+          actions={<><FilterChip active>全店舗</FilterChip><FilterChip>要対応のみ</FilterChip></>} />
+        <div style={{ flex: 1, padding: 16, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ width: 240, border: '1px solid var(--fc-line)', borderRadius: 'var(--fc-r-frame)', overflow: 'hidden' }}>
+            <MobileHeader title="有給を申請" sub="有給残 5.0日" onBack={() => {}} right={<FaceAvatar size={28}>山</FaceAvatar>} />
+            <div style={{ height: 56, background: 'var(--fc-bg)' }} />
+            <BottomNav activeId={tab} onSelect={setTab}
+              items={[{ id: 'home', label: 'ホーム' }, { id: 'shift', label: 'シフト' }, { id: 'punch', label: '打刻' }, { id: 'apply', label: '申請', badge: '1' }, { id: 'menu', label: 'メニュー' }]} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script><script>
+window.addEventListener('load', function () {
+  var ns = window.FCDesign || Object.values(window).find(function (v) { return v && v.Button && v.Badge; });
+  if (ns) return;
+  var r = document.getElementById('root');
+  if (r && r.children.length) return;
+  document.body.innerHTML = '<div style="font-family:var(--fc-font);max-width:520px;margin:24px auto;background:var(--fc-card);border:1px solid var(--fc-line);border-radius:16px;padding:20px">'
+    + '<div style="display:inline-flex;background:#E9F056;color:#666C14;font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 13px;border-radius:999px">F&amp;C Design System</div>'
+    + '<div style="margin-top:14px;font-size:15px;font-weight:800">コンポーネントの読み込み待ちです</div>'
+    + '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;color:#84787D">この画面は共通コンポーネントを使って組まれています。'
+    + '共有メニューで <b style="color:#351E28">ファイル種別を「Design System」</b> に設定すると、コンポーネントがビルドされてこの画面が表示されます。</div></div>';
+});
+</script>
+</body></html>

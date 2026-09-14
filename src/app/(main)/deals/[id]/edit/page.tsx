@@ -35,17 +35,17 @@ export default async function EditDealPage({ params }: Props) {
     <>
       <Link
         href={`/deals/${id}`}
-        className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2"
+        className="inline-flex items-center gap-1 text-[13px] text-[#84787D] font-body no-underline hover:text-[#351E28] mt-4 mb-2"
       >
         <ChevronLeft className="w-4 h-4" />
         案件詳細に戻る
       </Link>
 
       <div className="py-3">
-        <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a]">案件編集</h1>
+        <h1 className="font-display text-[24px] font-semibold text-[#351E28]">案件編集</h1>
       </div>
 
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5 mt-2">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 mt-2">
         <DealForm
           initial={deal}
           salesUsers={profiles || []}

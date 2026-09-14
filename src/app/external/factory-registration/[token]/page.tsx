@@ -20,10 +20,10 @@ export default async function FactoryRegistrationPage({ params }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-[24px] font-bold text-[#1a1a1a]">
+        <h1 className="font-display text-[24px] font-bold text-[#351E28]">
           Factory Profile / 工厂资料登记
         </h1>
-        <p className="text-[12px] text-[#555] mt-1 leading-relaxed">
+        <p className="text-[12px] text-[#351E28] mt-1 leading-relaxed">
           Please fill in your factory information so we can request quotations.<br />
           请填写工厂基本信息，以便我们发送询价请求。
         </p>

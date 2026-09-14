@@ -31,7 +31,7 @@ export function DealPaneHost({ data }: Props) {
       <button
         type="button"
         onClick={() => setPaneOpen(true)}
-        className="self-start mt-3 mr-0 w-7 h-20 bg-white border border-r-0 border-[#e8e8e6] rounded-l-[8px] flex items-center justify-center text-[#888] hover:text-[#0a0a0a] hover:bg-[#fafaf9] transition-colors flex-shrink-0"
+        className="self-start mt-3 mr-0 w-7 h-20 bg-white border border-r-0 border-[#E2E1DA] rounded-l-[8px] flex items-center justify-center text-[#84787D] hover:text-[#351E28] hover:bg-[#FBFAF6] transition-colors flex-shrink-0"
         title="案件パネルを開く"
         aria-label="案件パネルを開く"
       >
@@ -53,7 +53,7 @@ export function DealPaneToggle() {
     <button
       type="button"
       onClick={togglePane}
-      className="text-[11px] font-body text-[#555] border border-[#e8e8e6] rounded-[6px] px-2 py-1 bg-white hover:bg-[#fafaf8] inline-flex items-center gap-1"
+      className="text-[11px] font-body text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 bg-white hover:bg-[#FBFAF6] inline-flex items-center gap-1"
       title={paneOpen ? '案件パネルを閉じる' : '案件パネルを開く'}
     >
       {paneOpen ? <ChevronRight className="w-3 h-3" /> : <PanelRightOpen className="w-3 h-3" />}

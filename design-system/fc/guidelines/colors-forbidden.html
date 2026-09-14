@@ -1,0 +1,29 @@
+<!-- @dsCard group="Colors" viewport="700x215" name="してはいけない使い方" subtitle="白地インク直置き・白文字・Wasabiの乱用" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>禁止</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:var(--fc-fs-sm)">
+  <div style="border:1px solid var(--fc-line);border-radius:var(--fc-r-card);padding:12px">
+    <div class="lbl"><span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✗</span>白地にインク直置き</div>
+    <div style="color:var(--fc-orange-ink);font-weight:700" data-counter-example="ink-on-white">期限まで 46日</div>
+    <div style="margin-top:10px" class="lbl"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✓</span>ピルに載せる</div>
+    <span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px">期限まで 46日</span>
+  </div>
+  <div style="border:1px solid var(--fc-line);border-radius:var(--fc-r-card);padding:12px">
+    <div class="lbl"><span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✗</span>Cassis面に白文字</div>
+    <div style="background:var(--fc-cassis);color:#fff;border-radius:10px;padding:8px 10px;font-size:12px" data-counter-example="white-text-on-cassis">承認する</div>
+    <div style="margin-top:10px" class="lbl"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✓</span>Cassis Tint</div>
+    <div style="background:var(--fc-cassis);color:var(--fc-cassis-tint);border-radius:10px;padding:8px 10px;font-size:12px">承認する</div>
+  </div>
+</div></body></html>

@@ -34,8 +34,8 @@ export function DealTabs({ tabs, defaultTab, children }: DealTabsProps) {
                 ? "'Fraunces', serif"
                 : "'Zen Kaku Gothic New', system-ui, sans-serif",
               fontWeight: activeTab === tab.id ? 600 : 400,
-              backgroundColor: activeTab === tab.id ? '#0a0a0a' : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : '#888888',
+              backgroundColor: activeTab === tab.id ? '#351E28' : 'transparent',
+              color: activeTab === tab.id ? '#ffffff' : '#84787D',
               transition: 'all 0.15s ease',
             }}
           >

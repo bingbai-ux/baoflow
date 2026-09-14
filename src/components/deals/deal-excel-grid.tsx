@@ -48,13 +48,11 @@ const FIX = (n: number) => (v: number | string | null) =>
 
 // Per-product accent colors. Cycles by product_no so adjacent products are distinct.
 // Light wash on the leftmost cell + a colored left border on the product header bar.
+// F&C 基本5色の面のみ(Orange は警告予約のため商品色には使わない)
 const PRODUCT_PALETTE = [
-  { bar: '#22c55e', wash: '#f0fdf4' }, // green
-  { bar: '#3b82f6', wash: '#eff6ff' }, // blue
-  { bar: '#e5a32e', wash: '#fffbf2' }, // amber
-  { bar: '#a855f7', wash: '#faf5ff' }, // purple
-  { bar: '#ef4444', wash: '#fef2f2' }, // red
-  { bar: '#06b6d4', wash: '#ecfeff' }, // cyan
+  { bar: '#E9F056', wash: 'rgba(233,240,86,0.28)', ink: '#666C14' }, // wasabi
+  { bar: '#D7EFFF', wash: 'rgba(215,239,255,0.45)', ink: '#33566F' }, // cool blue
+  { bar: '#AEB8A0', wash: 'rgba(174,184,160,0.25)', ink: '#4C5544' }, // sauge
 ]
 
 // Sprint 7-3-2 仕様書 §2-2-2: food_grade / food_inspection_status の選択肢。
@@ -83,7 +81,7 @@ export function DealExcelGrid({
 
   if (sortedProducts.length === 0) {
     return (
-      <div className="bg-[#fafaf9] px-3.5 py-4 text-[12px] text-[#888]">
+      <div className="bg-[#FBFAF6] px-3.5 py-4 text-[12px] text-[#84787D]">
         商品がまだありません ·{' '}
         <AddProductButton dealId={dealId} variant="inline" />
       </div>
@@ -91,7 +89,7 @@ export function DealExcelGrid({
   }
 
   return (
-    <div className="bg-[#fafaf9] border-t border-b border-[rgba(0,0,0,0.06)]">
+    <div className="bg-[#FBFAF6] border-t border-b border-[rgba(53,30,40,0.06)]">
       <div className="overflow-x-auto">
         <table
           className="border-collapse text-[11px] font-body"
@@ -108,23 +106,23 @@ export function DealExcelGrid({
           </colgroup>
           <thead>
             {/* Group header row */}
-            <tr className="bg-[#e8e7e2] text-[#444]">
+            <tr className="bg-[#E2E1DA] text-[#351E28]">
               {GROUPS.map((g) => (
                 <th
                   key={g.label}
                   colSpan={g.span}
-                  className="px-2 py-1.5 text-[10px] uppercase tracking-[0.06em] font-semibold border-b-2 border-r border-[rgba(0,0,0,0.08)] text-center"
+                  className="px-2 py-1.5 text-[10px] uppercase tracking-[0.06em] font-semibold border-b-2 border-r border-[rgba(53,30,40,0.08)] text-center"
                 >
                   {g.label}
                 </th>
               ))}
             </tr>
             {/* Field header row */}
-            <tr className="bg-[#f5f4f0] text-[#666]">
+            <tr className="bg-[#EFEFEA] text-[#84787D]">
               {COLS.map((c) => (
                 <th
                   key={c.k}
-                  className={`px-1.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.03em] border-b border-r border-[rgba(0,0,0,0.06)] whitespace-nowrap ${
+                  className={`px-1.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.03em] border-b border-r border-[rgba(53,30,40,0.06)] whitespace-nowrap ${
                     c.align === 'right' ? 'text-right' : 'text-left'
                   }`}
                 >
@@ -159,11 +157,11 @@ export function DealExcelGrid({
           </tbody>
         </table>
       </div>
-      <div className="px-3.5 py-2 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-3 text-[11px]">
+      <div className="px-3.5 py-2 border-t border-[rgba(53,30,40,0.06)] flex items-center gap-3 text-[11px]">
         <AddProductButton dealId={dealId} variant="inline" />
         <Link
           href={`/deals/${dealId}`}
-          className="text-[#888] no-underline hover:text-[#0a0a0a] ml-auto"
+          className="text-[#84787D] no-underline hover:text-[#351E28] ml-auto"
         >
           詳細ページを開く →
         </Link>
@@ -195,7 +193,7 @@ function AddProductButton({ dealId, variant }: { dealId: string; variant: 'inlin
       type="button"
       onClick={handleAdd}
       disabled={pending}
-      className={`text-[#22c55e] hover:underline disabled:opacity-50 ${
+      className={`text-[#666C14] hover:underline disabled:opacity-50 ${
         variant === 'inline' ? '' : ''
       }`}
     >
@@ -213,7 +211,7 @@ function ProductBlock({
 }: {
   product: ProductRow
   rows: RowData[]
-  palette: { bar: string; wash: string }
+  palette: { bar: string; wash: string; ink: string }
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -243,31 +241,31 @@ function ProductBlock({
       <tr style={{ background: palette.wash }}>
         <td
           colSpan={COLS.length}
-          className="border-b-2 border-t border-[rgba(0,0,0,0.08)] px-3 py-2 cursor-pointer hover:brightness-95"
+          className="border-b-2 border-t border-[rgba(53,30,40,0.08)] px-3 py-2 cursor-pointer hover:brightness-95"
           style={{ borderLeft: `3px solid ${palette.bar}` }}
           onClick={onToggle}
         >
           <div className="flex items-center gap-3">
             {isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-[#555]" />
+              <ChevronDown className="w-3 h-3 text-[#351E28]" />
             ) : (
-              <ChevronRight className="w-3 h-3 text-[#555]" />
+              <ChevronRight className="w-3 h-3 text-[#351E28]" />
             )}
             <span
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-display font-bold text-white"
-              style={{ background: palette.bar }}
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-display font-bold"
+              style={{ background: palette.bar, color: palette.ink }}
             >
               {product.product_no}
             </span>
-            <span className="text-[13px] font-body font-semibold text-[#0a0a0a]">
+            <span className="text-[13px] font-body font-semibold text-[#351E28]">
               {product.description || '(商品名未設定)'}
             </span>
             {product.factory_staff_code && (
-              <span className="text-[10px] bg-[#0a0a0a] text-white px-1.5 py-0.5 rounded-[4px] font-display tracking-wider">
+              <span className="text-[10px] bg-[#351E28] text-[#C9A2B8] px-1.5 py-0.5 rounded-[4px] font-display tracking-wider">
                 {product.factory_staff_code}
               </span>
             )}
-            <span className="text-[11px] text-[#888]">
+            <span className="text-[11px] text-[#84787D]">
               バリエ {variantCount} 件
             </span>
             <button
@@ -277,7 +275,7 @@ function ProductBlock({
                 handleAddVariant()
               }}
               disabled={pending}
-              className="ml-auto inline-flex items-center gap-0.5 text-[10px] text-[#22c55e] hover:underline disabled:opacity-50"
+              className="ml-auto inline-flex items-center gap-0.5 text-[10px] text-[#666C14] hover:underline disabled:opacity-50"
               title="新しいバリエを追加 (Bug B: 旧 /products/.../variants/new ページの代替)"
             >
               <Plus className="w-2.5 h-2.5" />
@@ -291,12 +289,12 @@ function ProductBlock({
         rows.map((r, idx) => (
           <tr
             key={r.variant.id || `empty-${product.id}-${idx}`}
-            className={`hover:bg-[#fafaf9] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdfcfa]'}`}
+            className={`hover:bg-[#FBFAF6] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FBFAF6]'}`}
           >
             {COLS.map((c, ci) => (
               <td
                 key={c.k}
-                className="border-b border-r border-[rgba(0,0,0,0.05)] p-0 align-middle"
+                className="border-b border-r border-[rgba(53,30,40,0.05)] p-0 align-middle"
                 style={ci === 0 ? { borderLeft: `3px solid ${palette.bar}` } : undefined}
               >
                 <Cell col={c.k} row={r} />
@@ -521,10 +519,10 @@ function Display({
   return (
     <span
       className={`block px-1.5 py-1 text-[11px] ${align === 'right' ? 'text-right' : 'text-left'} ${
-        green ? 'text-[#22c55e] font-display tabular-nums font-semibold' : 'text-[#0a0a0a]'
+        green ? 'text-[#666C14] font-display tabular-nums font-semibold' : 'text-[#351E28]'
       }`}
     >
-      {children || <span className="text-[#ccc]">—</span>}
+      {children || <span className="text-[#E2E1DA]">—</span>}
     </span>
   )
 }

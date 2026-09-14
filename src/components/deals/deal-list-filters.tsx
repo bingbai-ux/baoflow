@@ -59,7 +59,7 @@ export function DealListFilters() {
 
       {/* Search box */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#888]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#84787D]" />
         <input
           type="text"
           value={searchValue}
@@ -74,7 +74,7 @@ export function DealListFilters() {
             if (searchValue !== currentSearch) setParam('q', searchValue)
           }}
           placeholder="案件名・クライアント名で検索"
-          className="w-full pl-9 pr-3 py-2 text-[13px] font-body bg-white border border-[#e8e8e6] rounded-[8px] focus:outline-none focus:border-[#0a0a0a] transition-colors"
+          className="w-full pl-9 pr-3 py-2 text-[13px] font-body bg-white border border-[#E2E1DA] rounded-[12px] focus:outline-none focus:border-[#351E28] transition-colors"
         />
       </div>
     </div>
@@ -98,8 +98,8 @@ function FilterPill({ label, active, onClick, disabled }: FilterPillProps) {
         px-3 py-1 rounded-full text-[12px] font-body transition-colors
         ${
           active
-            ? 'bg-[#0a0a0a] text-white'
-            : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#f5f5f4]'
+            ? 'bg-[#351E28] text-[#C9A2B8]'
+            : 'bg-white text-[#351E28] border border-[#E2E1DA] hover:bg-[#EFEFEA]'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}

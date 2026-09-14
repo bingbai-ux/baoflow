@@ -1,0 +1,61 @@
+<!-- @dsCard group="Components" viewport="700x330" name="Core（ボタン・バッジ・チップ・タブ）" subtitle="ピル形の操作系と状態バッジ5種" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{background:var(--fc-card);padding:16px}
+.lbl{font-size:var(--fc-fs-xs);color:var(--fc-text-muted);font-weight:700;line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.FCDesign || Object.values(window).find(v => v && v.Button && v.Badge) || {};
+const { Button, IconButton, Badge, FilterChip, FileTabs } = NS;
+function Demo() {
+  const [tab, setTab] = React.useState('評価シート');
+  return (
+    <div>
+      <div className="lbl">Button — main は1画面1つ</div>
+      <div className="row">
+        <Button tone="main" size="lg">この申請を承認する</Button>
+        <Button tone="dark">＋ 新規申請</Button>
+        <Button tone="ghost">下書き保存</Button>
+        <Button tone="danger">取り下げ</Button>
+        <Button disabled>承認する</Button>
+        <IconButton tone="main" label="承認">✓</IconButton>
+        <IconButton label="コメント">💬</IconButton>
+      </div>
+      <div className="lbl">Badge — 状態はこの5種に統一</div>
+      <div className="row">
+        <Badge tone="new">新着</Badge><Badge tone="info">確認中</Badge>
+        <Badge tone="soft">承認待ち</Badge><Badge tone="hot">期限間近</Badge><Badge tone="mute">下書き</Badge>
+      </div>
+      <div className="lbl">FilterChip — 絞り込み / FileTabs — 中身の切替</div>
+      <div className="row">
+        <FilterChip active>すべて</FilterChip><FilterChip>シフト</FilterChip><FilterChip>休暇</FilterChip>
+      </div>
+      <FileTabs tabs={['評価シート', '給与テーブル', '改訂の遍歴']} value={tab} onChange={setTab}>
+        <span style={{ fontSize: 'var(--fc-fs-sm)', color: 'var(--fc-text-muted)' }}>
+          選択中のタブとこのパネルが1枚の紙のようにつながる。
+        </span>
+      </FileTabs>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script><script>
+window.addEventListener('load', function () {
+  var ns = window.FCDesign || Object.values(window).find(function (v) { return v && v.Button && v.Badge; });
+  if (ns) return;
+  var r = document.getElementById('root');
+  if (r && r.children.length) return;
+  document.body.innerHTML = '<div style="font-family:var(--fc-font);max-width:520px;margin:24px auto;background:var(--fc-card);border:1px solid var(--fc-line);border-radius:16px;padding:20px">'
+    + '<div style="display:inline-flex;background:#E9F056;color:#666C14;font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 13px;border-radius:999px">F&amp;C Design System</div>'
+    + '<div style="margin-top:14px;font-size:15px;font-weight:800">コンポーネントの読み込み待ちです</div>'
+    + '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;color:#84787D">この画面は共通コンポーネントを使って組まれています。'
+    + '共有メニューで <b style="color:#351E28">ファイル種別を「Design System」</b> に設定すると、コンポーネントがビルドされてこの画面が表示されます。</div></div>';
+});
+</script>
+</body></html>

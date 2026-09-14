@@ -83,10 +83,10 @@ export default async function RfqResponsePage({ params }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-[24px] font-bold text-[#1a1a1a]">
+        <h1 className="font-display text-[24px] font-bold text-[#351E28]">
           Quotation Request / 询价单
         </h1>
-        <p className="text-[12px] text-[#555] mt-1 leading-relaxed">
+        <p className="text-[12px] text-[#351E28] mt-1 leading-relaxed">
           Reference: <span className="font-display tabular-nums">{rfq.rfq_number}</span>
           {rfq.response_deadline && (
             <>
@@ -96,7 +96,7 @@ export default async function RfqResponsePage({ params }: Props) {
           )}
         </p>
         {rfq.request_message && (
-          <p className="text-[12px] text-[#555] mt-2 p-3 bg-[#fffbf2] border border-[#f5d7a8] rounded-[8px]">
+          <p className="text-[12px] text-[#351E28] mt-2 p-3 bg-[#FFD8C2] border border-[#FFD8C2] rounded-[12px]">
             {rfq.request_message}
           </p>
         )}

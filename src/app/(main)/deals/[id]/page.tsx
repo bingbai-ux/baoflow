@@ -118,7 +118,7 @@ export default async function DealDetailPage({ params }: Props) {
     <>
       <Link
         href="/deals"
-        className="inline-flex items-center gap-1 text-[13px] text-[#888] font-body no-underline hover:text-[#555] mt-4 mb-2"
+        className="inline-flex items-center gap-1 text-[13px] text-[#84787D] font-body no-underline hover:text-[#351E28] mt-4 mb-2"
       >
         <ChevronLeft className="w-4 h-4" />
         案件一覧
@@ -126,25 +126,25 @@ export default async function DealDetailPage({ params }: Props) {
 
       <div className="flex justify-between items-start py-3 gap-4">
         <div className="min-w-0">
-          <p className="text-[11px] text-[#888] font-body tabular-nums">{deal.deal_code}</p>
-          <h1 className="font-display text-[24px] font-semibold text-[#0a0a0a] truncate">
+          <p className="text-[11px] text-[#84787D] font-body tabular-nums">{deal.deal_code}</p>
+          <h1 className="font-display text-[24px] font-semibold text-[#351E28] truncate">
             {deal.deal_name || '(案件名未設定)'}
           </h1>
-          <p className="text-[13px] text-[#555] font-body mt-1 truncate">
+          <p className="text-[13px] text-[#351E28] font-body mt-1 truncate">
             {deal.client_name_text || '(クライアント未設定)'}
           </p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <Link
             href={`/deals/${id}/documents`}
-            className="bg-white text-[#0a0a0a] border border-[#e8e8e6] rounded-[8px] px-3 py-2 text-[12px] font-medium font-body no-underline inline-flex items-center gap-1"
+            className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-[12px] px-3 py-2 text-[12px] font-medium font-body no-underline inline-flex items-center gap-1"
           >
             <FileText className="w-3.5 h-3.5" />
             帳票発行
           </Link>
           <Link
             href={`/deals/${id}/edit`}
-            className="bg-[#0a0a0a] text-white rounded-[8px] px-3 py-2 text-[12px] font-medium font-body no-underline whitespace-nowrap"
+            className="bg-[#351E28] text-[#C9A2B8] rounded-full px-3 py-2 text-[12px] font-medium font-body no-underline whitespace-nowrap"
           >
             編集
           </Link>
@@ -152,14 +152,14 @@ export default async function DealDetailPage({ params }: Props) {
       </div>
 
       {(approvedQuotes.length > 0 || feesTotal > 0) && (
-        <div className="mb-4 bg-white rounded-[14px] border border-[#22c55e] p-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-[12px] font-body text-[#555]">
-            採用見積 <span className="text-[#0a0a0a] font-semibold">{approvedQuotes.length}</span> 件 · 別途費用{' '}
-            <span className="text-[#0a0a0a] font-semibold tabular-nums">{formatJPY(feesTotal)}</span>
+        <div className="mb-4 bg-white rounded-[16px] border border-[#E9F056] p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-[12px] font-body text-[#351E28]">
+            採用見積 <span className="text-[#351E28] font-semibold">{approvedQuotes.length}</span> 件 · 別途費用{' '}
+            <span className="text-[#351E28] font-semibold tabular-nums">{formatJPY(feesTotal)}</span>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-[#888] font-body">採用合計 (税込) + 別途費用</p>
-            <p className="text-[20px] font-display font-semibold text-[#22c55e] tabular-nums">
+            <p className="text-[10px] text-[#84787D] font-body">採用合計 (税込) + 別途費用</p>
+            <p className="text-[20px] font-display font-semibold text-[#666C14] tabular-nums">
               {formatJPY(approvedTotalTax + feesTotal)}
             </p>
           </div>

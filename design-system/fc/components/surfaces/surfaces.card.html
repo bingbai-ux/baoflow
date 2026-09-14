@@ -1,0 +1,43 @@
+<!-- @dsCard group="Components" viewport="700x290" name="Surfaces（カード4種・要約帯）" subtitle="Cool Blue=データ / Wasabi=ひとこと / Orange Tint=期限" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{background:var(--fc-card);padding:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.FCDesign || Object.values(window).find(v => v && v.DataCard && v.NoteCard) || {};
+const { Card, DataCard, NoteCard, StatBand, AlertBanner, Button, Badge } = NS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <StatBand items={[{ value: '12名', label: '達成済み' }, { value: '6名', label: '順調' }, { value: '3名', label: '要対応' }]} note="期限60日前に自動アラート" />
+    <div className="grid">
+      <DataCard title="今日のシフト" meta="9/6（金）">
+        <div className="fc-num" style={{ fontSize: 'var(--fc-fs-num-lg)', fontWeight: 800, lineHeight: 1 }}>12:00–20:00</div>
+      </DataCard>
+      <NoteCard title="AIのきづき">土曜夕方のホールが1名不足。希望変更の承認で不足が拡大します。</NoteCard>
+    </div>
+    <AlertBanner title="10月の希望シフト、未提出です" action={<Button size="sm">提出する</Button>}>締切は今日 23:59</AlertBanner>
+    <Card title="基本情報" action={<Badge tone="info">確認中</Badge>}>
+      <span style={{ fontSize: 'var(--fc-fs-sm)', color: 'var(--fc-text-muted)' }}>白いカードは影なし・線区切り・角丸16px。</span>
+    </Card>
+  </div>
+);
+</script><script>
+window.addEventListener('load', function () {
+  var ns = window.FCDesign || Object.values(window).find(function (v) { return v && v.Button && v.Badge; });
+  if (ns) return;
+  var r = document.getElementById('root');
+  if (r && r.children.length) return;
+  document.body.innerHTML = '<div style="font-family:var(--fc-font);max-width:520px;margin:24px auto;background:var(--fc-card);border:1px solid var(--fc-line);border-radius:16px;padding:20px">'
+    + '<div style="display:inline-flex;background:#E9F056;color:#666C14;font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 13px;border-radius:999px">F&amp;C Design System</div>'
+    + '<div style="margin-top:14px;font-size:15px;font-weight:800">コンポーネントの読み込み待ちです</div>'
+    + '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;color:#84787D">この画面は共通コンポーネントを使って組まれています。'
+    + '共有メニューで <b style="color:#351E28">ファイル種別を「Design System」</b> に設定すると、コンポーネントがビルドされてこの画面が表示されます。</div></div>';
+});
+</script>
+</body></html>

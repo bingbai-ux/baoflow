@@ -24,7 +24,7 @@ export function CardLabel({ icon, children }: CardLabelProps) {
         style={{
           fontSize: 12.5,
           fontWeight: 500,
-          color: '#888888',
+          color: '#84787D',
           fontFamily: "'Zen Kaku Gothic New', system-ui, sans-serif",
         }}
       >

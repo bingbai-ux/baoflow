@@ -1,0 +1,23 @@
+<!-- @dsCard group="Type" viewport="700x185" name="数字の扱い" subtitle="tabular-nums で桁を揃える。主要な数値は24px/800" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>数字</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:flex;flex-direction:column;gap:10px">
+  <div><div class="lbl">主要な数値 24 / 800 · tabular-nums</div>
+  <div class="fc-num" style="font-size:24px;font-weight:800">128.5h / ¥1,240,800</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div><div class="lbl"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✓</span>桁揃えあり</div><div class="fc-num" style="font-size:13px;line-height:1.7">7 / 12日<br>11 / 11日<br>2 / 10日</div></div>
+    <div><div class="lbl"><span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✗</span>桁揃えなし</div><div style="font-size:13px;line-height:1.7;font-variant-numeric:normal">7 / 12日<br>11 / 11日<br>2 / 10日</div></div>
+  </div>
+</div></body></html>

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="インク5色（色面専用）" subtitle="各インクは対応する色面の上でしか使わない。白地は禁止" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>インク</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div class="sw" style="grid-template-columns:repeat(5,1fr)">
+<div class="chipbox"><div class="c" style="background:#666C14"></div><div class="m"><b>Wasabi Ink</b><span>#666C14 · Wasabi面の文字</span></div></div>
+<div class="chipbox"><div class="c" style="background:#33566F"></div><div class="m"><b>Blue Ink</b><span>#33566F · Cool Blue面の文字</span></div></div>
+<div class="chipbox"><div class="c" style="background:#B03616"></div><div class="m"><b>Orange Ink</b><span>#B03616 · Orange Tint面の文字</span></div></div>
+<div class="chipbox"><div class="c" style="background:#C9A2B8"></div><div class="m"><b>Cassis Tint</b><span>#C9A2B8 · Cassis面の主要文字</span></div></div>
+<div class="chipbox"><div class="c" style="background:#4C5544"></div><div class="m"><b>Sauge Ink</b><span>#4C5544 · Sauge面の文字</span></div></div>
+</div></body></html>

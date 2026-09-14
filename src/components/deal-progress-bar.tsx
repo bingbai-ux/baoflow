@@ -10,11 +10,11 @@ import {
 import { advanceSimpleStatus } from '@/lib/actions/deals'
 
 const STEP_COLOR_MAP: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
+  pending: '#AEB8A0',
+  confirmed: '#E9F056',
+  warning: '#FF5C34',
+  active: '#351E28',
+  shipping: '#84787D',
 }
 
 interface DealProgressBarProps {
@@ -43,19 +43,20 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
   }
 
   return (
-    <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-5">
+    <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5">
       {/* Steps */}
       <div className="flex items-start justify-between gap-2">
         {SIMPLE_STATUS_ORDER.map((status, index) => {
           const config = SIMPLE_STATUS_CONFIG[status]
           const state: 'done' | 'current' | 'pending' =
             index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'pending'
+          // F&C D78: 過去 = Cool Blue / 現在 = Wasabi / 未来 = Line
           const dotColor =
             state === 'done'
-              ? '#22c55e'
+              ? '#D7EFFF'
               : state === 'current'
-                ? STEP_COLOR_MAP[config.color]
-                : '#dddddd'
+                ? '#E9F056'
+                : '#E2E1DA'
 
           return (
             <div key={status} className="flex-1 flex flex-col items-center min-w-0">
@@ -64,7 +65,7 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
                 <div
                   className="flex-1 h-px"
                   style={{
-                    backgroundColor: index === 0 ? 'transparent' : index <= currentIndex ? '#22c55e' : '#e8e8e6',
+                    backgroundColor: index === 0 ? 'transparent' : index <= currentIndex ? '#D7EFFF' : '#E2E1DA',
                   }}
                 />
                 {/* Dot */}
@@ -76,7 +77,7 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
                   aria-current={state === 'current'}
                 >
                   {state === 'done' && (
-                    <Check className="w-2 h-2 text-white" strokeWidth={3} />
+                    <Check className="w-2 h-2 text-[#33566F]" strokeWidth={3} />
                   )}
                 </div>
                 {/* Right connector */}
@@ -87,18 +88,18 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
                       index === SIMPLE_STATUS_ORDER.length - 1
                         ? 'transparent'
                         : index < currentIndex
-                          ? '#22c55e'
-                          : '#e8e8e6',
+                          ? '#D7EFFF'
+                          : '#E2E1DA',
                   }}
                 />
               </div>
               <span
                 className={`mt-2 text-[10px] font-body text-center leading-tight ${
                   state === 'pending'
-                    ? 'text-[#bbbbbb]'
+                    ? 'text-[#AEB8A0]'
                     : state === 'current'
-                      ? 'text-[#0a0a0a] font-semibold'
-                      : 'text-[#555555]'
+                      ? 'text-[#351E28] font-semibold'
+                      : 'text-[#351E28]'
                 }`}
               >
                 {config.label}
@@ -109,14 +110,14 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
       </div>
 
       {/* Action area */}
-      <div className="mt-5 pt-4 border-t border-[rgba(0,0,0,0.06)] flex items-center justify-between gap-3">
+      <div className="mt-5 pt-4 border-t border-[rgba(53,30,40,0.06)] flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] text-[#888] font-body">現在のステップ</p>
-          <p className="text-[14px] text-[#0a0a0a] font-body font-semibold">
+          <p className="text-[11px] text-[#84787D] font-body">現在のステップ</p>
+          <p className="text-[14px] text-[#351E28] font-body font-semibold">
             {currentConfig.label}
           </p>
           {currentConfig.nextAction && (
-            <p className="text-[11px] text-[#555] font-body mt-0.5">
+            <p className="text-[11px] text-[#351E28] font-body mt-0.5">
               次のアクション: {currentConfig.nextAction}
             </p>
           )}
@@ -126,7 +127,7 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="px-4 py-2 rounded-full bg-[#0a0a0a] text-white text-[12px] font-body whitespace-nowrap hover:bg-[#222] transition-colors"
+            className="px-4 py-2 rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-body whitespace-nowrap hover:brightness-95 transition-colors"
             disabled={isPending}
           >
             {currentConfig.nextLabel ? `「${currentConfig.nextLabel}」へ進める` : '次のステップへ進める'}
@@ -138,7 +139,7 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="px-3 py-2 rounded-full text-[12px] text-[#555] font-body hover:bg-[#f5f5f4] transition-colors"
+              className="px-3 py-2 rounded-full text-[12px] text-[#351E28] font-body hover:bg-[#EFEFEA] transition-colors"
               disabled={isPending}
             >
               キャンセル
@@ -146,7 +147,7 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
             <button
               type="button"
               onClick={handleAdvance}
-              className="px-4 py-2 rounded-full bg-[#22c55e] text-white text-[12px] font-body hover:bg-[#1ea54b] transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-body hover:brightness-95 transition-colors disabled:opacity-50"
               disabled={isPending}
             >
               {isPending ? '更新中...' : '確定'}
@@ -155,14 +156,14 @@ export function DealProgressBar({ dealId, currentStatus }: DealProgressBarProps)
         )}
 
         {isLast && (
-          <span className="text-[12px] font-body text-[#22c55e] font-semibold">
+          <span className="text-[12px] font-body text-[#666C14] font-semibold">
             納品完了
           </span>
         )}
       </div>
 
       {error && (
-        <p className="mt-2 text-[11px] text-[#ef4444] font-body">{error}</p>
+        <p className="mt-2 text-[11px] text-[#B03616] font-body">{error}</p>
       )}
     </div>
   )

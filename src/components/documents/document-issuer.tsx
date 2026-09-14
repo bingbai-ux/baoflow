@@ -159,10 +159,10 @@ export function DocumentIssuer({
             key={t.id}
             type="button"
             onClick={() => setActive(t.id)}
-            className={`px-4 py-2 rounded-[8px] text-[13px] font-body transition-colors ${
+            className={`px-4 py-2 rounded-[12px] text-[13px] font-body transition-colors ${
               active === t.id
-                ? 'bg-[#0a0a0a] text-white'
-                : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#f5f5f4]'
+                ? 'bg-[#351E28] text-[#C9A2B8]'
+                : 'bg-white text-[#351E28] border border-[#E2E1DA] hover:bg-[#EFEFEA]'
             }`}
           >
             {t.label}
@@ -173,7 +173,7 @@ export function DocumentIssuer({
         ))}
       </div>
 
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.06)] p-4 mb-3 space-y-3 no-print">
+      <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-4 mb-3 space-y-3 no-print">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {active === 'invoice' && (
             <Field label="お支払期日">
@@ -223,7 +223,7 @@ export function DocumentIssuer({
                   setNotes(boilerplateTexts[active] || '')
                   setNotesEdited(false)
                 }}
-                className="text-[10px] text-[#888] hover:text-[#0a0a0a] mt-1 underline"
+                className="text-[10px] text-[#84787D] hover:text-[#351E28] mt-1 underline"
               >
                 定型文に戻す
               </button>
@@ -236,7 +236,7 @@ export function DocumentIssuer({
             type="button"
             onClick={handleIssue}
             disabled={issuing}
-            className="bg-[#22c55e] text-white rounded-[8px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
+            className="bg-[#E9F056] text-[#666C14] rounded-[12px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
           >
             <FileText className="w-3.5 h-3.5" />
             {currentDocs.length > 0 ? `この内容で再発行 (No. ${nextNumbers[active]})` : `発行 (No. ${previewNumber})`}
@@ -244,7 +244,7 @@ export function DocumentIssuer({
           <button
             type="button"
             onClick={handlePrint}
-            className="bg-white border border-[#e8e8e6] text-[#0a0a0a] rounded-[8px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
+            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-[12px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
           >
             <Printer className="w-3.5 h-3.5" />
             印刷 / PDF として保存
@@ -254,29 +254,29 @@ export function DocumentIssuer({
           <button
             type="button"
             onClick={handleCopyDealCode}
-            className="bg-white border border-[#e8e8e6] text-[#0a0a0a] rounded-[8px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
+            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-[12px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
             title="案件番号をクリップボードにコピー"
           >
-            {copyState === 'code' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            {copyState === 'code' ? <Check className="w-3.5 h-3.5 text-[#666C14]" /> : <Copy className="w-3.5 h-3.5" />}
             案件番号
           </button>
           <button
             type="button"
             onClick={handleCopyAll}
-            className="bg-white border border-[#e8e8e6] text-[#0a0a0a] rounded-[8px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
+            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-[12px] px-3 py-2 text-[12px] font-body inline-flex items-center gap-1"
             title="帳票の主要内容をプレーンテキストでコピー (メール添付用)"
           >
-            {copyState === 'text' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            {copyState === 'text' ? <Check className="w-3.5 h-3.5 text-[#666C14]" /> : <Copy className="w-3.5 h-3.5" />}
             全テキスト
           </button>
         </div>
         {error && (
-          <p className="text-[11px] text-[#b91c1c] font-body">{error}</p>
+          <p className="text-[11px] text-[#B03616] font-body">{error}</p>
         )}
         {currentDocs.length > 0 && (
-          <div className="pt-2 border-t border-[#f0f0ed]">
-            <p className="text-[10px] text-[#888] font-body">発行履歴 ({currentDocs.length})</p>
-            <ul className="text-[11px] text-[#555] font-body mt-1 space-y-0.5">
+          <div className="pt-2 border-t border-[#EFEFEA]">
+            <p className="text-[10px] text-[#84787D] font-body">発行履歴 ({currentDocs.length})</p>
+            <ul className="text-[11px] text-[#351E28] font-body mt-1 space-y-0.5">
               {currentDocs.slice(0, 5).map((d) => (
                 <li key={d.id} className="tabular-nums">
                   {d.document_number} · {formatDate(d.issued_at)}
@@ -306,7 +306,7 @@ export function DocumentIssuer({
 }
 
 const inputClass =
-  'w-full px-3 py-2 text-[13px] font-body bg-white border border-[#e8e8e6] rounded-[8px] focus:outline-none focus:border-[#0a0a0a]'
+  'w-full px-3 py-2 text-[13px] font-body bg-white border border-[#E2E1DA] rounded-[12px] focus:outline-none focus:border-[#351E28]'
 
 function Field({
   label,
@@ -319,7 +319,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className || ''}`}>
-      <span className="block text-[11px] font-body text-[#888] mb-1">{label}</span>
+      <span className="block text-[11px] font-body text-[#84787D] mb-1">{label}</span>
       {children}
     </label>
   )

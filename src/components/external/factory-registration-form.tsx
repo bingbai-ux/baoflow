@@ -144,7 +144,7 @@ export function FactoryRegistrationForm({ token }: { token: string }) {
 
       {/* Specialties / 主营产品 */}
       <Section titleEn="Specialties" titleCn="主营产品">
-        <p className="text-[11px] text-[#888] mb-2">
+        <p className="text-[11px] text-[#84787D] mb-2">
           Select all that apply / 选择所有适用项
         </p>
         <div className="flex flex-wrap gap-2">
@@ -157,9 +157,9 @@ export function FactoryRegistrationForm({ token }: { token: string }) {
                 onClick={() => toggleSpecialty(s.value)}
                 className="px-3 py-1.5 text-[11px] rounded-full border transition-colors"
                 style={{
-                  background: on ? '#e5a32e' : '#fff',
-                  color: on ? '#fff' : '#555',
-                  borderColor: on ? '#e5a32e' : '#e8e8e6',
+                  background: on ? '#FF5C34' : '#fff',
+                  color: on ? '#fff' : '#351E28',
+                  borderColor: on ? '#FF5C34' : '#E2E1DA',
                 }}
               >
                 {s.label_en} · {s.label_cn}
@@ -235,8 +235,8 @@ export function FactoryRegistrationForm({ token }: { token: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full py-3 rounded-[10px] text-white font-medium text-[14px] disabled:opacity-50"
-        style={{ background: pending ? '#888' : '#e5a32e' }}
+        className="w-full py-3 rounded-full font-medium text-[14px] disabled:opacity-50"
+        style={{ background: pending ? '#EFEFEA' : '#E9F056', color: pending ? '#AEB8A0' : '#666C14' }}
       >
         {pending ? 'Submitting… / 提交中…' : 'Submit / 提交'}
       </button>
@@ -245,7 +245,7 @@ export function FactoryRegistrationForm({ token }: { token: string }) {
 }
 
 const inputCls =
-  'w-full px-3 py-2 text-[13px] border border-[#e8e8e6] rounded-[8px] bg-white focus:outline-none focus:border-[#e5a32e] focus:ring-1 focus:ring-[#e5a32e]'
+  'w-full px-3 py-2 text-[13px] border border-[#E2E1DA] rounded-[12px] bg-white focus:outline-none focus:border-[#FF5C34] focus:ring-1 focus:ring-[#FF5C34]'
 
 function Section({
   titleEn,
@@ -261,8 +261,8 @@ function Section({
       className="bg-white border rounded-[12px] p-5"
       style={{ borderColor: 'rgba(229,163,46,0.15)' }}
     >
-      <h2 className="font-display text-[14px] font-semibold text-[#1a1a1a] mb-3">
-        {titleEn} <span className="text-[#888] font-body font-normal">· {titleCn}</span>
+      <h2 className="font-display text-[14px] font-semibold text-[#351E28] mb-3">
+        {titleEn} <span className="text-[#84787D] font-body font-normal">· {titleCn}</span>
       </h2>
       <div className="space-y-2.5">{children}</div>
     </section>
@@ -282,9 +282,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-[#555] mb-1 font-medium">
-        {labelEn} <span className="text-[#888]">/ {labelCn}</span>
-        {required && <span className="text-[#c0392b] ml-1">*</span>}
+      <span className="block text-[11px] text-[#351E28] mb-1 font-medium">
+        {labelEn} <span className="text-[#84787D]">/ {labelCn}</span>
+        {required && <span className="text-[#B03616] ml-1">*</span>}
       </span>
       {children}
     </label>

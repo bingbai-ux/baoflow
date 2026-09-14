@@ -123,7 +123,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
       {/* List */}
       <ul className="space-y-2">
         {filtered.length === 0 ? (
-          <li className="text-[12px] text-[#888] text-center py-6 border border-dashed border-[#e8e8e6] rounded-[10px]">
+          <li className="text-[12px] text-[#84787D] text-center py-6 border border-dashed border-[#E2E1DA] rounded-[12px]">
             通信がありません
           </li>
         ) : (
@@ -132,36 +132,36 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
             return (
               <li
                 key={c.id}
-                className={`border rounded-[10px] p-3 ${
-                  c.is_read ? 'border-[#e8e8e6] bg-white' : 'border-[#22c55e] bg-[#f0fdf4]'
+                className={`border rounded-[12px] p-3 ${
+                  c.is_read ? 'border-[#E2E1DA] bg-white' : 'border-[#E9F056] bg-[rgba(233,240,86,0.28)]'
                 }`}
               >
                 <div className="flex items-baseline justify-between gap-3 mb-1">
                   <div className="flex items-baseline gap-2 min-w-0 flex-1">
-                    {!c.is_read && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />}
-                    <span className="text-[10px] text-[#888]">{ch.emoji}</span>
-                    <span className="text-[12px] font-body font-semibold text-[#0a0a0a] truncate">
+                    {!c.is_read && <span className="w-1.5 h-1.5 rounded-full bg-[#E9F056]" />}
+                    <span className="text-[10px] text-[#84787D]">{ch.emoji}</span>
+                    <span className="text-[12px] font-body font-semibold text-[#351E28] truncate">
                       {c.subject || c.body.slice(0, 40)}
                     </span>
                     {c.author_role && (
-                      <span className="text-[9px] text-[#888] uppercase tracking-wider">{c.author_role}</span>
+                      <span className="text-[9px] text-[#84787D] uppercase tracking-wider">{c.author_role}</span>
                     )}
                   </div>
-                  <span className="text-[10px] text-[#888] tabular-nums flex-shrink-0">
+                  <span className="text-[10px] text-[#84787D] tabular-nums flex-shrink-0">
                     {formatDate(c.occurred_at)}
                   </span>
                 </div>
-                <p className="text-[12px] text-[#0a0a0a] whitespace-pre-line">{c.body}</p>
+                <p className="text-[12px] text-[#351E28] whitespace-pre-line">{c.body}</p>
                 {c.needs_followup && (
-                  <p className="text-[10px] text-[#e5a32e] mt-1.5">
+                  <p className="text-[10px] text-[#B03616] mt-1.5">
                     🟡 フォローアップ {c.followup_date && `予定 ${formatDate(c.followup_date)}`}
                   </p>
                 )}
-                <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#f0f0ed]">
+                <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#EFEFEA]">
                   {!c.is_read && (
                     <button
                       onClick={() => handleMarkRead(c.id)}
-                      className="text-[10px] text-[#555] border border-[#e8e8e6] rounded-[4px] px-2 py-0.5 inline-flex items-center gap-1 hover:bg-[#fafaf8]"
+                      className="text-[10px] text-[#351E28] border border-[#E2E1DA] rounded-[4px] px-2 py-0.5 inline-flex items-center gap-1 hover:bg-[#FBFAF6]"
                     >
                       <Check className="w-2.5 h-2.5" /> 既読
                     </button>
@@ -170,8 +170,8 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
                     onClick={() => handleToggleFollowup(c)}
                     className={`text-[10px] border rounded-[4px] px-2 py-0.5 inline-flex items-center gap-1 ${
                       c.needs_followup
-                        ? 'text-[#888] border-[#e8e8e6] hover:bg-[#fafaf8]'
-                        : 'text-[#e5a32e] border-[#fde4b6] hover:bg-[#fffaf2]'
+                        ? 'text-[#84787D] border-[#E2E1DA] hover:bg-[#FBFAF6]'
+                        : 'text-[#B03616] border-[#FFD8C2] hover:bg-[#FFD8C2]'
                     }`}
                   >
                     {c.needs_followup ? <BellOff className="w-2.5 h-2.5" /> : <Bell className="w-2.5 h-2.5" />}
@@ -179,7 +179,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
                   </button>
                   <button
                     onClick={() => handleDelete(c.id)}
-                    className="text-[10px] text-[#ef4444] border border-[#fde2e2] rounded-[4px] px-2 py-0.5 inline-flex items-center gap-1 hover:bg-[#fef2f2]"
+                    className="text-[10px] text-[#B03616] border border-[#FFD8C2] rounded-[4px] px-2 py-0.5 inline-flex items-center gap-1 hover:bg-[#FFD8C2]"
                   >
                     <Trash2 className="w-2.5 h-2.5" /> 削除
                   </button>
@@ -191,15 +191,15 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
       </ul>
 
       {/* Post form */}
-      <form onSubmit={handlePost} className="bg-white rounded-[10px] border border-[#e8e8e6] p-3 space-y-2">
+      <form onSubmit={handlePost} className="bg-white rounded-[12px] border border-[#E2E1DA] p-3 space-y-2">
         {error && (
-          <div className="bg-[#fef2f2] border border-[#fca5a5] rounded-[6px] px-2 py-1 text-[11px] text-[#b91c1c]">
+          <div className="bg-[#FFD8C2] border border-[#FF5C34] rounded-[8px] px-2 py-1 text-[11px] text-[#B03616]">
             {error}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="block text-[10px] text-[#555] mb-0.5">チャンネル</span>
+            <span className="block text-[10px] text-[#351E28] mb-0.5">チャンネル</span>
             <select
               name="channel"
               value={channel}
@@ -212,7 +212,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
             </select>
           </label>
           <label className="block">
-            <span className="block text-[10px] text-[#555] mb-0.5">発信元</span>
+            <span className="block text-[10px] text-[#351E28] mb-0.5">発信元</span>
             <select
               name="author_role"
               value={authorRole}
@@ -242,7 +242,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
           required
         />
         <div className="flex items-center justify-between gap-2">
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-[#555]">
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-[#351E28]">
             <input
               type="checkbox"
               name="needs_followup"
@@ -264,7 +264,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
           <button
             type="submit"
             disabled={posting || !body.trim()}
-            className="ml-auto bg-[#0a0a0a] text-white rounded-[6px] px-3 py-1.5 text-[11px] inline-flex items-center gap-1 disabled:opacity-50"
+            className="ml-auto bg-[#351E28] text-[#C9A2B8] rounded-[8px] px-3 py-1.5 text-[11px] inline-flex items-center gap-1 disabled:opacity-50"
           >
             <Send className="w-3 h-3" />
             {posting ? '投稿中...' : '投稿'}
@@ -276,7 +276,7 @@ export function DealCommunicationTab({ dealId, initial }: Props) {
 }
 
 const inputClass =
-  'w-full px-2 py-1.5 text-[12px] font-body bg-white border border-[#e8e8e6] rounded-[6px] focus:outline-none focus:border-[#0a0a0a]'
+  'w-full px-2 py-1.5 text-[12px] font-body bg-white border border-[#E2E1DA] rounded-[8px] focus:outline-none focus:border-[#351E28]'
 
 function Chip({
   label,
@@ -297,10 +297,10 @@ function Chip({
       onClick={onClick}
       className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-body rounded-full transition-colors ${
         active
-          ? 'bg-[#0a0a0a] text-white'
+          ? 'bg-[#351E28] text-[#C9A2B8]'
           : accent
-            ? 'bg-[#fffaf2] text-[#e5a32e] border border-[#fde4b6]'
-            : 'bg-white text-[#555] border border-[#e8e8e6] hover:bg-[#fafaf8]'
+            ? 'bg-[#FFD8C2] text-[#B03616] border border-[#FFD8C2]'
+            : 'bg-white text-[#351E28] border border-[#E2E1DA] hover:bg-[#FBFAF6]'
       }`}
     >
       <span>{label}</span>

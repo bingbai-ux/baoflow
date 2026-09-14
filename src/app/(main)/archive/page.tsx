@@ -71,7 +71,7 @@ export default async function ArchivePage({ searchParams }: Props) {
     <div className="px-6 py-5">
       <div className="mb-4">
         <h1 className="font-display text-[20px] font-semibold tracking-tight">案件履歴</h1>
-        <p className="text-[12px] text-[#888] mt-0.5">
+        <p className="text-[12px] text-[#84787D] mt-0.5">
           アーカイブ済みの案件。リオーダーで複製して新規案件として再開できます。
         </p>
       </div>

@@ -62,29 +62,29 @@ export function DealPane({ data }: Props) {
   const thumb = thumbColor(data.deal.deal_name || data.deal.deal_code)
 
   return (
-    <div className="w-[420px] border-l border-[#e8e8e6] bg-white flex flex-col flex-shrink-0 overflow-hidden h-full">
+    <div className="w-[420px] border-l border-[#E2E1DA] bg-white flex flex-col flex-shrink-0 overflow-hidden h-full">
       {/* Header */}
-      <div className="px-4 pt-3.5 pb-3 border-b border-[#e8e8e6] flex items-start gap-2.5">
+      <div className="px-4 pt-3.5 pb-3 border-b border-[#E2E1DA] flex items-start gap-2.5">
         <div
-          className="w-[42px] h-[42px] rounded-[8px] flex-shrink-0 flex items-center justify-center text-[14px] font-display font-semibold text-[#0a0a0a]"
+          className="w-[42px] h-[42px] rounded-[12px] flex-shrink-0 flex items-center justify-center text-[14px] font-display font-semibold text-[#351E28]"
           style={{ background: thumb }}
         >
           {(data.deal.deal_name || data.deal.deal_code).charAt(0)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-display text-[10px] text-[#888] tracking-[0.04em] tabular-nums">
+          <p className="font-display text-[10px] text-[#84787D] tracking-[0.04em] tabular-nums">
             {data.deal.deal_code}
           </p>
           <p className="text-[13.5px] font-semibold leading-tight mt-0.5 truncate">
             {data.deal.deal_name || '(案件名未設定)'}
           </p>
-          <p className="text-[10px] text-[#888] mt-1 truncate">
+          <p className="text-[10px] text-[#84787D] mt-1 truncate">
             {data.deal.client_name_text || '(クライアント未設定)'}
           </p>
         </div>
         <Link
           href={`/deals/${data.deal.id}`}
-          className="w-6 h-6 rounded-[6px] text-[#888] cursor-pointer flex items-center justify-center hover:bg-[#fafaf9] transition-colors no-underline"
+          className="w-6 h-6 rounded-[8px] text-[#84787D] cursor-pointer flex items-center justify-center hover:bg-[#FBFAF6] transition-colors no-underline"
           title="詳細ページで開く"
         >
           <ExternalLink className="w-3.5 h-3.5" />
@@ -92,7 +92,7 @@ export function DealPane({ data }: Props) {
         <button
           type="button"
           onClick={close}
-          className="w-6 h-6 rounded-[6px] border-none bg-transparent text-[#888] cursor-pointer flex items-center justify-center text-[16px] hover:bg-[#fafaf9] transition-colors"
+          className="w-6 h-6 rounded-[8px] border-none bg-transparent text-[#84787D] cursor-pointer flex items-center justify-center text-[16px] hover:bg-[#FBFAF6] transition-colors"
           title="閉じる"
           aria-label="閉じる"
         >
@@ -101,7 +101,7 @@ export function DealPane({ data }: Props) {
       </div>
 
       {/* Mini pipeline */}
-      <div className="px-4 py-2.5 border-b border-[#e8e8e6] bg-[#fafaf9]">
+      <div className="px-4 py-2.5 border-b border-[#E2E1DA] bg-[#FBFAF6]">
         <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
       </div>
 
@@ -118,11 +118,11 @@ export function DealPane({ data }: Props) {
       </div>
 
       {/* Footer — actions */}
-      <div className="px-3.5 py-2.5 border-t border-[#e8e8e6] bg-[#fafaf9] flex gap-2 flex-shrink-0">
+      <div className="px-3.5 py-2.5 border-t border-[#E2E1DA] bg-[#FBFAF6] flex gap-2 flex-shrink-0">
         <button
           type="button"
           onClick={() => setDocModalOpen(true)}
-          className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#e0dfd9] bg-white text-[#0a0a0a] inline-flex items-center justify-center gap-1 hover:bg-[#fafaf9] transition-colors"
+          className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#E2E1DA] bg-white text-[#351E28] inline-flex items-center justify-center gap-1 hover:bg-[#FBFAF6] transition-colors"
         >
           <FileText className="w-3 h-3" />
           帳票
@@ -131,7 +131,7 @@ export function DealPane({ data }: Props) {
         <button
           type="button"
           onClick={() => setRfqModalOpen(true)}
-          className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#e0dfd9] bg-white text-[#0a0a0a] inline-flex items-center justify-center gap-1 hover:bg-[#fafaf9] transition-colors"
+          className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#E2E1DA] bg-white text-[#351E28] inline-flex items-center justify-center gap-1 hover:bg-[#FBFAF6] transition-colors"
         >
           <Send className="w-3 h-3" />
           見積依頼
@@ -141,12 +141,12 @@ export function DealPane({ data }: Props) {
             type="button"
             onClick={advance}
             disabled={pending}
-            className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] cursor-pointer border border-[#0a0a0a] bg-[#0a0a0a] text-white font-medium hover:bg-[#222] disabled:opacity-50 transition-colors"
+            className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#351E28] bg-[#351E28] text-[#C9A2B8] font-medium hover:brightness-95 disabled:opacity-50 transition-colors"
           >
             {pending ? '更新中…' : `→ ${nextLabel}`}
           </button>
         ) : (
-          <span className="flex-1 px-2 py-2 rounded-[6px] text-[10.5px] text-center bg-[#e7f0e6] text-[#3a7d36] font-medium">
+          <span className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] text-center bg-[rgba(233,240,86,0.28)] text-[#666C14] font-medium">
             納品完了
           </span>
         )}
@@ -168,12 +168,12 @@ export function DealPane({ data }: Props) {
 
 export function DealPaneEmpty() {
   return (
-    <div className="w-[420px] border-l border-[#e8e8e6] bg-white flex flex-col items-center justify-center gap-3 text-center px-7 text-[#bbb] text-[11px] flex-shrink-0 h-full">
-      <div className="w-[60px] h-[60px] rounded-full bg-[#fafaf9] flex items-center justify-center text-[28px] text-[#ddd] font-display">
+    <div className="w-[420px] border-l border-[#E2E1DA] bg-white flex flex-col items-center justify-center gap-3 text-center px-7 text-[#AEB8A0] text-[11px] flex-shrink-0 h-full">
+      <div className="w-[60px] h-[60px] rounded-full bg-[#FBFAF6] flex items-center justify-center text-[28px] text-[#E2E1DA] font-display">
         ◯
       </div>
-      <p className="font-display text-[13px] text-[#888] font-semibold">案件を選択</p>
-      <p className="text-[10.5px] text-[#aaa] leading-relaxed max-w-[240px]">
+      <p className="font-display text-[13px] text-[#84787D] font-semibold">案件を選択</p>
+      <p className="text-[10.5px] text-[#84787D] leading-relaxed max-w-[240px]">
         左の表から案件をクリックすると、詳細・履歴・添付・通信がここに表示されます。
       </p>
     </div>
@@ -182,8 +182,8 @@ export function DealPaneEmpty() {
 
 function thumbColor(seed: string): string {
   const palette = [
-    '#fde8e8', '#fff8e8', '#e7f0e6', '#e8f0f7',
-    '#f0e8f5', '#f5f0dc', '#f0f5e8', '#fafaf9',
+    '#FFD8C2', '#FFD8C2', 'rgba(233,240,86,0.28)', '#D7EFFF',
+    '#D7EFFF', '#FBFAF6', 'rgba(233,240,86,0.28)', '#FBFAF6',
   ]
   let h = 0
   for (let i = 0; i < seed.length; i++) {

@@ -1,0 +1,46 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Forms（入力欄・必須・エラー）" subtitle="focusはCassis枠+Wasabiリング / accent-colorはCassis" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{background:var(--fc-card);padding:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;align-items:start}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.FCDesign || Object.values(window).find(v => v && v.Field && v.Input) || {};
+const { Field, Input, Textarea, Select, Checkbox, Radio } = NS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div className="grid">
+    <Field label="氏名" required><Input defaultValue="山田 花子" /></Field>
+    <Field label="メールアドレス" required error help="「@」以降を確認してください。">
+      <Input defaultValue="yamada@example" invalid />
+    </Field>
+    <Field label="理由区分"><Select options={['打刻忘れ', '端末不調', 'その他']} /></Field>
+    <Field label="差し戻しコメント" required help="何を直せば承認できるかを書く">
+      <Textarea placeholder="例: 交代相手の承諾を先に取ってください" />
+    </Field>
+    <div>
+      <Checkbox label="この端末でログイン状態を保持" defaultChecked />
+      <div style={{ display: 'flex', gap: 16 }}>
+        <Radio name="k" label="全日" defaultChecked /><Radio name="k" label="半日" />
+      </div>
+    </div>
+  </div>
+);
+</script><script>
+window.addEventListener('load', function () {
+  var ns = window.FCDesign || Object.values(window).find(function (v) { return v && v.Button && v.Badge; });
+  if (ns) return;
+  var r = document.getElementById('root');
+  if (r && r.children.length) return;
+  document.body.innerHTML = '<div style="font-family:var(--fc-font);max-width:520px;margin:24px auto;background:var(--fc-card);border:1px solid var(--fc-line);border-radius:16px;padding:20px">'
+    + '<div style="display:inline-flex;background:#E9F056;color:#666C14;font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 13px;border-radius:999px">F&amp;C Design System</div>'
+    + '<div style="margin-top:14px;font-size:15px;font-weight:800">コンポーネントの読み込み待ちです</div>'
+    + '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;color:#84787D">この画面は共通コンポーネントを使って組まれています。'
+    + '共有メニューで <b style="color:#351E28">ファイル種別を「Design System」</b> に設定すると、コンポーネントがビルドされてこの画面が表示されます。</div></div>';
+});
+</script>
+</body></html>

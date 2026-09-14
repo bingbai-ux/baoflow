@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" viewport="700x185" name="タップ領域 44px" subtitle="店舗スタッフはスマホ。行・ボタンは44px以上" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>タップ</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div class="row">
+  <div style="border:1px solid var(--fc-line);border-radius:var(--fc-r-card);padding:10px;width:200px">
+    <div class="lbl"><span style="background:var(--fc-coolblue);color:var(--fc-blue-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✓</span>44px</div>
+    <div style="min-height:44px;display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" checked style="width:16px;height:16px">ログイン状態を保持</div>
+  </div>
+  <div style="border:1px solid var(--fc-line);border-radius:var(--fc-r-card);padding:10px;width:200px">
+    <div class="lbl"><span style="background:var(--fc-orange-tint);color:var(--fc-orange-ink);padding:3px 8px;border-radius:999px;margin-right:6px">✗</span>30px</div>
+    <div style="min-height:30px;display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" style="width:16px;height:16px">ログイン状態を保持</div>
+  </div>
+  <div style="font-size:var(--fc-fs-xs);color:var(--fc-text-muted);line-height:1.7;max-width:180px">スマホの主要操作は<br>size="lg" fullWidth</div>
+</div></body></html>

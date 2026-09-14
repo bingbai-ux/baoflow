@@ -1,0 +1,26 @@
+<!-- @dsCard group="Brand" viewport="700x170" name="グラフの色分け（D78/D79）" subtitle="過去=Cool Blue / 現在=Wasabi / 警告=Orange / 基準線=Cassis" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>グラフ</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:flex;align-items:flex-end;gap:8px;height:72px">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:34px;background:var(--fc-coolblue);border-radius:4px"></div><span style="font-size:9.5px;color:var(--fc-text-muted)">8/21</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:46px;background:var(--fc-coolblue);border-radius:4px"></div><span style="font-size:9.5px;color:var(--fc-text-muted)">8/26</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:40px;background:var(--fc-coolblue);border-radius:4px"></div><span style="font-size:9.5px;color:var(--fc-text-muted)">8/31</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:52px;background:var(--fc-coolblue);border-radius:4px"></div><span style="font-size:9.5px;color:var(--fc-text-muted)">9/1</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:60px;background:var(--fc-wasabi);border-radius:4px"></div><span style="font-size:9.5px;color:var(--fc-text-muted)">今週</span></div>
+  <div style="flex:2;padding-left:16px">
+    <div class="lbl">基準線つきの横棒</div>
+    <div style="position:relative;height:14px;background:var(--fc-line);border-radius:999px">
+      <div style="height:14px;width:78%;background:var(--fc-wasabi);border-radius:999px"></div>
+      <div style="position:absolute;top:-4px;bottom:-4px;right:0;width:2px;background:var(--fc-cassis)"></div>
+    </div>
+    <div style="margin-top:6px;font-size:10px;color:var(--fc-text-muted)">黒線＝予算 ¥530,000（78%）</div>
+  </div>
+</div></body></html>

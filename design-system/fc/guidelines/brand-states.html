@@ -1,0 +1,23 @@
+<!-- @dsCard group="Brand" viewport="700x195" name="ホバー・押下・フォーカス" subtitle="色を暗くするだけ。動かさない・跳ねさせない" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>状態</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+body{background:var(--fc-card);padding:16px;font-family:var(--fc-font)}
+.sw{display:grid;gap:8px}
+.chipbox{border:1px solid var(--fc-line);border-radius:var(--fc-r-card);overflow:hidden;background:var(--fc-card)}
+.chipbox .c{height:52px}
+.chipbox .m{padding:7px 11px;font-size:var(--fc-fs-xs);line-height:1.5}
+.chipbox .m b{display:block;font-size:11.5px;font-weight:800}
+.chipbox .m span{color:var(--fc-text-muted);font-size:10.5px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--fc-text-muted);line-height:1;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:var(--fc-fs-xs)">
+  <div><div class="lbl">通常</div><div style="background:var(--fc-wasabi);color:var(--fc-wasabi-ink);font-weight:800;padding:10px 0;border-radius:999px;text-align:center">承認する</div></div>
+  <div><div class="lbl">ホバー brightness .96</div><div style="background:var(--fc-wasabi);color:var(--fc-wasabi-ink);font-weight:800;padding:10px 0;border-radius:999px;text-align:center;filter:brightness(.96)">承認する</div></div>
+  <div><div class="lbl">フォーカス Cassis 2px</div><div style="background:var(--fc-wasabi);color:var(--fc-wasabi-ink);font-weight:800;padding:10px 0;border-radius:999px;text-align:center;outline:2px solid var(--fc-cassis);outline-offset:2px">承認する</div></div>
+  <div><div class="lbl">無効 BG + Sauge</div><div style="background:var(--fc-bg);color:var(--fc-sauge);border:1px solid var(--fc-line);font-weight:800;padding:10px 0;border-radius:999px;text-align:center">承認する</div></div>
+</div>
+<div style="margin-top:12px;font-size:var(--fc-fs-xs);color:var(--fc-text-muted);line-height:1.7">遷移は 120–180ms / cubic-bezier(.2,.6,.3,1)。位置・大きさは変えない（拡大・縮小・跳ねはこのブランドでは使わない）。行のホバーは背景を行背景（#FBFAF6）に。</div>
+</body></html>

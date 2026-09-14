@@ -11,14 +11,6 @@ import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUi } from '@/components/ui/ui-store'
 
-const STEP_COLOR: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
-}
-
 interface Props {
   dealId: string
   current: SimpleStatus
@@ -46,7 +38,7 @@ export function MiniPipeline({ dealId, current, interactive = true }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-0 py-3 px-4 bg-[#fafaf9] rounded-[10px] border border-[#e8e8e6]">
+    <div className="flex items-center gap-0 py-3 px-4 bg-[#FBFAF6] rounded-[12px] border border-[#E2E1DA]">
       {SIMPLE_STATUS_ORDER.map((s, i) => {
         const isPast = i < currentIdx
         const isCurrent = i === currentIdx
@@ -63,19 +55,18 @@ export function MiniPipeline({ dealId, current, interactive = true }: Props) {
                 interactive && !pending ? 'cursor-pointer hover:scale-110' : 'cursor-default'
               } ${
                 isPast
-                  ? 'bg-[#0a0a0a] text-white'
+                  ? 'bg-[#D7EFFF] text-[#33566F]'
                   : isCurrent
-                    ? 'text-white'
-                    : 'bg-[#e0dfd9] text-[#999]'
+                    ? 'bg-[#E9F056] text-[#666C14]'
+                    : 'bg-[#E2E1DA] text-[#84787D]'
               }`}
-              style={isCurrent ? { backgroundColor: STEP_COLOR[cfg.color] } : undefined}
             >
-              {isPast ? <Check className="w-2.5 h-2.5" strokeWidth={3} /> : ''}
+              {isPast ? <Check className="w-2.5 h-2.5 text-[#33566F]" strokeWidth={3} /> : ''}
             </button>
             {i < SIMPLE_STATUS_ORDER.length - 1 && (
               <div
                 className={`flex-1 h-px ${
-                  isPast || isCurrent ? 'bg-[#0a0a0a]' : 'bg-[#e0dfd9]'
+                  isPast || isCurrent ? 'bg-[#351E28]' : 'bg-[#E2E1DA]'
                 }`}
                 style={isFuture ? undefined : { opacity: 0.5 }}
               />

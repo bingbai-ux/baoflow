@@ -913,11 +913,11 @@ export const COMM_CHANNEL_LABELS: Record<CommChannel, { label: string; emoji: st
 export type FileCategory = 'spec' | 'quote' | 'photo' | 'contract' | 'other'
 
 export const FILE_CATEGORY_LABELS: Record<FileCategory, { label: string; color: string }> = {
-  spec: { label: '仕様書/入稿', color: '#0a0a0a' },
-  quote: { label: '見積', color: '#22c55e' },
-  photo: { label: '写真/サンプル', color: '#e5a32e' },
-  contract: { label: '契約', color: '#7c3aed' },
-  other: { label: 'その他', color: '#888' },
+  spec: { label: '仕様書/入稿', color: '#351E28' },
+  quote: { label: '見積', color: '#666C14' },
+  photo: { label: '写真/サンプル', color: '#B03616' },
+  contract: { label: '契約', color: '#33566F' },
+  other: { label: 'その他', color: '#84787D' },
 }
 
 export type HistoryKind = 'status' | 'edit' | 'variant' | 'attachment' | 'comm' | 'fee'

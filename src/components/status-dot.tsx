@@ -4,34 +4,34 @@ import { type MasterStatus, MASTER_STATUS_CONFIG } from '@/lib/types'
 
 // Status color mapping based on StatusColor type
 const STATUS_COLOR_MAP: Record<string, string> = {
-  pending: '#bbbbbb',
-  confirmed: '#22c55e',
-  warning: '#e5a32e',
-  active: '#0a0a0a',
-  shipping: '#888888',
+  pending: '#AEB8A0',
+  confirmed: '#E9F056',
+  warning: '#FF5C34',
+  active: '#351E28',
+  shipping: '#84787D',
 }
 
 // Legacy status color map (for backward compatibility)
 const legacyStatusColorMap: Record<string, string> = {
-  draft: '#bbbbbb',
-  quoting: '#bbbbbb',
-  quoted: '#bbbbbb',
-  spec_confirmed: '#22c55e',
-  sample_requested: '#0a0a0a',
-  sample_approved: '#22c55e',
-  payment_pending: '#e5a32e',
-  deposit_paid: '#22c55e',
-  in_production: '#0a0a0a',
-  production_done: '#22c55e',
-  inspection: '#888888',
-  shipping: '#888888',
-  customs: '#888888',
-  delivered: '#22c55e',
-  invoice_sent: '#e5a32e',
-  payment_received: '#22c55e',
-  completed: '#22c55e',
-  cancelled: '#bbbbbb',
-  on_hold: '#e5a32e',
+  draft: '#AEB8A0',
+  quoting: '#AEB8A0',
+  quoted: '#AEB8A0',
+  spec_confirmed: '#E9F056',
+  sample_requested: '#351E28',
+  sample_approved: '#E9F056',
+  payment_pending: '#FF5C34',
+  deposit_paid: '#E9F056',
+  in_production: '#351E28',
+  production_done: '#E9F056',
+  inspection: '#84787D',
+  shipping: '#84787D',
+  customs: '#84787D',
+  delivered: '#E9F056',
+  invoice_sent: '#FF5C34',
+  payment_received: '#E9F056',
+  completed: '#E9F056',
+  cancelled: '#AEB8A0',
+  on_hold: '#FF5C34',
 }
 
 // Legacy status label map (for backward compatibility)
@@ -75,11 +75,11 @@ export function StatusDot({ status, showLabel = true, size = 6 }: StatusDotProps
   if (isMasterStatus(status)) {
     // New MasterStatus format
     const config = MASTER_STATUS_CONFIG[status]
-    color = STATUS_COLOR_MAP[config?.color] || '#bbbbbb'
+    color = STATUS_COLOR_MAP[config?.color] || '#AEB8A0'
     label = config?.label || status
   } else {
     // Legacy status format
-    color = legacyStatusColorMap[status] || '#bbbbbb'
+    color = legacyStatusColorMap[status] || '#AEB8A0'
     label = legacyStatusLabelMap[status] || status
   }
 
@@ -94,7 +94,7 @@ export function StatusDot({ status, showLabel = true, size = 6 }: StatusDotProps
         }}
       />
       {showLabel && (
-        <span className="text-[12px] text-[#555] font-body">
+        <span className="text-[12px] text-[#351E28] font-body">
           {label}
         </span>
       )}

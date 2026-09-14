@@ -37,12 +37,12 @@ interface Props {
 
 // File category → アイコンと色 (画像以外の表示で使用)
 const TYPE_ICON: Record<FileType, { Icon: typeof FileIcon; bg: string; fg: string; label: string }> = {
-  image: { Icon: FileIcon, bg: '#f0fdf4', fg: '#15803d', label: 'IMG' },
-  pdf: { Icon: FileText, bg: '#fef2f2', fg: '#c0392b', label: 'PDF' },
-  zip: { Icon: FileArchive, bg: '#fffbf2', fg: '#e5a32e', label: 'ZIP' },
-  design: { Icon: FileBox, bg: '#faf5ff', fg: '#a855f7', label: 'DSGN' },
-  document: { Icon: FileText, bg: '#eff6ff', fg: '#3b82f6', label: 'DOC' },
-  other: { Icon: FileIcon, bg: '#fafaf9', fg: '#888', label: 'FILE' },
+  image: { Icon: FileIcon, bg: 'rgba(233,240,86,0.28)', fg: '#666C14', label: 'IMG' },
+  pdf: { Icon: FileText, bg: '#FFD8C2', fg: '#FF5C34', label: 'PDF' },
+  zip: { Icon: FileArchive, bg: '#FFD8C2', fg: '#FF5C34', label: 'ZIP' },
+  design: { Icon: FileBox, bg: '#D7EFFF', fg: '#D7EFFF', label: 'DSGN' },
+  document: { Icon: FileText, bg: '#D7EFFF', fg: '#D7EFFF', label: 'DOC' },
+  other: { Icon: FileIcon, bg: '#FBFAF6', fg: '#84787D', label: 'FILE' },
 }
 
 export function AttachmentGallery({ dealId, initial }: Props) {
@@ -92,10 +92,10 @@ export function AttachmentGallery({ dealId, initial }: Props) {
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`border-2 border-dashed rounded-[8px] p-3 text-center text-[11px] transition-colors ${
+        className={`border-2 border-dashed rounded-[12px] p-3 text-center text-[11px] transition-colors ${
           isDragging
-            ? 'border-[#0a0a0a] bg-[#fafaf9] text-[#0a0a0a]'
-            : 'border-[#e8e8e6] text-[#888] hover:border-[#d8d8d4]'
+            ? 'border-[#351E28] bg-[#FBFAF6] text-[#351E28]'
+            : 'border-[#E2E1DA] text-[#84787D] hover:border-[#E2E1DA]'
         }`}
       >
         <Upload className="w-4 h-4 inline mr-1.5 align-text-bottom" />
@@ -104,11 +104,11 @@ export function AttachmentGallery({ dealId, initial }: Props) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}
-          className="underline text-[#0a0a0a] disabled:opacity-50"
+          className="underline text-[#351E28] disabled:opacity-50"
         >
           {isUploading ? 'アップロード中…' : '選択'}
         </button>
-        <span className="block text-[9.5px] text-[#aaa] mt-0.5">
+        <span className="block text-[9.5px] text-[#84787D] mt-0.5">
           画像 / PDF / ZIP / AI / PSD / DOC / XLSX … 全形式 OK · 上限 50 MB / 件
         </span>
         <input
@@ -121,7 +121,7 @@ export function AttachmentGallery({ dealId, initial }: Props) {
       </div>
 
       {initial.length === 0 ? (
-        <p className="text-[11px] text-[#888] text-center py-4">添付ファイルはまだありません</p>
+        <p className="text-[11px] text-[#84787D] text-center py-4">添付ファイルはまだありません</p>
       ) : (
         // Masonry: CSS columns で 2 列に均等分配。画像は縦サイズが異なってもスムーズに並ぶ。
         <div className="columns-1 sm:columns-2 gap-2 [column-fill:_balance]">
@@ -154,7 +154,7 @@ function Card({
   const Icon = meta.Icon
 
   return (
-    <div className="group/card relative mb-2 break-inside-avoid bg-white border border-[#e8e8e6] rounded-[8px] overflow-hidden hover:border-[#d8d8d4]">
+    <div className="group/card relative mb-2 break-inside-avoid bg-white border border-[#E2E1DA] rounded-[12px] overflow-hidden hover:border-[#E2E1DA]">
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -168,11 +168,11 @@ function Card({
           href={file.file_url}
           target="_blank"
           rel="noreferrer"
-          className="block px-3 py-3 hover:bg-[#fafaf9] no-underline text-inherit"
+          className="block px-3 py-3 hover:bg-[#FBFAF6] no-underline text-inherit"
         >
           <div className="flex items-center gap-2 mb-1">
             <span
-              className="inline-flex items-center justify-center w-7 h-7 rounded-[6px] flex-shrink-0"
+              className="inline-flex items-center justify-center w-7 h-7 rounded-[8px] flex-shrink-0"
               style={{ background: meta.bg, color: meta.fg }}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -184,7 +184,7 @@ function Card({
               {meta.label}
             </span>
             {file.file_extension && (
-              <span className="text-[9px] text-[#888] uppercase tabular-nums">
+              <span className="text-[9px] text-[#84787D] uppercase tabular-nums">
                 .{file.file_extension}
               </span>
             )}
@@ -192,12 +192,12 @@ function Card({
         </a>
       )}
       {/* Footer: filename + size + delete */}
-      <div className="px-2.5 py-1.5 border-t border-[#f0f0ed] flex items-start gap-1.5">
+      <div className="px-2.5 py-1.5 border-t border-[#EFEFEA] flex items-start gap-1.5">
         <div className="flex-1 min-w-0">
-          <p className="text-[10.5px] text-[#0a0a0a] truncate" title={file.file_name || ''}>
+          <p className="text-[10.5px] text-[#351E28] truncate" title={file.file_name || ''}>
             {file.file_name || '(無名)'}
           </p>
-          <p className="text-[9px] text-[#888] tabular-nums">
+          <p className="text-[9px] text-[#84787D] tabular-nums">
             {formatFileSize(file.file_size_bytes)}
           </p>
         </div>
@@ -209,7 +209,7 @@ function Card({
             onDelete(file.file_name || '(無名)')
           }}
           disabled={isDeleting}
-          className="opacity-0 group-hover/card:opacity-100 transition-opacity flex-shrink-0 text-[#c0392b] hover:bg-[#fef2f2] rounded-[3px] p-0.5 disabled:opacity-30"
+          className="opacity-0 group-hover/card:opacity-100 transition-opacity flex-shrink-0 text-[#B03616] hover:bg-[#FFD8C2] rounded-[3px] p-0.5 disabled:opacity-30"
           aria-label="削除"
           title="削除"
         >

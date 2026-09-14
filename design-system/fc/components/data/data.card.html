@@ -1,0 +1,44 @@
+<!-- @dsCard group="Components" viewport="700x330" name="Data（表・KV・基準線バー・顔）" subtitle="一覧性ファースト。警告は行ごと面で示す" -->
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{background:var(--fc-card);padding:16px}
+.lbl{font-size:var(--fc-fs-xs);color:var(--fc-text-muted);font-weight:700;line-height:1;margin:0 0 8px}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.FCDesign || Object.values(window).find(v => v && v.DataTable && v.BaselineBar) || {};
+const { DataTable, KVTable, BaselineBar, FaceAvatar, MetricPill, Badge } = NS;
+const bar = (v, b, t) => <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}><BaselineBar value={v} baseline={b} tone={t} /></span>;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div>
+    <p className="lbl">DataTable — 黒線=義務5日 / 要対応は行ごと Orange Tint</p>
+    <DataTable
+      columns={[{ label: 'スタッフ', width: '110px' }, { label: '取得状況', width: 'minmax(0,1fr)' },
+        { label: '取得/付与', width: '86px', align: 'right', numeric: true }, { label: '期限まで', width: '84px', align: 'right' }, { label: '状態', width: '92px' }]}
+      rows={[
+        { cells: [<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FaceAvatar size={26}>山</FaceAvatar>山田 花子</span>, bar(70, 50, 'now'), '7 / 12日', <MetricPill tone="info">207日</MetricPill>, <Badge tone="info">達成</Badge>] },
+        { cells: [<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FaceAvatar size={26}>高</FaceAvatar>高橋 みなみ</span>, bar(20, 50, 'warn'), '2 / 10日', <MetricPill tone="warn">46日</MetricPill>, <Badge tone="hot">要対応</Badge>], alert: true },
+      ]}
+      footer="21名中 2名を表示" />
+    <p className="lbl" style={{ marginTop: 16 }}>KVTable</p>
+    <KVTable rows={[{ k: '期間', v: '2026/09/20（金）1日' }, { k: '区分', v: '年次有給休暇（全日）' }, { k: '取得後の残', v: '4.0日' }]} />
+  </div>
+);
+</script><script>
+window.addEventListener('load', function () {
+  var ns = window.FCDesign || Object.values(window).find(function (v) { return v && v.Button && v.Badge; });
+  if (ns) return;
+  var r = document.getElementById('root');
+  if (r && r.children.length) return;
+  document.body.innerHTML = '<div style="font-family:var(--fc-font);max-width:520px;margin:24px auto;background:var(--fc-card);border:1px solid var(--fc-line);border-radius:16px;padding:20px">'
+    + '<div style="display:inline-flex;background:#E9F056;color:#666C14;font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 13px;border-radius:999px">F&amp;C Design System</div>'
+    + '<div style="margin-top:14px;font-size:15px;font-weight:800">コンポーネントの読み込み待ちです</div>'
+    + '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;color:#84787D">この画面は共通コンポーネントを使って組まれています。'
+    + '共有メニューで <b style="color:#351E28">ファイル種別を「Design System」</b> に設定すると、コンポーネントがビルドされてこの画面が表示されます。</div></div>';
+});
+</script>
+</body></html>
