@@ -42,6 +42,11 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // 外部フォーム (トークン制の自己登録/RFQ回答) は認証不要 — トークン検証はページ側で行う
+  if (pathname.startsWith('/external')) {
+    return supabaseResponse
+  }
+
   // Public paths - no auth required
   if (pathname === '/login' || pathname === '/portal/login' || pathname === '/factory/login') {
     if (user) {

@@ -1,28 +1,13 @@
 // Sprint 8-7: 工場の RFQ 回答フォーム (anonymous, §0.5-5)。
 // 案件名 (deal_name) は表示しない — 商品仕様のみ。
+// Sprint 11 (migration 032): データ取得は anon 実行可能な RPC (ext_rfq_context) 経由。
 
-import { createClient } from '@/lib/supabase/server'
-import { getFormByToken } from '@/lib/actions/external-forms'
+import { getFormByToken, getRfqContext } from '@/lib/actions/external-forms'
 import { ExternalFormError } from '@/components/external/external-form-error'
 import { RfqResponseForm } from '@/components/external/rfq-response-form'
 
 interface Props {
   params: Promise<{ token: string }>
-}
-
-interface MaskedProduct {
-  id: string
-  description: string
-  variants: Array<{
-    id: string
-    label: string
-    width_mm: number | null
-    height_mm: number | null
-    depth_mm: number | null
-    material: string | null
-    print_color_count: string | null
-    pcs_per_carton: number | null
-  }>
 }
 
 export default async function RfqResponsePage({ params }: Props) {
@@ -33,52 +18,11 @@ export default async function RfqResponsePage({ params }: Props) {
     return <ExternalFormError message="フォーム種別が一致しません" />
   }
 
-  // related_id = rfq_factory_invitation.id → rfq_id → product_ids → products+variants
-  const supabase = await createClient()
-  const { data: invitation } = await supabase
-    .from('rfq_factory_invitations')
-    .select('rfq_id')
-    .eq('id', form.related_id || '')
-    .single()
-  if (!invitation) return <ExternalFormError message="紐付く RFQ が見つかりません" />
-
-  const { data: rfq } = await supabase
-    .from('rfq_requests')
-    .select('id, product_ids, request_message, response_deadline, rfq_number')
-    .eq('id', invitation.rfq_id)
-    .single()
-  if (!rfq) return <ExternalFormError message="RFQ が見つかりません" />
-
-  // 商品 + バリエ取得 (案件名は意図的に取らない、§0.5-5 マスキング)
-  const { data: products } = await supabase
-    .from('deal_products')
-    .select('id, description')
-    .in('id', rfq.product_ids)
-
-  const productIds = (products || []).map((p) => p.id)
-  const { data: variantsRaw } = await supabase
-    .from('deal_product_variants')
-    .select(
-      'id, product_id, variant_label, width_mm, height_mm, depth_mm, material, print_color_count, pcs_per_carton'
-    )
-    .in('product_id', productIds)
-
-  const masked: MaskedProduct[] = (products || []).map((p) => ({
-    id: p.id,
-    description: p.description,
-    variants: (variantsRaw || [])
-      .filter((v) => v.product_id === p.id)
-      .map((v) => ({
-        id: v.id,
-        label: v.variant_label || '',
-        width_mm: v.width_mm,
-        height_mm: v.height_mm,
-        depth_mm: v.depth_mm,
-        material: v.material,
-        print_color_count: v.print_color_count,
-        pcs_per_carton: v.pcs_per_carton,
-      })),
-  }))
+  const { context, error: ctxErr } = await getRfqContext(token)
+  if (ctxErr || !context) {
+    return <ExternalFormError message={ctxErr || 'データ取得に失敗しました'} />
+  }
+  const { rfq, products } = context
 
   return (
     <div className="space-y-4">
@@ -101,7 +45,7 @@ export default async function RfqResponsePage({ params }: Props) {
           </p>
         )}
       </div>
-      <RfqResponseForm token={token} products={masked} />
+      <RfqResponseForm token={token} products={products} />
     </div>
   )
 }

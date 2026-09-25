@@ -9,6 +9,10 @@
 //   - 1 度 'submitted' になったトークンは再使用不可 (status check)
 //   - スタッフが管理画面から手動で 'cancelled' にできる (cancelExternalForm)
 //   - RFQ フォームには案件名 (deal_name) は含めない、商品仕様のみ
+//
+// Sprint 11 (migration 032): 匿名側の読み取り/送信は SECURITY DEFINER RPC 経由。
+//   RLS は authenticated のみのままにし、anon にはトークン必須の関数だけ公開する
+//   (テーブルを anon に開放するとトークン列挙が可能になるため)。
 
 import crypto from 'crypto'
 import { headers } from 'next/headers'
@@ -16,7 +20,6 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type {
   ExternalFormRow,
-  ExternalFormType,
   ClientSelfRegistrationPayload,
   FactorySelfRegistrationPayload,
   RfqResponsePayload,
@@ -35,7 +38,7 @@ async function getRequestMeta(): Promise<{ ip: string | null; ua: string | null 
 }
 
 /**
- * トークンから external_form を取得。anonymous でアクセス可。
+ * トークンから external_form を取得。anonymous でアクセス可 (RPC 経由)。
  * status / expires_at / cancelled_at をチェックし、無効ならエラーメッセージを返す。
  */
 export async function getFormByToken(
@@ -46,9 +49,7 @@ export async function getFormByToken(
   }
   const supabase = await createClient()
   const { data } = await supabase
-    .from('external_forms')
-    .select('*')
-    .eq('token', token)
+    .rpc('ext_form_by_token', { p_token: token })
     .maybeSingle()
 
   if (!data) return { form: null, error: 'フォームが見つかりません' }
@@ -89,6 +90,7 @@ export async function createClientInvitation(): Promise<{
   })
   if (error) return { token: null, error: error.message }
   revalidatePath('/master')
+  revalidatePath('/settings')
   return { token, error: null }
 }
 
@@ -111,7 +113,33 @@ export async function createFactoryInvitation(): Promise<{
   })
   if (error) return { token: null, error: error.message }
   revalidatePath('/master')
+  revalidatePath('/settings')
   return { token, error: null }
+}
+
+/**
+ * Sprint 11: 設定画面の招待リンク管理用。発行済みの自己登録フォームを新しい順に返す。
+ * トークン(=URL)も返すのでスタッフ認証必須。RFQ 回答フォームは案件側で管理するため除外。
+ */
+export async function listExternalForms(): Promise<{
+  forms: ExternalFormRow[]
+  error: string | null
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { forms: [], error: 'Unauthorized' }
+
+  const { data, error } = await supabase
+    .from('external_forms')
+    .select('*')
+    .in('form_type', ['client_self_registration', 'factory_self_registration'])
+    .order('created_at', { ascending: false })
+    .limit(30)
+
+  if (error) return { forms: [], error: error.message }
+  return { forms: (data || []) as ExternalFormRow[], error: null }
 }
 
 export async function cancelExternalForm(
@@ -134,87 +162,37 @@ export async function cancelExternalForm(
 
   if (error) return { success: false, error: error.message }
   revalidatePath('/master')
+  revalidatePath('/settings')
   return { success: true }
 }
 
 // ============================================================================
-// 外部側: 提出処理 (anonymous)
+// 外部側: 提出処理 (anonymous → SECURITY DEFINER RPC)
 // ============================================================================
+
+interface RpcResult {
+  success: boolean
+  error?: string
+  deal_id?: string
+}
 
 export async function submitClientRegistration(
   token: string,
   payload: ClientSelfRegistrationPayload
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const { form, error: getErr } = await getFormByToken(token)
-  if (getErr || !form) return { success: false, error: getErr || 'invalid token' }
-  if (form.form_type !== 'client_self_registration') {
-    return { success: false, error: 'フォーム種別が一致しません' }
-  }
-  if (!payload.company_name?.trim()) {
-    return { success: false, error: '会社名は必須です' }
-  }
-  if (!payload.addresses || payload.addresses.length === 0) {
-    return { success: false, error: '配送先を最低 1 件登録してください' }
-  }
-
   const { ip, ua } = await getRequestMeta()
-
-  // 1. clients に INSERT
-  const { data: client, error: insertErr } = await supabase
-    .from('clients')
-    .insert({
-      company_name: payload.company_name.trim(),
-      short_name: payload.short_name?.trim() || null,
-      industry: payload.industry?.trim() || null,
-      contact_name: payload.contact_name?.trim() || null,
-      contact_role: payload.contact_role?.trim() || null,
-      phone: payload.phone?.trim() || null,
-      email: payload.email?.trim() || null,
-      tax_id: payload.tax_id?.trim() || null,
-      payment_terms: payload.payment_terms?.trim() || null,
-      tax_rate: payload.tax_rate ?? null,
-      self_registered_at: new Date().toISOString(),
-      self_registration_form_id: form.id,
-    })
-    .select('id')
-    .single()
-  if (insertErr || !client) return { success: false, error: insertErr?.message || 'INSERT失敗' }
-
-  // 2. client_addresses を一括 INSERT
-  const addressRows = payload.addresses
-    .filter((a) => a.label?.trim() && a.address_line1?.trim())
-    .map((a, idx) => ({
-      client_id: client.id,
-      label: a.label.trim(),
-      recipient_name: a.recipient_name?.trim() || null,
-      postal_code: a.postal_code?.trim() || null,
-      address_line1: a.address_line1.trim(),
-      address_line2: a.address_line2?.trim() || null,
-      phone: a.phone?.trim() || null,
-      email: a.email?.trim() || null,
-      is_default: a.is_default ?? idx === 0,
-      notes: a.notes?.trim() || null,
-    }))
-  if (addressRows.length > 0) {
-    await supabase.from('client_addresses').insert(addressRows)
-  }
-
-  // 3. external_forms を 'submitted' に
-  await supabase
-    .from('external_forms')
-    .update({
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      submitted_by_email: payload.email?.trim() || null,
-      submission_ip: ip,
-      submission_user_agent: ua,
-      related_id: client.id,
-      submission_data: payload as unknown as Record<string, unknown>,
-    })
-    .eq('id', form.id)
-
+  const { data, error } = await supabase.rpc('ext_submit_client', {
+    p_token: token,
+    p_payload: payload as unknown as Record<string, unknown>,
+    p_ip: ip,
+    p_ua: ua,
+  })
+  if (error) return { success: false, error: error.message }
+  const r = (data || {}) as RpcResult
+  if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
   revalidatePath('/master')
+  revalidatePath('/settings')
   return { success: true }
 }
 
@@ -223,57 +201,18 @@ export async function submitFactoryRegistration(
   payload: FactorySelfRegistrationPayload
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const { form, error: getErr } = await getFormByToken(token)
-  if (getErr || !form) return { success: false, error: getErr || 'invalid token' }
-  if (form.form_type !== 'factory_self_registration') {
-    return { success: false, error: 'フォーム種別が一致しません' }
-  }
-  if (!payload.factory_name?.trim()) {
-    return { success: false, error: '工場名は必須です' }
-  }
-
   const { ip, ua } = await getRequestMeta()
-
-  const { data: factory, error: insertErr } = await supabase
-    .from('factories')
-    .insert({
-      factory_name: payload.factory_name.trim(),
-      name_cn: payload.name_cn?.trim() || null,
-      contact_name: payload.contact_name?.trim() || null,
-      contact_phone: payload.contact_phone?.trim() || null,
-      contact_email: payload.contact_email?.trim() || null,
-      wechat: payload.wechat?.trim() || null,
-      address: payload.address?.trim() || null,
-      specialties: (payload.specialties || []).filter((s) => s?.trim()),
-      payment_terms: payload.payment_terms?.trim() || null,
-      incoterm: payload.incoterm?.trim() || null,
-      lead_time_range: payload.lead_time_range?.trim() || null,
-      bank_info: payload.bank_info_text?.trim()
-        ? { raw: payload.bank_info_text.trim() }
-        : null,
-      notes: payload.notes?.trim() || null,
-      basic_info_completed: true,
-      self_registered_at: new Date().toISOString(),
-      self_registration_form_id: form.id,
-    })
-    .select('id')
-    .single()
-  if (insertErr || !factory) return { success: false, error: insertErr?.message || 'INSERT失敗' }
-
-  await supabase
-    .from('external_forms')
-    .update({
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      submitted_by_email: payload.contact_email?.trim() || null,
-      submission_ip: ip,
-      submission_user_agent: ua,
-      related_id: factory.id,
-      submission_data: payload as unknown as Record<string, unknown>,
-    })
-    .eq('id', form.id)
-
+  const { data, error } = await supabase.rpc('ext_submit_factory', {
+    p_token: token,
+    p_payload: payload as unknown as Record<string, unknown>,
+    p_ip: ip,
+    p_ua: ua,
+  })
+  if (error) return { success: false, error: error.message }
+  const r = (data || {}) as RpcResult
+  if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
   revalidatePath('/master')
+  revalidatePath('/settings')
   return { success: true }
 }
 
@@ -282,89 +221,54 @@ export async function submitRfqResponse(
   payload: RfqResponsePayload
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const { form, error: getErr } = await getFormByToken(token)
-  if (getErr || !form) return { success: false, error: getErr || 'invalid token' }
-  if (form.form_type !== 'rfq_response') {
-    return { success: false, error: 'フォーム種別が一致しません' }
-  }
-
   const { ip, ua } = await getRequestMeta()
-
-  // related_id = rfq_factory_invitations.id
-  const { data: invitation } = await supabase
-    .from('rfq_factory_invitations')
-    .select('id, rfq_id, factory_id')
-    .eq('id', form.related_id || '')
-    .maybeSingle()
-
-  if (!invitation) {
-    return { success: false, error: '紐付く RFQ 招待が見つかりません' }
-  }
-
-  const { data: rfq } = await supabase
-    .from('rfq_requests')
-    .select('id, deal_id, product_ids')
-    .eq('id', invitation.rfq_id)
-    .single()
-
-  if (!rfq) return { success: false, error: 'RFQ が見つかりません' }
-
-  // 各商品ラインを deal_quotes として INSERT
-  // factory_id は invitation.factory_id (NULL の場合は pending 工場 — 現 Sprint 8 では INSERT しない)
-  const factoryId = invitation.factory_id
-  if (factoryId) {
-    const quoteRows = payload.products
-      .filter((p) => p.product_id)
-      .map((p) => ({
-        deal_id: rfq.deal_id,
-        variant_id: p.variant_id || null,
-        factory_id: factoryId,
-        quantity: null, // RFQ 段階では不確定、後でスタッフが採用時に確定
-        moq: p.moq ?? null,
-        factory_unit_price_usd: p.unit_price_usd ?? null,
-        status: 'drafting',
-        source_type: 'rfq_response',
-        version: 1,
-      }))
-    if (quoteRows.length > 0) {
-      await supabase.from('deal_quotes').insert(quoteRows)
-    }
-  }
-
-  // invitation を responded
-  await supabase
-    .from('rfq_factory_invitations')
-    .update({ responded_at: new Date().toISOString() })
-    .eq('id', invitation.id)
-
-  // RFQ 全体の status を partially_responded or fully_responded
-  const { data: allInv } = await supabase
-    .from('rfq_factory_invitations')
-    .select('responded_at')
-    .eq('rfq_id', invitation.rfq_id)
-  const respondedCount = (allInv || []).filter((i) => i.responded_at).length
-  const totalCount = (allInv || []).length
-  await supabase
-    .from('rfq_requests')
-    .update({
-      status: respondedCount >= totalCount ? 'fully_responded' : 'partially_responded',
-    })
-    .eq('id', invitation.rfq_id)
-
-  // external_forms を submitted
-  await supabase
-    .from('external_forms')
-    .update({
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      submitted_by_email: payload.factory_email?.trim() || null,
-      submission_ip: ip,
-      submission_user_agent: ua,
-      submission_data: payload as unknown as Record<string, unknown>,
-    })
-    .eq('id', form.id)
-
+  const { data, error } = await supabase.rpc('ext_submit_rfq', {
+    p_token: token,
+    p_payload: payload as unknown as Record<string, unknown>,
+    p_ip: ip,
+    p_ua: ua,
+  })
+  if (error) return { success: false, error: error.message }
+  const r = (data || {}) as RpcResult
+  if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
   revalidatePath('/deals')
-  revalidatePath(`/deals/${rfq.deal_id}`)
+  if (r.deal_id) revalidatePath(`/deals/${r.deal_id}`)
   return { success: true }
+}
+
+/**
+ * RFQ 回答フォームの表示データ (anonymous)。案件名は返さない (§0.5-5 マスキング)。
+ */
+export interface RfqContext {
+  rfq: {
+    id: string
+    rfq_number: string | null
+    request_message: string | null
+    response_deadline: string | null
+  }
+  products: Array<{
+    id: string
+    description: string
+    variants: Array<{
+      id: string
+      label: string
+      width_mm: number | null
+      height_mm: number | null
+      depth_mm: number | null
+      material: string | null
+      print_color_count: string | null
+      pcs_per_carton: number | null
+    }>
+  }>
+}
+
+export async function getRfqContext(
+  token: string
+): Promise<{ context: RfqContext | null; error: string | null }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('ext_rfq_context', { p_token: token })
+  if (error) return { context: null, error: error.message }
+  const r = data as (RfqContext & { error?: string }) | null
+  if (!r || r.error) return { context: null, error: r?.error || 'データ取得に失敗しました' }
+  return { context: r, error: null }
 }

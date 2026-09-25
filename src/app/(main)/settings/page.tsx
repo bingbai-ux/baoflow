@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getSettings } from '@/lib/actions/settings'
+import { listExternalForms } from '@/lib/actions/external-forms'
 import { SettingsForm } from '@/components/settings/settings-form'
+import { InviteLinksSection } from '@/components/settings/invite-links-section'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -11,13 +13,14 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, settings] = await Promise.all([
+  const [{ data: profile }, settings, { forms: inviteForms }] = await Promise.all([
     supabase
       .from('profiles')
       .select('display_name, email, role')
       .eq('id', user.id)
       .single(),
     getSettings(),
+    listExternalForms(),
   ])
 
   const initial = {
@@ -47,6 +50,8 @@ export default async function SettingsPage() {
           見積計算のデフォルトとプロフィール情報を管理します。
         </p>
       </div>
+
+      <InviteLinksSection forms={inviteForms} />
 
       <SettingsForm
         initial={initial}
