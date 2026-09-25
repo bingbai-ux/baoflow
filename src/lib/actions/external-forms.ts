@@ -22,6 +22,7 @@ import type {
   ExternalFormRow,
   ClientSelfRegistrationPayload,
   FactorySelfRegistrationPayload,
+  LogisticsPartnerPayload,
   RfqResponsePayload,
 } from './external-forms-types'
 
@@ -117,6 +118,29 @@ export async function createFactoryInvitation(): Promise<{
   return { token, error: null }
 }
 
+/** Sprint 11: 発送業者 / ロジスティック会社の招待リンク生成 */
+export async function createPartnerInvitation(
+  kind: 'shipping' | 'logistics'
+): Promise<{ token: string | null; error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { token: null, error: 'Unauthorized' }
+
+  const token = generateToken()
+  const { error } = await supabase.from('external_forms').insert({
+    form_type: kind === 'shipping' ? 'shipping_self_registration' : 'logistics_self_registration',
+    token,
+    status: 'pending',
+    created_by: user.id,
+  })
+  if (error) return { token: null, error: error.message }
+  revalidatePath('/master')
+  revalidatePath('/settings')
+  return { token, error: null }
+}
+
 /**
  * Sprint 11: 設定画面の招待リンク管理用。発行済みの自己登録フォームを新しい順に返す。
  * トークン(=URL)も返すのでスタッフ認証必須。RFQ 回答フォームは案件側で管理するため除外。
@@ -134,7 +158,12 @@ export async function listExternalForms(): Promise<{
   const { data, error } = await supabase
     .from('external_forms')
     .select('*')
-    .in('form_type', ['client_self_registration', 'factory_self_registration'])
+    .in('form_type', [
+      'client_self_registration',
+      'factory_self_registration',
+      'shipping_self_registration',
+      'logistics_self_registration',
+    ])
     .order('created_at', { ascending: false })
     .limit(30)
 
@@ -191,8 +220,8 @@ export async function submitClientRegistration(
   if (error) return { success: false, error: error.message }
   const r = (data || {}) as RpcResult
   if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
-  revalidatePath('/master')
-  revalidatePath('/settings')
+  // revalidatePath は呼ばない: 呼ぶと送信直後に現在の外部ページが再描画され、
+  // 成功画面が「既に送信されています」に置き換わる。スタッフ画面は動的取得のため不要。
   return { success: true }
 }
 
@@ -211,8 +240,25 @@ export async function submitFactoryRegistration(
   if (error) return { success: false, error: error.message }
   const r = (data || {}) as RpcResult
   if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
-  revalidatePath('/master')
-  revalidatePath('/settings')
+  return { success: true }
+}
+
+/** Sprint 11: 発送業者 / ロジ会社の自己登録送信 (anonymous → RPC) */
+export async function submitPartnerRegistration(
+  token: string,
+  payload: LogisticsPartnerPayload
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { ip, ua } = await getRequestMeta()
+  const { data, error } = await supabase.rpc('ext_submit_partner', {
+    p_token: token,
+    p_payload: payload as unknown as Record<string, unknown>,
+    p_ip: ip,
+    p_ua: ua,
+  })
+  if (error) return { success: false, error: error.message }
+  const r = (data || {}) as RpcResult
+  if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
   return { success: true }
 }
 
@@ -231,8 +277,6 @@ export async function submitRfqResponse(
   if (error) return { success: false, error: error.message }
   const r = (data || {}) as RpcResult
   if (!r.success) return { success: false, error: r.error || '送信に失敗しました' }
-  revalidatePath('/deals')
-  if (r.deal_id) revalidatePath(`/deals/${r.deal_id}`)
   return { success: true }
 }
 

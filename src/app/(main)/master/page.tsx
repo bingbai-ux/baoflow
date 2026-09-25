@@ -11,6 +11,7 @@ import {
   getFactoryRollup,
 } from '@/lib/actions/factories'
 import { listStaff, getStaff, getStaffRollup } from '@/lib/actions/staff'
+import { listLogisticsPartners } from '@/lib/actions/logistics-partners'
 import { MasterTabs } from '@/components/master/master-tabs'
 
 interface Props {
@@ -19,8 +20,14 @@ interface Props {
 
 export default async function MasterPage({ searchParams }: Props) {
   const params = await searchParams
-  const tab: 'clients' | 'factories' | 'staff' =
-    params.tab === 'factories' ? 'factories' : params.tab === 'staff' ? 'staff' : 'clients'
+  const tab: 'clients' | 'factories' | 'staff' | 'logistics' =
+    params.tab === 'factories'
+      ? 'factories'
+      : params.tab === 'staff'
+        ? 'staff'
+        : params.tab === 'logistics'
+          ? 'logistics'
+          : 'clients'
 
   const supabase = await createClient()
   const {
@@ -28,10 +35,11 @@ export default async function MasterPage({ searchParams }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [clients, factories, staff] = await Promise.all([
+  const [clients, factories, staff, partners] = await Promise.all([
     listClients(),
     listFactories(),
     listStaff(),
+    listLogisticsPartners(),
   ])
 
   // Aggregate per-client approved totals + in-progress counts
@@ -122,6 +130,8 @@ export default async function MasterPage({ searchParams }: Props) {
       }
     }
   }
+  const selectedPartner =
+    tab === 'logistics' && params.id ? partners.find((p) => p.id === params.id) || null : null
 
   return (
     <>
@@ -135,9 +145,11 @@ export default async function MasterPage({ searchParams }: Props) {
         clients={clientsWithTotal}
         factories={factoriesWithStats}
         staff={staffWithStats}
+        partners={partners}
         selectedClient={selectedClient}
         selectedFactory={selectedFactory}
         selectedStaff={selectedStaff}
+        selectedPartner={selectedPartner}
       />
     </>
   )

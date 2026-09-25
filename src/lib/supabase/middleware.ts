@@ -47,8 +47,16 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
+  // 外部ロールごとのホーム画面 (Sprint 11: logistics = 物流パートナー)
+  const ROLE_HOME: Record<string, string> = {
+    client: '/portal',
+    factory: '/factory',
+    logistics: '/logistics',
+  }
+  const LOGIN_PATHS = ['/login', '/portal/login', '/factory/login', '/logistics/login']
+
   // Public paths - no auth required
-  if (pathname === '/login' || pathname === '/portal/login' || pathname === '/factory/login') {
+  if (LOGIN_PATHS.includes(pathname)) {
     if (user) {
       // Already logged in - redirect based on role
       const { data: profile } = await supabase
@@ -57,30 +65,26 @@ export async function updateSession(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'client') {
-        if (pathname === '/login' || pathname === '/factory/login') {
-          return NextResponse.redirect(new URL('/portal', request.url))
-        }
-      } else if (profile?.role === 'factory') {
-        if (pathname === '/login' || pathname === '/portal/login') {
-          return NextResponse.redirect(new URL('/factory', request.url))
-        }
-      } else {
-        if (pathname === '/portal/login' || pathname === '/factory/login') {
-          return NextResponse.redirect(new URL('/', request.url))
-        }
+      const role = profile?.role || 'sales'
+      const home = ROLE_HOME[role] || '/'
+      const ownLogin = role in ROLE_HOME ? `${ROLE_HOME[role]}/login` : '/login'
+      if (pathname !== ownLogin) {
+        return NextResponse.redirect(new URL(home, request.url))
       }
     }
     return supabaseResponse
   }
 
-  // No user - redirect to login
+  // No user - redirect to the matching login
   if (!user) {
     if (pathname.startsWith('/portal')) {
       return NextResponse.redirect(new URL('/portal/login', request.url))
     }
     if (pathname.startsWith('/factory')) {
       return NextResponse.redirect(new URL('/factory/login', request.url))
+    }
+    if (pathname.startsWith('/logistics')) {
+      return NextResponse.redirect(new URL('/logistics/login', request.url))
     }
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -93,11 +97,12 @@ export async function updateSession(request: NextRequest) {
     .single()
 
   const role = profile?.role || 'sales'
+  const externalHome = ROLE_HOME[role]
 
   // Portal routes - only for clients
   if (pathname.startsWith('/portal')) {
     if (role !== 'client') {
-      return NextResponse.redirect(new URL('/', request.url))
+      return NextResponse.redirect(new URL(externalHome || '/', request.url))
     }
     return supabaseResponse
   }
@@ -105,23 +110,28 @@ export async function updateSession(request: NextRequest) {
   // Factory routes - only for factory users
   if (pathname.startsWith('/factory')) {
     if (role !== 'factory') {
-      return NextResponse.redirect(new URL('/', request.url))
+      return NextResponse.redirect(new URL(externalHome || '/', request.url))
     }
     return supabaseResponse
   }
 
-  // Sales/Admin routes - not for clients or factory
-  const salesRoutes = ['/', '/deals', '/clients', '/factories', '/analytics', '/payments', '/settings', '/registry', '/logistics', '/inventory', '/smart-quote', '/shipments']
+  // Logistics routes - only for logistics partners
+  if (pathname.startsWith('/logistics')) {
+    if (role !== 'logistics') {
+      return NextResponse.redirect(new URL(externalHome || '/', request.url))
+    }
+    return supabaseResponse
+  }
+
+  // Sales/Admin routes - not for external roles
+  const salesRoutes = ['/', '/deals', '/clients', '/factories', '/analytics', '/payments', '/settings', '/registry', '/inventory', '/smart-quote', '/shipments', '/master', '/archive', '/docs']
   const isSalesRoute = salesRoutes.some(route =>
     pathname === route || pathname.startsWith(`${route}/`)
   )
 
   if (isSalesRoute) {
-    if (role === 'client') {
-      return NextResponse.redirect(new URL('/portal', request.url))
-    }
-    if (role === 'factory') {
-      return NextResponse.redirect(new URL('/factory', request.url))
+    if (externalHome) {
+      return NextResponse.redirect(new URL(externalHome, request.url))
     }
     if (role !== 'admin' && role !== 'sales') {
       return NextResponse.redirect(new URL('/login', request.url))

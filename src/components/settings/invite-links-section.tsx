@@ -11,6 +11,7 @@ import { Copy, X } from 'lucide-react'
 import {
   createClientInvitation,
   createFactoryInvitation,
+  createPartnerInvitation,
   cancelExternalForm,
 } from '@/lib/actions/external-forms'
 import type { ExternalFormRow } from '@/lib/actions/external-forms-types'
@@ -40,7 +41,18 @@ const STATE_BADGE: Record<RowState, { label: string; cls: string }> = {
 const TYPE_LABEL: Record<string, string> = {
   client_self_registration: 'クライアント',
   factory_self_registration: '工場',
+  shipping_self_registration: '発送業者',
+  logistics_self_registration: 'ロジ会社',
 }
+
+type InviteKind = 'client' | 'factory' | 'shipping' | 'logistics'
+
+const GENERATE_BUTTONS: Array<{ kind: InviteKind; label: string }> = [
+  { kind: 'client', label: '+ クライアント' },
+  { kind: 'factory', label: '+ 工場' },
+  { kind: 'shipping', label: '+ 発送業者' },
+  { kind: 'logistics', label: '+ ロジ会社(在庫保管)' },
+]
 
 export function InviteLinksSection({ forms }: Props) {
   const router = useRouter()
@@ -51,10 +63,14 @@ export function InviteLinksSection({ forms }: Props) {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlOf = (token: string) => `${origin}/external/${token}`
 
-  const generate = (kind: 'client' | 'factory') =>
+  const generate = (kind: InviteKind) =>
     startTransition(async () => {
       const r =
-        kind === 'client' ? await createClientInvitation() : await createFactoryInvitation()
+        kind === 'client'
+          ? await createClientInvitation()
+          : kind === 'factory'
+            ? await createFactoryInvitation()
+            : await createPartnerInvitation(kind)
       if (!r.token || r.error) {
         toast(r.error || 'リンク生成に失敗しました', 'warn')
         return
@@ -104,22 +120,17 @@ export function InviteLinksSection({ forms }: Props) {
       </p>
 
       <div className="flex gap-2 mt-3 flex-wrap">
-        <button
-          type="button"
-          onClick={() => generate('client')}
-          disabled={pending}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
-        >
-          {pending ? '…' : '+ クライアント招待リンクを生成'}
-        </button>
-        <button
-          type="button"
-          onClick={() => generate('factory')}
-          disabled={pending}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
-        >
-          {pending ? '…' : '+ 工場招待リンクを生成'}
-        </button>
+        {GENERATE_BUTTONS.map((b) => (
+          <button
+            key={b.kind}
+            type="button"
+            onClick={() => generate(b.kind)}
+            disabled={pending}
+            className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
+          >
+            {pending ? '…' : `${b.label}の招待リンク`}
+          </button>
+        ))}
       </div>
 
       {forms.length > 0 && (

@@ -8,9 +8,11 @@ import { formatJPY } from '@/lib/utils/format'
 import { ClientDetail } from './client-detail'
 import { FactoryDetail } from './factory-detail'
 import { StaffDetail } from './staff-detail'
+import { PartnerDetail } from './partner-detail'
 import { InviteButton } from './invite-button'
 import { createClientRecord } from '@/lib/actions/clients'
 import { createFactoryRecord } from '@/lib/actions/factories'
+import { createPartnerRecord, type LogisticsPartner } from '@/lib/actions/logistics-partners'
 import type { ClientRollup, FactoryRollup, StaffRollup } from '@/lib/actions/master-types'
 
 interface ClientWithTotal extends Client {
@@ -26,16 +28,18 @@ interface StaffWithStats extends Profile {
   in_progress_count: number
 }
 
-type Tab = 'clients' | 'factories' | 'staff'
+type Tab = 'clients' | 'factories' | 'staff' | 'logistics'
 
 interface Props {
   tab: Tab
   clients: ClientWithTotal[]
   factories: FactoryWithStats[]
   staff: StaffWithStats[]
+  partners: LogisticsPartner[]
   selectedClient?: { client: Client; rollup: ClientRollup } | null
   selectedFactory?: { factory: Factory; rollup: FactoryRollup } | null
   selectedStaff?: { staff: Profile; rollup: StaffRollup } | null
+  selectedPartner?: LogisticsPartner | null
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -48,9 +52,11 @@ export function MasterTabs({
   clients,
   factories,
   staff,
+  partners,
   selectedClient,
   selectedFactory,
   selectedStaff,
+  selectedPartner,
 }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -71,6 +77,11 @@ export function MasterTabs({
     (s.display_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
     (s.email?.toLowerCase().includes(search.toLowerCase()) ?? false)
   )
+  const filteredPartners = partners.filter((p) =>
+    !search ||
+    p.company_name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.name_cn?.toLowerCase().includes(search.toLowerCase()) ?? false)
+  )
 
   const switchTab = (next: Tab) => {
     router.push(`/master?tab=${next}`)
@@ -79,9 +90,16 @@ export function MasterTabs({
   const selectClient = (id: string) => router.push(`/master?tab=clients&id=${id}`)
   const selectFactory = (id: string) => router.push(`/master?tab=factories&id=${id}`)
   const selectStaff = (id: string) => router.push(`/master?tab=staff&id=${id}`)
+  const selectPartner = (id: string) => router.push(`/master?tab=logistics&id=${id}`)
 
   const newButtonLabel =
-    tab === 'clients' ? '新規クライアント' : tab === 'factories' ? '新規工場' : null
+    tab === 'clients'
+      ? '新規クライアント'
+      : tab === 'factories'
+        ? '新規工場'
+        : tab === 'logistics'
+          ? '新規パートナー'
+          : null
 
   return (
     <div className="bg-white border border-[rgba(53,30,40,0.06)] rounded-[16px] overflow-hidden">
@@ -97,6 +115,9 @@ export function MasterTabs({
           <TabButton active={tab === 'staff'} onClick={() => switchTab('staff')}>
             担当者 <span className="text-[10px] text-[#84787D] ml-1 tabular-nums">{staff.length}</span>
           </TabButton>
+          <TabButton active={tab === 'logistics'} onClick={() => switchTab('logistics')}>
+            物流 <span className="text-[10px] text-[#84787D] ml-1 tabular-nums">{partners.length}</span>
+          </TabButton>
         </div>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#84787D]" />
@@ -111,6 +132,12 @@ export function MasterTabs({
         {/* Sprint 8-5: 招待リンク生成ボタン (clients/factories タブのみ、staff タブでは非表示) */}
         {tab === 'clients' && <InviteButton kind="client" />}
         {tab === 'factories' && <InviteButton kind="factory" />}
+        {tab === 'logistics' && (
+          <>
+            <InviteButton kind="shipping" />
+            <InviteButton kind="logistics" />
+          </>
+        )}
         {newButtonLabel && (
           <button
             onClick={() => setShowNew(true)}
@@ -223,6 +250,36 @@ export function MasterTabs({
                 })}
               </ul>
             ))}
+
+          {tab === 'logistics' &&
+            (filteredPartners.length === 0 ? (
+              <p className="text-[11px] text-[#84787D] p-4 text-center">
+                まだ登録がありません。「+ 発送業者招待」「+ ロジ会社招待」でリンクを送るか、「新規パートナー」で手動登録してください。
+              </p>
+            ) : (
+              <ul>
+                {filteredPartners.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectPartner(p.id)}
+                      className={`w-full text-left px-3 py-2 border-b border-[rgba(53,30,40,0.04)] hover:bg-[#FBFAF6] ${
+                        selectedPartner?.id === p.id ? 'bg-[#EFEFEA]' : ''
+                      }`}
+                    >
+                      <div className="text-[12px] font-display font-semibold text-[#351E28] truncate">
+                        {p.company_name}
+                        {!p.is_active && <span className="text-[#84787D] font-normal ml-1">(停止中)</span>}
+                      </div>
+                      <div className="text-[10px] text-[#84787D] mt-0.5 truncate">
+                        {p.partner_kind === 'shipping' ? '発送業者' : 'ロジ会社(在庫保管)'}
+                        {p.coverage && <span> · {p.coverage}</span>}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ))}
         </div>
 
         {/* Right detail */}
@@ -245,6 +302,12 @@ export function MasterTabs({
             ) : (
               <EmptyDetail message="左のリストから担当者を選んでください" />
             ))}
+          {tab === 'logistics' &&
+            (selectedPartner ? (
+              <PartnerDetail partner={selectedPartner} />
+            ) : (
+              <EmptyDetail message="左のリストからパートナーを選んでください" />
+            ))}
         </div>
       </div>
 
@@ -253,6 +316,9 @@ export function MasterTabs({
       )}
       {showNew && tab === 'factories' && (
         <NewFactoryModal onClose={() => setShowNew(false)} />
+      )}
+      {showNew && tab === 'logistics' && (
+        <NewPartnerModal onClose={() => setShowNew(false)} />
       )}
     </div>
   )
@@ -355,6 +421,71 @@ function NewFactoryModal({ onClose }: { onClose: () => void }) {
           <Field label="WeChat ID"><input name="wechat" className={inputClass} /></Field>
           <Field label="リードタイム"><input name="lead_time_range" placeholder="25-30日" className={inputClass} /></Field>
         </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="text-[12px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-3 py-1">キャンセル</button>
+          <button type="submit" disabled={pending} className="text-[12px] text-[#C9A2B8] bg-[#351E28] rounded-[8px] px-3 py-1 disabled:opacity-50">
+            {pending ? '作成中...' : '作成'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
+function NewPartnerModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
+  const [pending, startSave] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [kind, setKind] = useState<'shipping' | 'warehouse'>('shipping')
+  const [name, setName] = useState('')
+
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    startSave(async () => {
+      const r = await createPartnerRecord(kind, name)
+      if (r.error || !r.id) {
+        setError(r.error || '作成に失敗しました')
+        return
+      }
+      onClose()
+      router.push(`/master?tab=logistics&id=${r.id}`)
+    })
+  }
+
+  return (
+    <ModalShell title="新規パートナー" onClose={onClose}>
+      <form onSubmit={handleSave} className="space-y-3">
+        {error && <ErrorBanner message={error} />}
+        <Field label="種別" required>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setKind('shipping')}
+              className={`rounded-full text-[11px] font-bold px-3 py-1.5 border ${
+                kind === 'shipping'
+                  ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
+                  : 'bg-white text-[#351E28] border-[#E2E1DA]'
+              }`}
+            >
+              発送業者
+            </button>
+            <button
+              type="button"
+              onClick={() => setKind('warehouse')}
+              className={`rounded-full text-[11px] font-bold px-3 py-1.5 border ${
+                kind === 'warehouse'
+                  ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
+                  : 'bg-white text-[#351E28] border-[#E2E1DA]'
+              }`}
+            >
+              ロジ会社(在庫保管)
+            </button>
+          </div>
+        </Field>
+        <Field label="会社名" required>
+          <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="text-[12px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-3 py-1">キャンセル</button>
           <button type="submit" disabled={pending} className="text-[12px] text-[#C9A2B8] bg-[#351E28] rounded-[8px] px-3 py-1 disabled:opacity-50">

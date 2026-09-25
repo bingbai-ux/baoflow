@@ -8,11 +8,19 @@ import { Copy, Link as LinkIcon, X } from 'lucide-react'
 import {
   createClientInvitation,
   createFactoryInvitation,
+  createPartnerInvitation,
 } from '@/lib/actions/external-forms'
 import { useUi } from '@/components/ui/ui-store'
 
 interface Props {
-  kind: 'client' | 'factory'
+  kind: 'client' | 'factory' | 'shipping' | 'logistics'
+}
+
+const KIND_LABEL: Record<Props['kind'], { button: string; title: string; target: string }> = {
+  client: { button: '+ 招待リンク', title: 'クライアント招待リンク', target: 'クライアント' },
+  factory: { button: '+ 工場招待', title: '工場招待リンク', target: '工場' },
+  shipping: { button: '+ 発送業者招待', title: '発送業者招待リンク', target: '発送業者' },
+  logistics: { button: '+ ロジ会社招待', title: 'ロジ会社招待リンク', target: 'ロジ会社' },
 }
 
 export function InviteButton({ kind }: Props) {
@@ -25,7 +33,11 @@ export function InviteButton({ kind }: Props) {
     if (pending) return
     startTransition(async () => {
       const r =
-        kind === 'client' ? await createClientInvitation() : await createFactoryInvitation()
+        kind === 'client'
+          ? await createClientInvitation()
+          : kind === 'factory'
+            ? await createFactoryInvitation()
+            : await createPartnerInvitation(kind)
       if (!r.token || r.error) {
         toast(r.error || 'リンク生成に失敗しました', 'warn')
         return
@@ -54,10 +66,10 @@ export function InviteButton({ kind }: Props) {
         onClick={handleClick}
         disabled={pending}
         className="text-[11px] px-2.5 py-1 border border-[#E2E1DA] rounded-[8px] bg-white hover:bg-[#FBFAF6] inline-flex items-center gap-1 disabled:opacity-50"
-        title={kind === 'client' ? 'クライアント招待リンクを生成' : '工場招待リンクを生成'}
+        title={`${KIND_LABEL[kind].title}を生成`}
       >
         <LinkIcon className="w-3 h-3" />
-        {pending ? '生成中…' : kind === 'client' ? '+ 招待リンク' : '+ 工場招待'}
+        {pending ? '生成中…' : KIND_LABEL[kind].button}
       </button>
 
       {open && url && (
@@ -71,7 +83,7 @@ export function InviteButton({ kind }: Props) {
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-display text-[14px] font-semibold">
-                {kind === 'client' ? 'クライアント招待リンク' : '工場招待リンク'}
+                {KIND_LABEL[kind].title}
               </h3>
               <button
                 type="button"
@@ -102,7 +114,7 @@ export function InviteButton({ kind }: Props) {
             </div>
             <p className="text-[10px] text-[#84787D]">
               リンクを開くと相手側の入力フォームが表示され、送信後に自動で
-              {kind === 'client' ? 'クライアント' : '工場'}マスターに登録されます。
+              {KIND_LABEL[kind].target}マスターに登録されます。
             </p>
           </div>
         </div>

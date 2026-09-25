@@ -22,6 +22,12 @@ export default async function ExternalTokenPage({ params }: Props) {
   if (form.form_type === 'factory_self_registration') {
     redirect(`/external/factory-registration/${token}`)
   }
+  if (form.form_type === 'shipping_self_registration') {
+    redirect(`/external/shipping-registration/${token}`)
+  }
+  if (form.form_type === 'logistics_self_registration') {
+    redirect(`/external/logistics-registration/${token}`)
+  }
   if (form.form_type === 'rfq_response') {
     redirect(`/external/rfq-response/${token}`)
   }

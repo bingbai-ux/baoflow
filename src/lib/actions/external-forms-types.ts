@@ -4,6 +4,8 @@
 export type ExternalFormType =
   | 'client_self_registration'
   | 'factory_self_registration'
+  | 'shipping_self_registration'
+  | 'logistics_self_registration'
   | 'rfq_response'
 
 export type ExternalFormStatus = 'pending' | 'submitted' | 'expired' | 'cancelled'
@@ -65,6 +67,23 @@ export interface FactorySelfRegistrationPayload {
   payment_terms?: string | null
   incoterm?: string | null
   lead_time_range?: string | null
+  bank_info_text?: string | null
+  notes?: string | null
+}
+
+// Sprint 11: 発送業者 (shipping) / ロジスティック会社 (warehouse) 自己登録
+export interface LogisticsPartnerPayload {
+  company_name: string
+  name_cn?: string | null
+  contact_name?: string | null
+  contact_phone?: string | null
+  contact_email?: string | null
+  wechat?: string | null
+  address?: string | null
+  services?: string[]
+  coverage?: string | null
+  pricing_notes?: string | null
+  payment_terms?: string | null
   bank_info_text?: string | null
   notes?: string | null
 }
