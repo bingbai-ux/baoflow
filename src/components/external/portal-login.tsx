@@ -24,7 +24,7 @@ export function PortalLogin({
   emailLabel = 'メールアドレス',
   passwordLabel = 'パスワード',
   buttonLabel = 'ログイン',
-  footnote = 'アカウントは kokon が発行します。ログインできない場合は担当者にご連絡ください。',
+  footnote = 'アカウントは (bao) が発行します。ログインできない場合は担当者にご連絡ください。',
 }: Props) {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -52,7 +52,7 @@ export function PortalLogin({
       <div className="w-full max-w-[400px]">
         <div className="text-center mb-6">
           <span className="font-display font-bold text-[32px] tracking-tight" style={{ color: '#B03616' }}>
-            kokon
+            (bao)
           </span>
           <p className="text-[11px] text-[#84787D] font-body">Packaging procurement service</p>
         </div>

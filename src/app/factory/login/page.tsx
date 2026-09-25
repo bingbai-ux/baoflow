@@ -2,7 +2,7 @@
 
 import { PortalLogin } from '@/components/external/portal-login'
 
-export const metadata = { title: 'kokon — Factory Login / 工厂登录' }
+export const metadata = { title: '(bao) — Factory Login / 工厂登录' }
 
 export default function FactoryLoginPage() {
   return (
@@ -13,7 +13,7 @@ export default function FactoryLoginPage() {
       emailLabel="Email / 邮箱"
       passwordLabel="Password / 密码"
       buttonLabel="Log in / 登录"
-      footnote="Accounts are issued by kokon. Contact us if you cannot log in. / 账号由 kokon 发放，无法登录请联系我们。"
+      footnote="Accounts are issued by (bao). Contact us if you cannot log in. / 账号由 (bao) 发放，无法登录请联系我们。"
     />
   )
 }

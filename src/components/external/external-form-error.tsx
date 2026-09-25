@@ -9,7 +9,7 @@ export function ExternalFormError({ message }: { message: string }) {
       <p className="font-display text-[18px] font-semibold mb-2">フォームを表示できません</p>
       <p className="text-[13px] text-[#351E28]">{message}</p>
       <p className="text-[11px] text-[#84787D] mt-4">
-        URL に誤りがある可能性があります。kokon のご担当者にお問い合わせください。
+        URL に誤りがある可能性があります。(bao) のご担当者にお問い合わせください。
       </p>
     </div>
   )

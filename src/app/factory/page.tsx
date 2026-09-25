@@ -33,7 +33,7 @@ export default async function FactoryHome() {
           工厂端页面正在准备中。届时您可以在这里<b>接收询价、提交报价、更新生产状态</b>。
         </p>
         <p className="text-[12px] text-[#84787D] mt-3">
-          For now, please reply to RFQ links sent by kokon staff. / 目前请通过 kokon 发送的询价链接回复。
+          For now, please reply to RFQ links sent by (bao) staff. / 目前请通过 (bao) 发送的询价链接回复。
         </p>
       </div>
     </PortalShell>

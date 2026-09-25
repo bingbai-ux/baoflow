@@ -2,7 +2,7 @@
 
 import { PortalLogin } from '@/components/external/portal-login'
 
-export const metadata = { title: 'kokon — クライアントログイン' }
+export const metadata = { title: '(bao) — クライアントログイン' }
 
 export default function PortalLoginPage() {
   return (

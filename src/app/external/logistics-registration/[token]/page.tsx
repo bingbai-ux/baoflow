@@ -24,7 +24,7 @@ export default async function LogisticsRegistrationPage({ params }: Props) {
         </h1>
         <p className="text-[12px] text-[#351E28] mt-1 leading-relaxed">
           在庫保管・入出庫のお取引に必要な情報をご入力ください。
-          ご入力いただいた情報は kokon の担当者のみが確認します。
+          ご入力いただいた情報は (bao) の担当者のみが確認します。
         </p>
       </div>
       <PartnerRegistrationForm token={token} kind="warehouse" />

@@ -31,7 +31,7 @@ export function PortalShell({
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="font-display font-bold text-[24px] tracking-tight" style={{ color: '#B03616' }}>
-              kokon
+              (bao)
             </span>
             <span className="text-[12px] text-[#84787D]">{title}</span>
           </div>

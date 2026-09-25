@@ -24,7 +24,7 @@ export default async function ClientRegistrationPage({ params }: Props) {
         </h1>
         <p className="text-[12px] text-[#351E28] mt-1 leading-relaxed">
           パッケージ製作のお見積もり・発注に必要な情報をご入力ください。
-          ご入力いただいた情報は kokon の担当者のみが確認します。
+          ご入力いただいた情報は (bao) の担当者のみが確認します。
         </p>
       </div>
       <ClientRegistrationForm token={token} />

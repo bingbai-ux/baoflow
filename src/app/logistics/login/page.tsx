@@ -2,7 +2,7 @@
 
 import { PortalLogin } from '@/components/external/portal-login'
 
-export const metadata = { title: 'kokon — 物流パートナーログイン' }
+export const metadata = { title: '(bao) — 物流パートナーログイン' }
 
 export default function LogisticsLoginPage() {
   return (

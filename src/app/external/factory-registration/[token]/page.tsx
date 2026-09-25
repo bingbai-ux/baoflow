@@ -1,5 +1,5 @@
 // Sprint 8-4: 工場自己登録フォームページ。
-// バイリンガル UI (英語 + 中文) — kokon ブランドの中で、中国工場向けに最低限の中文を併記。
+// バイリンガル UI (英語 + 中文) — (bao) ブランドの中で、中国工場向けに最低限の中文を併記。
 
 import { getFormByToken } from '@/lib/actions/external-forms'
 import { ExternalFormError } from '@/components/external/external-form-error'
