@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export type DocumentType = 'quotation' | 'invoice' | 'delivery_note' | 'rfq'
+export type DocumentType = 'quotation' | 'invoice' | 'delivery_note' | 'rfq' | 'inventory_cert'
 
 export interface DocumentRow {
   id: string
@@ -21,6 +21,7 @@ const PREFIX_BY_TYPE: Record<DocumentType, string> = {
   invoice: 'INV',
   delivery_note: 'DLV',
   rfq: 'RFQ',
+  inventory_cert: 'CRT',
 }
 
 async function nextDocumentNumber(supabase: Awaited<ReturnType<typeof createClient>>, type: DocumentType): Promise<string> {
@@ -77,6 +78,34 @@ export async function issueDocument(input: {
   revalidatePath(`/deals/${input.deal_id}`)
   revalidatePath(`/deals/${input.deal_id}/documents`)
   return { data: data as DocumentRow, error: null }
+}
+
+/**
+ * Sprint 13: 案件に紐付かない帳票の発行 (在庫証明書など)。
+ * 番号は既存の nextDocumentNumber 方式を共有する。
+ */
+export async function issueStandaloneDocument(input: {
+  document_type: DocumentType
+  metadata?: Record<string, unknown>
+}): Promise<{ number: string | null; error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { number: null, error: 'Unauthorized' }
+
+  const number = await nextDocumentNumber(supabase, input.document_type)
+  const { error } = await supabase.from('documents').insert({
+    deal_id: null,
+    document_type: input.document_type,
+    document_number: number,
+    version: 1,
+    metadata: input.metadata || null,
+    issued_at: new Date().toISOString(),
+    issued_by_user_id: user.id,
+  })
+  if (error) return { number: null, error: error.message }
+  return { number, error: null }
 }
 
 export async function listDocumentsForDeal(dealId: string): Promise<DocumentRow[]> {

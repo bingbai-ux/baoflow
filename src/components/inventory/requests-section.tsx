@@ -112,6 +112,14 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
 
       {(r.status === 'requested' || r.status === 'confirmed' || r.status === 'shipped') && (
         <div className="px-4 py-2.5 border-t border-[#EFEFEA] flex items-center gap-2 flex-wrap">
+          <a
+            href={`/print/request/${r.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[11px] font-bold px-3 py-2 no-underline hover:bg-[#FBFAF6]"
+          >
+            出荷指示書 →
+          </a>
           {r.status === 'requested' && mode === 'staff' && (
             <button
               type="button"

@@ -3,7 +3,7 @@
 // Sprint 10: 在庫管理(社内MVP)クライアントUI。
 // 1行=1商品の密な表。入庫・出庫は行の中の小さなフォームで完結させる。
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -12,6 +12,7 @@ import {
   createInventoryItem,
   recordInventoryTransaction,
   listItemTransactions,
+  uploadInventoryItemPhoto,
 } from '@/lib/actions/inventory'
 import { useUi } from '@/components/ui/ui-store'
 import { formatDate } from '@/lib/utils/format'
@@ -197,6 +198,7 @@ function ItemRow({ item }: { item: InventoryItemRow }) {
               onCancel={() => setForm(null)}
             />
           )}
+          <PhotoUpload item={item} />
           <p className="text-[11px] font-bold text-[#84787D] mb-1.5">入出庫の記録</p>
           {txs === null ? (
             <p className="text-[11px] text-[#84787D]">読み込み中…</p>
@@ -224,6 +226,59 @@ function ItemRow({ item }: { item: InventoryItemRow }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Sprint 13: 商品写真 (ポータルにも表示される)
+function PhotoUpload({ item }: { item: InventoryItemRow }) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, startUpload] = useTransition()
+
+  const onFile = (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    startUpload(async () => {
+      const r = await uploadInventoryItemPhoto(item.id, fd)
+      if (r.success) {
+        toast('商品写真を設定しました')
+        router.refresh()
+      } else {
+        toast(r.error || 'アップロードに失敗しました', 'warn')
+      }
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 mb-3">
+      {item.thumbnail_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.thumbnail_url} alt="" className="w-14 h-14 rounded-[12px] object-cover border border-[#E2E1DA]" />
+      ) : (
+        <span className="w-14 h-14 rounded-[12px] bg-white border border-[#E2E1DA] flex items-center justify-center text-[10px] text-[#AEB8A0]">
+          写真なし
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10.5px] font-bold px-2.5 py-1 hover:bg-white disabled:opacity-40"
+      >
+        {uploading ? 'アップロード中…' : item.thumbnail_url ? '写真を差し替え' : '写真を追加'}
+      </button>
+      <span className="text-[10px] text-[#84787D]">クライアントのポータルにも表示されます</span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => onFile(e.target.files)}
+      />
     </div>
   )
 }

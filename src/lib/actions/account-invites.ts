@@ -9,9 +9,10 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 export async function createAccountInvitation(input: {
-  portal_role: 'client' | 'logistics'
+  portal_role: 'client' | 'logistics' | 'factory'
   client_id?: string | null
   partner_id?: string | null
+  factory_id?: string | null
   label?: string | null
 }): Promise<{ token: string | null; error: string | null }> {
   const supabase = await createClient()
@@ -24,6 +25,8 @@ export async function createAccountInvitation(input: {
     return { token: null, error: 'クライアントを指定してください' }
   if (input.portal_role === 'logistics' && !input.partner_id)
     return { token: null, error: '物流パートナーを指定してください' }
+  if (input.portal_role === 'factory' && !input.factory_id)
+    return { token: null, error: '工場を指定してください' }
 
   const token = crypto.randomBytes(24).toString('base64url')
   const { error } = await supabase.from('external_forms').insert({
@@ -35,6 +38,7 @@ export async function createAccountInvitation(input: {
       portal_role: input.portal_role,
       client_id: input.client_id || null,
       partner_id: input.partner_id || null,
+      factory_id: input.factory_id || null,
       label: input.label || null,
     },
   })
@@ -46,11 +50,11 @@ export async function createAccountInvitation(input: {
 /** ログイン済みユーザーが招待を受け取る (RPC 呼び出し) */
 export async function claimAccountInvite(
   token: string
-): Promise<{ success: boolean; error?: string; portalRole?: 'client' | 'logistics' }> {
+): Promise<{ success: boolean; error?: string; portalRole?: 'client' | 'logistics' | 'factory' }> {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('claim_account_invite', { p_token: token })
   if (error) return { success: false, error: error.message }
-  const r = (data || {}) as { success: boolean; error?: string; portal_role?: 'client' | 'logistics' }
+  const r = (data || {}) as { success: boolean; error?: string; portal_role?: 'client' | 'logistics' | 'factory' }
   if (!r.success) return { success: false, error: r.error || '招待の受け取りに失敗しました' }
   return { success: true, portalRole: r.portal_role }
 }
@@ -59,7 +63,7 @@ export async function claimAccountInvite(
 export async function getAccountInviteInfo(token: string): Promise<{
   valid: boolean
   error?: string
-  portalRole?: 'client' | 'logistics'
+  portalRole?: 'client' | 'logistics' | 'factory'
   orgName?: string
 }> {
   const supabase = await createClient()
@@ -79,7 +83,7 @@ export async function getAccountInviteInfo(token: string): Promise<{
   if (form.expires_at && new Date(form.expires_at) < new Date())
     return { valid: false, error: 'この招待は有効期限が切れています' }
 
-  const role = (form.context?.portal_role || '') as 'client' | 'logistics'
+  const role = (form.context?.portal_role || '') as 'client' | 'logistics' | 'factory'
   return {
     valid: true,
     portalRole: role,

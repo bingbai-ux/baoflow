@@ -54,6 +54,47 @@ export async function listNotifications(): Promise<NotifItem[]> {
     }
   }
 
+  // Sprint 13: 在庫サービスの通知 (未処理の出荷依頼 / 到着予定を過ぎた輸送中の入庫予定)
+  const [{ data: reqs }, { data: inbound }] = await Promise.all([
+    supabase
+      .from('shipment_requests')
+      .select('id, request_no, destination_name, created_at, client:clients(company_name, short_name)')
+      .eq('status', 'requested')
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('inbound_shipments')
+      .select('id, shipment_no, eta_date, tracking_number, client:clients(company_name, short_name)')
+      .eq('status', 'in_transit')
+      .not('eta_date', 'is', null)
+      .lte('eta_date', today.toISOString().slice(0, 10))
+      .limit(10),
+  ])
+  for (const r of reqs || []) {
+    const c = Array.isArray(r.client) ? r.client[0] : r.client
+    items.push({
+      id: `req-${r.id}`,
+      kind: 'inventory',
+      icon: '出',
+      title: `出荷依頼 ${r.request_no}`,
+      body: `${c?.short_name || c?.company_name || ''} → ${r.destination_name || ''} — 確認して出荷してください`,
+      when: relativeTime(today),
+      href: '/inventory?tab=requests',
+    })
+  }
+  for (const s of inbound || []) {
+    const c = Array.isArray(s.client) ? s.client[0] : s.client
+    items.push({
+      id: `inb-${s.id}`,
+      kind: 'inventory',
+      icon: '入',
+      title: `入庫予定 ${s.shipment_no} 到着予定日を経過`,
+      body: `${c?.short_name || c?.company_name || ''} — 着荷していれば検収して入庫してください`,
+      when: relativeTime(today),
+      href: '/inventory?tab=inbound',
+    })
+  }
+
   // Sort: urgent first, then stale
   items.sort((a, b) => {
     if (a.kind === 'urgent' && b.kind !== 'urgent') return -1

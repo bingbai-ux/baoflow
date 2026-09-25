@@ -22,7 +22,7 @@ export default async function InventoryPage({ searchParams }: Props) {
 
   const [{ items }, { data: clients }, { data: deals }, inb, reqs, out] = await Promise.all([
     listInventory(),
-    supabase.from('clients').select('id, company_name, short_name').order('company_name'),
+    supabase.from('clients').select('id, company_name, short_name, storage_rate_config').order('company_name'),
     supabase
       .from('deals')
       .select('id, deal_code, deal_name')

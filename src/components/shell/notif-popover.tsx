@@ -41,7 +41,8 @@ export function NotifPopover() {
 
   const select = (n: NotifItem) => {
     closeNotif()
-    if (n.dealId) router.push(`/deals/${n.dealId}`)
+    if (n.href) router.push(n.href)
+    else if (n.dealId) router.push(`/deals/${n.dealId}`)
   }
 
   return (

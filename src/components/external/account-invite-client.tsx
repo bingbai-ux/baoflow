@@ -13,13 +13,13 @@ interface Props {
   token: string
   valid: boolean
   error?: string
-  portalRole?: 'client' | 'logistics'
+  portalRole?: 'client' | 'logistics' | 'factory'
   orgName?: string
   loggedInEmail: string | null
 }
 
-const ROLE_LABEL = { client: 'クライアント', logistics: '物流パートナー' } as const
-const ROLE_HOME = { client: '/portal', logistics: '/logistics' } as const
+const ROLE_LABEL = { client: 'クライアント', logistics: '物流パートナー', factory: '工場 / Factory' } as const
+const ROLE_HOME = { client: '/portal', logistics: '/logistics', factory: '/factory' } as const
 
 export function AccountInviteClient({
   token,

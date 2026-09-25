@@ -17,6 +17,7 @@ interface ClientOpt {
   id: string
   company_name: string
   short_name: string | null
+  storage_rate_config?: Record<string, unknown> | null
 }
 interface DealOpt {
   id: string

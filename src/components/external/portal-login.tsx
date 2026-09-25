@@ -97,6 +97,11 @@ export function PortalLogin({
               {loading ? '…' : buttonLabel}
             </button>
           </form>
+          <p className="text-center mt-4">
+            <a href="/forgot-password" className="text-[11.5px] text-[#84787D] underline">
+              パスワードを忘れた方はこちら / Forgot password
+            </a>
+          </p>
         </div>
         <p className="text-[10.5px] text-[#84787D] font-body text-center mt-4 leading-relaxed">{footnote}</p>
       </div>

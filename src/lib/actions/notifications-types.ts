@@ -1,6 +1,6 @@
 // Pure types for notifications — kept outside 'use server' file.
 
-export type NotifKind = 'urgent' | 'stale' | 'shipped' | 'paid' | 'mention'
+export type NotifKind = 'urgent' | 'stale' | 'shipped' | 'paid' | 'mention' | 'inventory'
 
 export interface NotifItem {
   id: string
@@ -10,4 +10,5 @@ export interface NotifItem {
   body: string
   when: string
   dealId?: string | null
+  href?: string | null
 }

@@ -94,6 +94,11 @@ export default function LoginPage() {
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
+        <p className="text-center mt-4">
+          <a href="/forgot-password" className="text-[11.5px] text-[#84787D] underline">
+            パスワードを忘れた方はこちら
+          </a>
+        </p>
       </div>
     </div>
   )

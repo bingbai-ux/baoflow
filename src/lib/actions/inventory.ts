@@ -228,6 +228,72 @@ export async function recordInventoryTransaction(input: {
   return { success: true }
 }
 
+/** Sprint 13: 商品写真アップロード (deal-images バケットを流用、公開URL) */
+export async function uploadInventoryItemPhoto(
+  itemId: string,
+  formData: FormData
+): Promise<{ success: boolean; error?: string; url?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'ログインしてください' }
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { success: false, error: 'ファイルを選択してください' }
+  if (!file.type.startsWith('image/'))
+    return { success: false, error: '画像ファイルを選択してください' }
+  if (file.size > 10 * 1024 * 1024)
+    return { success: false, error: '10MB以下の画像にしてください' }
+
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const path = `inventory/${itemId}/${Date.now()}.${ext}`
+  const { error: upErr } = await supabase.storage.from('deal-images').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  })
+  if (upErr) return { success: false, error: upErr.message }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('deal-images').getPublicUrl(path)
+
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({ thumbnail_url: publicUrl })
+    .eq('id', itemId)
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/inventory')
+  revalidatePath('/portal')
+  revalidatePath('/logistics')
+  return { success: true, url: publicUrl }
+}
+
+/** Sprint 13: クライアント別の保管料単価 (円/CTN・月) を clients.storage_rate_config に保存 */
+export async function updateClientStorageRate(
+  clientId: string,
+  monthlyPerCarton: number
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const rate = Number(monthlyPerCarton)
+  if (!Number.isFinite(rate) || rate < 0)
+    return { success: false, error: '単価は0以上で入力してください' }
+  const { data: current } = await supabase
+    .from('clients')
+    .select('storage_rate_config')
+    .eq('id', clientId)
+    .single()
+  const cfg = { ...((current?.storage_rate_config as Record<string, unknown>) || {}), monthly_per_carton: rate }
+  const { error } = await supabase
+    .from('clients')
+    .update({ storage_rate_config: cfg })
+    .eq('id', clientId)
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/inventory')
+  return { success: true }
+}
+
 export async function updateInventoryItemField(
   itemId: string,
   field: string,

@@ -7,6 +7,7 @@ import { updateFactoryRecord, deleteFactoryRecord } from '@/lib/actions/factorie
 import type { FactoryRollup } from '@/lib/actions/master-types'
 import type { Factory } from '@/lib/types'
 import { formatDate } from '@/lib/utils/format'
+import { AccountInviteButton } from './account-invite-button'
 
 interface Props {
   factory: Factory
@@ -82,7 +83,12 @@ export function FactoryDetail({ factory, rollup }: Props) {
             {factory.since && <span> · 取引開始 {formatDate(factory.since)}</span>}
           </p>
         </div>
-        <div className="flex gap-1 flex-shrink-0">
+        <div className="flex gap-1 flex-shrink-0 items-center">
+          <AccountInviteButton
+            portalRole="factory"
+            factoryId={factory.id}
+            orgLabel={factory.factory_name}
+          />
           <button onClick={() => setEditing(true)} className="text-[11px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 inline-flex items-center gap-1 hover:bg-[#FBFAF6]">
             <Edit2 className="w-3 h-3" />編集
           </button>

@@ -9,8 +9,10 @@ import { createShipmentRequest, type ShipmentRequestRow } from '@/lib/actions/sh
 import { REQUEST_STATUS_LABEL, REQUEST_STATUS_BADGE } from '@/lib/utils/shipment-status'
 import type { InventoryItemRow, OutboundHistoryRow } from '@/lib/actions/inventory'
 import type { InboundShipmentRow } from '@/lib/actions/inbound'
+import type { PortalDeal } from '@/lib/actions/portal-data'
 import { ShippingHistory } from '@/components/inventory/shipping-history'
 import { formatDate } from '@/lib/utils/format'
+import { SIMPLE_STATUS_CONFIG, SIMPLE_STATUS_ORDER, type SimpleStatus } from '@/lib/types'
 
 interface Props {
   clientName: string
@@ -18,16 +20,16 @@ interface Props {
   requests: ShipmentRequestRow[]
   inbound: InboundShipmentRow[]
   outbound: OutboundHistoryRow[]
+  deals: PortalDeal[]
 }
 
-type Tab = 'stock' | 'order' | 'history' | 'shipping'
+type Tab = 'stock' | 'order' | 'history' | 'shipping' | 'deals'
 
 const inputCls =
   'bg-[#EFEFEA] rounded-[12px] px-3 py-2 text-[13px] font-body text-[#351E28] border border-transparent outline-none focus:border-[#B03616] w-full'
 
-export function ClientPortal({ clientName, items, requests, inbound, outbound }: Props) {
+export function ClientPortal({ clientName, items, requests, inbound, outbound, deals }: Props) {
   const [tab, setTab] = useState<Tab>('stock')
-  const activeRequests = requests.filter((r) => !['delivered', 'cancelled'].includes(r.status))
   const inTransit = inbound.filter((s) => s.status === 'in_transit')
 
   const TABS: Array<{ id: Tab; label: string }> = [
@@ -35,6 +37,7 @@ export function ClientPortal({ clientName, items, requests, inbound, outbound }:
     { id: 'order', label: '発注する' },
     { id: 'history', label: `発注履歴 (${requests.length})` },
     { id: 'shipping', label: `発送履歴 (${outbound.length})` },
+    { id: 'deals', label: `案件の進捗 (${deals.length})` },
   ]
 
   return (
@@ -72,6 +75,58 @@ export function ClientPortal({ clientName, items, requests, inbound, outbound }:
       {tab === 'order' && <OrderTab items={items} onDone={() => setTab('history')} />}
       {tab === 'history' && <HistoryTab requests={requests} />}
       {tab === 'shipping' && <ShippingHistory txs={outbound} />}
+      {tab === 'deals' && <DealsTab deals={deals} />}
+    </div>
+  )
+}
+
+function DealsTab({ deals }: { deals: PortalDeal[] }) {
+  if (deals.length === 0)
+    return (
+      <p className="text-[12.5px] text-[#84787D] bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-6">
+        進行中の案件はありません。
+      </p>
+    )
+  return (
+    <div className="space-y-2">
+      {deals.map((d) => {
+        const cfg = SIMPLE_STATUS_CONFIG[(d.simple_status || 'quoting') as SimpleStatus]
+        const stepIdx = SIMPLE_STATUS_ORDER.indexOf((d.simple_status || 'quoting') as SimpleStatus)
+        return (
+          <div key={d.id} className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="fc-num text-[11px] text-[#84787D]">{d.deal_code}</span>
+              <span className="text-[13px] font-bold text-[#351E28]">
+                {d.deal_name || '(案件名未設定)'}
+              </span>
+              <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">
+                {cfg?.label || d.simple_status}
+              </span>
+              <span className="flex-1" />
+              {d.desired_delivery_date && (
+                <span className="fc-num text-[10.5px] text-[#84787D]">
+                  納品予定 {formatDate(d.desired_delivery_date)}
+                </span>
+              )}
+            </div>
+            {/* 進捗ドット: 過去=Cool Blue / 現在=濃 / 未来=Line (D78) */}
+            <div className="flex items-center gap-1 mt-2">
+              {SIMPLE_STATUS_ORDER.map((s, i) => (
+                <span
+                  key={s}
+                  className={`h-[6px] flex-1 rounded-full ${
+                    i < stepIdx ? 'bg-[#D7EFFF]' : i === stepIdx ? 'bg-[#351E28]' : 'bg-[#E2E1DA]'
+                  }`}
+                  title={SIMPLE_STATUS_CONFIG[s].label}
+                />
+              ))}
+            </div>
+            <p className="text-[10.5px] text-[#84787D] mt-1">
+              {stepIdx + 1} / {SIMPLE_STATUS_ORDER.length} — {cfg?.label}
+            </p>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -98,7 +153,17 @@ function StockTab({ items, inbound }: { items: InventoryItemRow[]; inbound: Inbo
             <tbody>
               {items.map((i, idx) => (
                 <tr key={i.id} className={`border-b border-[#EFEFEA] last:border-b-0 ${idx % 2 ? 'bg-[#FBFAF6]' : ''}`}>
-                  <td className="px-4 py-2 font-bold text-[#351E28]">{i.item_name}</td>
+                  <td className="px-4 py-2 font-bold text-[#351E28]">
+                    <span className="flex items-center gap-2.5">
+                      {i.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={i.thumbnail_url} alt="" className="w-10 h-10 rounded-[10px] object-cover border border-[#E2E1DA] flex-shrink-0" />
+                      ) : (
+                        <span className="w-10 h-10 rounded-[10px] bg-[#EFEFEA] flex-shrink-0" />
+                      )}
+                      {i.item_name}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 fc-num text-[#84787D]">{i.item_code || '—'}</td>
                   <td className="px-3 py-2 text-right">
                     <span className="fc-num font-extrabold text-[15px] text-[#351E28]">

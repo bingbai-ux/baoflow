@@ -44,7 +44,11 @@ export async function updateSession(request: NextRequest) {
 
   // 外部フォーム (トークン制の自己登録/RFQ回答) は認証不要 — トークン検証はページ側で行う
   // /account-invite はログイン前後どちらでも開ける (サインアップ→招待受け取り)
-  if (pathname.startsWith('/external') || pathname.startsWith('/account-invite')) {
+  if (
+    pathname.startsWith('/external') ||
+    pathname.startsWith('/account-invite') ||
+    pathname === '/forgot-password'
+  ) {
     return supabaseResponse
   }
 
@@ -122,6 +126,14 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(new URL(externalHome || '/', request.url))
     }
     return supabaseResponse
+  }
+
+  // 印刷帳票 (在庫証明書・出荷指示書) - スタッフとロジ会社のみ
+  if (pathname.startsWith('/print')) {
+    if (role === 'admin' || role === 'sales' || role === 'logistics') {
+      return supabaseResponse
+    }
+    return NextResponse.redirect(new URL(externalHome || '/login', request.url))
   }
 
   // Sales/Admin routes - not for external roles

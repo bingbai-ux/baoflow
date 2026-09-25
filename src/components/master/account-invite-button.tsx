@@ -9,13 +9,14 @@ import { createAccountInvitation } from '@/lib/actions/account-invites'
 import { useUi } from '@/components/ui/ui-store'
 
 interface Props {
-  portalRole: 'client' | 'logistics'
+  portalRole: 'client' | 'logistics' | 'factory'
   clientId?: string
   partnerId?: string
+  factoryId?: string
   orgLabel: string
 }
 
-export function AccountInviteButton({ portalRole, clientId, partnerId, orgLabel }: Props) {
+export function AccountInviteButton({ portalRole, clientId, partnerId, factoryId, orgLabel }: Props) {
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
   const [url, setUrl] = useState('')
@@ -27,6 +28,7 @@ export function AccountInviteButton({ portalRole, clientId, partnerId, orgLabel 
         portal_role: portalRole,
         client_id: clientId || null,
         partner_id: partnerId || null,
+        factory_id: factoryId || null,
         label: orgLabel,
       })
       if (!r.token || r.error) {
@@ -69,7 +71,7 @@ export function AccountInviteButton({ portalRole, clientId, partnerId, orgLabel 
             </div>
             <p className="text-[11px] text-[#351E28] mb-3">
               このリンクを先方の担当者に送ってください。開くとアカウント作成画面になり、
-              作成と同時に {orgLabel} の{portalRole === 'client' ? 'クライアント' : '物流パートナー'}ページが使えるようになります(有効期限7日・1回使い切り)。
+              作成と同時に {orgLabel} の{portalRole === 'client' ? 'クライアント' : portalRole === 'factory' ? '工場' : '物流パートナー'}ページが使えるようになります(有効期限7日・1回使い切り)。
             </p>
             <div className="flex items-center gap-2 bg-[#FBFAF6] border border-[#E2E1DA] rounded-[12px] px-3 py-2">
               <input value={url} readOnly onFocus={(e) => e.currentTarget.select()} className="flex-1 bg-transparent border-none outline-none text-[11px]" />

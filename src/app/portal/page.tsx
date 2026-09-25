@@ -6,10 +6,10 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PortalShell } from '@/components/external/portal-shell'
 import { ClientPortal } from '@/components/portal/client-portal'
-import { listInventory } from '@/lib/actions/inventory'
-import { listOutboundHistory } from '@/lib/actions/inventory'
+import { listInventory, listOutboundHistory } from '@/lib/actions/inventory'
 import { listShipmentRequests } from '@/lib/actions/shipment-requests'
 import { listInboundShipments } from '@/lib/actions/inbound'
+import { portalMyDeals } from '@/lib/actions/portal-data'
 
 export default async function PortalHome() {
   const supabase = await createClient()
@@ -44,22 +44,24 @@ export default async function PortalHome() {
     )
   }
 
-  const [{ data: client }, inv, reqs, inb, out] = await Promise.all([
+  const [{ data: client }, inv, reqs, inb, out, deals] = await Promise.all([
     supabase.from('clients').select('company_name, short_name').eq('id', profile.client_id).single(),
     listInventory(),
     listShipmentRequests(),
     listInboundShipments(),
     listOutboundHistory(),
+    portalMyDeals(),
   ])
 
   return (
-    <PortalShell {...shell}>
+    <PortalShell {...shell} wide>
       <ClientPortal
         clientName={client?.short_name || client?.company_name || 'お客'}
         items={inv.items}
         requests={reqs.requests}
         inbound={inb.shipments}
         outbound={out.txs}
+        deals={deals}
       />
     </PortalShell>
   )
