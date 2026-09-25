@@ -58,6 +58,34 @@ export async function listInventory(): Promise<{
   return { items: (data || []) as InventoryItemRow[], error: null }
 }
 
+export interface OutboundHistoryRow {
+  id: string
+  item_id: string
+  quantity_delta: number
+  occurred_on: string
+  destination: string | null
+  note: string | null
+  created_at: string
+  item?: { item_name: string; unit: string; client_id: string | null } | null
+}
+
+/** 発送履歴 (出庫仕訳)。RLS によりクライアントは自社分のみ返る。 */
+export async function listOutboundHistory(): Promise<{
+  txs: OutboundHistoryRow[]
+  error: string | null
+}> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('inventory_transactions')
+    .select('id, item_id, quantity_delta, occurred_on, destination, note, created_at, item:inventory_items(item_name, unit, client_id)')
+    .eq('tx_type', 'outbound')
+    .order('occurred_on', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) return { txs: [], error: error.message }
+  return { txs: (data || []) as unknown as OutboundHistoryRow[], error: null }
+}
+
 export async function listItemTransactions(
   itemId: string
 ): Promise<{ txs: InventoryTxRow[]; error: string | null }> {

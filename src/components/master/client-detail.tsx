@@ -8,6 +8,7 @@ import { updateClientRecord, deleteClientRecord } from '@/lib/actions/clients'
 import type { ClientRollup } from '@/lib/actions/master-types'
 import type { Client } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
+import { AccountInviteButton } from './account-invite-button'
 
 interface Props {
   client: Client
@@ -81,7 +82,12 @@ export function ClientDetail({ client, rollup }: Props) {
             {client.since && <span> · 取引開始 {formatDate(client.since)}</span>}
           </p>
         </div>
-        <div className="flex gap-1 flex-shrink-0">
+        <div className="flex gap-1 flex-shrink-0 items-center">
+          <AccountInviteButton
+            portalRole="client"
+            clientId={client.id}
+            orgLabel={client.short_name || client.company_name}
+          />
           <button onClick={() => setEditing(true)} className="text-[11px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 inline-flex items-center gap-1 hover:bg-[#FBFAF6]">
             <Edit2 className="w-3 h-3" />編集
           </button>

@@ -43,7 +43,8 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // 外部フォーム (トークン制の自己登録/RFQ回答) は認証不要 — トークン検証はページ側で行う
-  if (pathname.startsWith('/external')) {
+  // /account-invite はログイン前後どちらでも開ける (サインアップ→招待受け取り)
+  if (pathname.startsWith('/external') || pathname.startsWith('/account-invite')) {
     return supabaseResponse
   }
 

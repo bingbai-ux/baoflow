@@ -12,6 +12,7 @@ import {
 } from '@/lib/actions/logistics-partners'
 import { useUi } from '@/components/ui/ui-store'
 import { formatDate } from '@/lib/utils/format'
+import { AccountInviteButton } from './account-invite-button'
 
 const SERVICE_LABELS: Record<string, string> = {
   sea: '海運',
@@ -82,18 +83,27 @@ export function PartnerDetail({ partner }: { partner: LogisticsPartner }) {
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={toggleActive}
-          disabled={pending}
-          className={`rounded-full text-[11px] font-bold px-3 py-1.5 disabled:opacity-40 ${
-            partner.is_active
-              ? 'bg-white border border-[#FF5C34] text-[#B03616]'
-              : 'bg-[#351E28] text-[#C9A2B8]'
-          }`}
-        >
-          {partner.is_active ? '取引停止にする' : '取引再開する'}
-        </button>
+        <div className="flex gap-1.5 items-center flex-shrink-0">
+          {partner.partner_kind === 'warehouse' && (
+            <AccountInviteButton
+              portalRole="logistics"
+              partnerId={partner.id}
+              orgLabel={partner.company_name}
+            />
+          )}
+          <button
+            type="button"
+            onClick={toggleActive}
+            disabled={pending}
+            className={`rounded-full text-[11px] font-bold px-3 py-1.5 disabled:opacity-40 ${
+              partner.is_active
+                ? 'bg-white border border-[#FF5C34] text-[#B03616]'
+                : 'bg-[#351E28] text-[#C9A2B8]'
+            }`}
+          >
+            {partner.is_active ? '取引停止にする' : '取引再開する'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">

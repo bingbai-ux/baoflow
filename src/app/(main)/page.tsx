@@ -56,8 +56,15 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single()
 
-  const [{ data: dealsRaw }, { data: quotes }, { data: history }, { data: clients }] =
-    await Promise.all([
+  const [
+    { data: dealsRaw },
+    { data: quotes },
+    { data: history },
+    { data: clients },
+    { count: openRequests },
+    { count: inTransitInbound },
+    { data: stockItems },
+  ] = await Promise.all([
       supabase
         .from('deals')
         .select(
@@ -76,7 +83,23 @@ export default async function DashboardPage() {
         .order('changed_at', { ascending: false })
         .limit(8),
       supabase.from('clients').select('id, company_name, short_name'),
+      supabase
+        .from('shipment_requests')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['requested', 'confirmed']),
+      supabase
+        .from('inbound_shipments')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'in_transit'),
+      supabase
+        .from('inventory_items')
+        .select('id, quantity_on_hand, low_stock_threshold')
+        .not('low_stock_threshold', 'is', null),
     ])
+
+  const lowStock = (stockItems || []).filter(
+    (i) => i.low_stock_threshold != null && i.quantity_on_hand <= i.low_stock_threshold
+  ).length
 
   const approvedByDeal = new Map<string, number>()
   for (const q of quotes || []) {
@@ -206,6 +229,28 @@ export default async function DashboardPage() {
         <Stat label="今月の請求(概算)" value={formatJPY(billedThisMonth)} sub={`納品完了 ${delivered.length}件`} />
         <Stat label="平均粗利率(採用見積)" value={approvedQuotes.length > 0 ? `${avgProfit.toFixed(1)}%` : '—'} sub={approvedQuotes.length === 0 ? '算定できる見積なし' : `${approvedQuotes.length}件から算定`} />
       </div>
+
+      {/* 在庫サービスの動き (出荷依頼・輸送中・在庫少) */}
+      {((openRequests || 0) > 0 || (inTransitInbound || 0) > 0 || lowStock > 0) && (
+        <div className="rounded-[16px] bg-white border border-[#E2E1DA] px-5 py-3 mb-3 flex items-center gap-3 flex-wrap text-[12px] font-body">
+          <span className="font-bold text-[#351E28]">在庫サービス:</span>
+          {(openRequests || 0) > 0 && (
+            <Link href="/inventory?tab=requests" className="rounded-full bg-[#E9F056] text-[#666C14] font-bold px-3 py-1 no-underline hover:brightness-95">
+              出荷依頼 <span className="fc-num">{openRequests}</span>件 未処理
+            </Link>
+          )}
+          {(inTransitInbound || 0) > 0 && (
+            <Link href="/inventory?tab=inbound" className="rounded-full bg-[#D7EFFF] text-[#33566F] font-bold px-3 py-1 no-underline hover:brightness-95">
+              入庫予定 <span className="fc-num">{inTransitInbound}</span>件 輸送中
+            </Link>
+          )}
+          {lowStock > 0 && (
+            <Link href="/inventory" className="rounded-full bg-[#FFD8C2] text-[#B03616] font-bold px-3 py-1 no-underline hover:brightness-95">
+              在庫少 <span className="fc-num">{lowStock}</span>品目
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* きょうやることキュー(主役・全幅) */}
       <div className="bg-white rounded-[16px] border border-[#E2E1DA] mb-3 overflow-hidden">

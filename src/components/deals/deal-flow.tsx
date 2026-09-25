@@ -1206,8 +1206,14 @@ function StepShipping({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }
       {statusIdx === 4 && (
         <AdvanceButton dealId={deal.id} to="shipped" label="工場が発送した → 工場発送完了へ" primary />
       )}
+      <Link
+        href={`/inventory?tab=inbound&deal=${deal.id}`}
+        className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[11px] font-bold px-3 py-1.5 no-underline hover:bg-[#FBFAF6]"
+      >
+        追跡番号つきの入庫予定をつくる →
+      </Link>
       <span className="text-[11px] text-[#84787D] font-body">
-        発送後は輸送・通関(海運/空輸)。追跡番号はメモか通信に残してください
+        入庫予定にするとロジ会社が追跡→着荷検収まで引き継げます
       </span>
     </div>
   )
@@ -1221,10 +1227,10 @@ function StepArrival({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number })
       </p>
       <div className="mt-2 flex items-center gap-2.5 flex-wrap">
         <Link
-          href="/inventory"
+          href={`/inventory?tab=inbound&deal=${deal.id}`}
           className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[11.5px] font-bold px-3.5 py-2 no-underline hover:bg-[#FBFAF6]"
         >
-          在庫に入庫を記録 →
+          この案件の入庫予定・入庫を記録 →
         </Link>
         {statusIdx === 5 && (
           <AdvanceButton dealId={deal.id} to="delivered" label="納品できた → 納品完了へ" primary />
