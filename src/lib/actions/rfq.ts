@@ -24,6 +24,7 @@ export interface CreatedRfq {
     factoryName: string
     formToken: string
     formUrl: string
+    emailed?: boolean
   }>
 }
 
@@ -48,6 +49,44 @@ async function nextRfqNumber(supabase: Awaited<ReturnType<typeof createClient>>)
     if (m) next = Number(m[1]) + 1
   }
   return `${prefix}${String(next).padStart(3, '0')}`
+}
+
+
+// Sprint 14: RFQ メール送信 (RESEND_API_KEY 設定時のみ)。
+// 未設定でも RFQ 自体は成立する (リンクコピー + 工場ポータル表示)。
+async function sendRfqEmail(args: {
+  to: string
+  factoryName: string
+  rfqNumber: string
+  formUrl: string
+  deadline?: string | null
+  message?: string | null
+}): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY
+  const from = process.env.RFQ_MAIL_FROM || 'BAO Flow <onboarding@resend.dev>'
+  if (!key || !args.to) return false
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to: [args.to],
+        subject: `[${args.rfqNumber}] Quotation Request from (bao) / 询价请求`,
+        html: `
+          <p>Dear ${args.factoryName},</p>
+          <p>We would like to request a quotation. Please open the link below to see the specifications and submit your prices.</p>
+          <p>请通过以下链接查看产品规格并提交报价。</p>
+          <p><a href="${args.formUrl}">${args.formUrl}</a></p>
+          ${args.deadline ? `<p>Deadline / 截止日: ${args.deadline}</p>` : ''}
+          ${args.message ? `<p>${args.message}</p>` : ''}
+          <p>(bao) — Packaging procurement service</p>`,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 export async function createRfq(
@@ -107,7 +146,7 @@ export async function createRfq(
   for (const factoryId of input.factoryIds) {
     const { data: factory } = await supabase
       .from('factories')
-      .select('factory_name')
+      .select('factory_name, contact_email')
       .eq('id', factoryId)
       .single()
     const factoryName = factory?.factory_name || '(unknown)'
@@ -144,12 +183,26 @@ export async function createRfq(
       .update({ external_form_id: efRow.id, invitation_sent_at: new Date().toISOString() })
       .eq('id', inv.id)
 
+    const formUrl = `${origin}/external/${token}`
+    // メール送信 (Resend キー設定時のみ。失敗しても RFQ は成立)
+    const emailed = factory?.contact_email
+      ? await sendRfqEmail({
+          to: factory.contact_email,
+          factoryName,
+          rfqNumber,
+          formUrl,
+          deadline: input.responseDeadline,
+          message: input.requestMessage,
+        })
+      : false
+
     invitations.push({
       invitationId: inv.id,
       factoryId,
       factoryName,
       formToken: token,
-      formUrl: `${origin}/external/${token}`,
+      formUrl,
+      emailed,
     })
   }
 

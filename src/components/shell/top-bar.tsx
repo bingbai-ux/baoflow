@@ -6,12 +6,13 @@ import { Bell, Plus, Search } from 'lucide-react'
 import { useUi } from '@/components/ui/ui-store'
 
 const PAGE_META: Record<string, { title: string; sub: string; primary?: { label: string; href: string } | null }> = {
-  '/': { title: 'ホーム', sub: '今日のサマリー', primary: { label: '+ 新規案件', href: '/deals/new' } },
-  '/deals': { title: '案件', sub: 'すべての受注・見積', primary: { label: '+ 新規案件', href: '/deals/new' } },
-  '/inventory': { title: '在庫', sub: '物流倉庫の入庫・在庫・出庫', primary: null },
+  '/': { title: 'ダッシュボード', sub: '今日のサマリー', primary: null },
+  '/deals': { title: '案件管理', sub: 'すべての受注・見積', primary: null },
+  '/inventory': { title: '在庫管理', sub: '物流倉庫の入庫・在庫・出庫', primary: null },
   '/archive': { title: '案件履歴', sub: 'アーカイブした案件', primary: null },
-  '/docs': { title: '帳票', sub: '発行済みの見積書・請求書・納品書・RFQ', primary: null },
-  '/master': { title: '取引先', sub: 'クライアント・工場・担当者', primary: null },
+  '/analytics': { title: '売上分析', sub: '採用見積ベースの概況', primary: null },
+  '/docs': { title: '帳票管理', sub: '請求書・見積書・納品書・RFQ', primary: null },
+  '/master': { title: '取引先', sub: 'クライアント・工場・担当者・物流', primary: null },
   '/settings': { title: '設定', sub: '会社情報・既定値', primary: null },
 }
 

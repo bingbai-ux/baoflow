@@ -182,6 +182,7 @@ export interface Deal {
   simple_status: SimpleStatus
   visibility: 'internal' | 'client_shared' | 'factory_shared'
   client_name_text: string | null
+  brand_text: string | null
   desired_delivery_date: string | null
   memo: string | null
   // Sprint 7 (migration 027): 案件単位の列幅オーバーライド
@@ -838,6 +839,10 @@ export interface DealProduct {
   shipping_address_id: string | null
   // Sprint 7 (migration 027): スプレッド表示用サムネイル
   thumbnail_url: string | null
+  // Sprint 14 (migration 037): 分類 (大/中/小)
+  category_l1: string | null
+  category_l2: string | null
+  category_l3: string | null
 }
 
 // Sprint 7: ユーザー別の表示設定 (列幅 / 列表示 / ピン留め)

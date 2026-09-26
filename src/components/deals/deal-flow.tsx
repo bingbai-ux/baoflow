@@ -31,9 +31,10 @@ import {
   updateQuoteField,
 } from '@/lib/actions/inline-edit'
 import { updateDealStatus } from '@/lib/actions/deal-status'
-import { addBlankProduct } from '@/lib/actions/products'
-import { addBlankVariant } from '@/lib/actions/variants'
 import { createQuote } from '@/lib/actions/quotes'
+import { addQuantityToVariant } from '@/lib/actions/deal-wizard'
+import { ProductWizard } from '@/components/deals/product-wizard'
+import type { CatalogNode } from '@/lib/actions/catalog'
 import { archiveDeal } from '@/lib/actions/deals'
 import { useUi } from '@/components/ui/ui-store'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -87,6 +88,8 @@ export interface FlowHistoryRow {
 interface DealFlowProps {
   deal: FlowDeal
   products: DealProduct[]
+  // Sprint 14: 仕様ウィザード用の分類カタログ
+  catalog: CatalogNode[]
   variants: DealProductVariant[]
   quotes: BuilderQuote[]
   designFiles: DesignFileRow[]
@@ -111,6 +114,7 @@ const ACTOR_LABEL: Record<Actor, string> = {
 export function DealFlow({
   deal,
   products,
+  catalog,
   variants,
   quotes,
   designFiles,
@@ -161,14 +165,8 @@ export function DealFlow({
   ]
   const currentIdx = doneList.findIndex((d) => !d)
 
-  const [openSet, setOpenSet] = useState<Set<number>>(() => new Set([currentIdx]))
-  const toggle = (i: number) =>
-    setOpenSet((prev) => {
-      const next = new Set(prev)
-      if (next.has(i)) next.delete(i)
-      else next.add(i)
-      return next
-    })
+  // Sprint 14: 上=横パイプライン / 下=選んだステップの詳細
+  const [selected, setSelected] = useState<number>(currentIdx)
 
   const steps: Array<{
     title: string
@@ -191,7 +189,16 @@ export function DealFlow({
         products.length > 0
           ? `${products.length}商品 · ${variants.length}バリエ`
           : 'まだ商品がありません',
-      body: <StepSpecs deal={deal} products={products} variants={variants} />,
+      body: (
+        <StepSpecs
+          deal={deal}
+          products={products}
+          variants={variants}
+          quotes={quotes}
+          designFiles={designFiles}
+          catalog={catalog}
+        />
+      ),
     },
     {
       title: '工場へ見積依頼(RFQ)を送る',
@@ -289,83 +296,109 @@ export function DealFlow({
     },
   ]
 
+  const SHORT_LABELS = [
+    '案件', '仕様', 'RFQ', '工場回答', '原価', '売値', '見積書',
+    '請求・入金', '入稿データ', '製作', '輸送', '到着・入庫', '完了',
+  ]
+  const sel = Math.min(selected, steps.length - 1)
+  const step = steps[sel]
+  const selDone = doneList[sel]
+  const selCurrent = sel === currentIdx
+
   return (
     <div className="pb-8">
-      <ol className="list-none m-0 p-0">
-        {steps.map((s, i) => {
-          const done = doneList[i]
-          const isCurrent = i === currentIdx
-          const open = openSet.has(i)
-          return (
-            <li key={s.title} className="relative flex gap-3">
-              {/* 縦の線 + ドット(過去=Cool Blue / 現在=Wasabi / 未来=Line) */}
-              <div className="flex flex-col items-center w-[34px] flex-shrink-0">
+      {/* 横パイプライン (過去=Cool Blue / 現在=Wasabi / 未来=Line) */}
+      <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3 mb-3 overflow-x-auto">
+        <div className="flex items-start min-w-[900px]">
+          {steps.map((st, i) => {
+            const done = doneList[i]
+            const isCurrent = i === currentIdx
+            const isSelected = i === sel
+            return (
+              <div key={st.title} className="flex-1 flex flex-col items-center relative">
+                {/* つなぎ線 */}
+                {i > 0 && (
+                  <span
+                    className={`absolute left-[-50%] right-[50%] top-[14px] h-[2px] ${
+                      doneList[i - 1] ? 'bg-[#D7EFFF]' : 'bg-[#E2E1DA]'
+                    }`}
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={() => toggle(i)}
-                  aria-expanded={open}
-                  className={`fc-num w-[30px] h-[30px] rounded-full flex items-center justify-center text-[12px] font-extrabold flex-shrink-0 mt-1 ${
+                  onClick={() => setSelected(i)}
+                  className={`relative z-10 fc-num w-[28px] h-[28px] rounded-full flex items-center justify-center text-[11.5px] font-extrabold transition-shadow ${
                     done
                       ? 'bg-[#D7EFFF] text-[#33566F]'
                       : isCurrent
                         ? 'bg-[#E9F056] text-[#666C14]'
                         : 'bg-white border border-[#E2E1DA] text-[#84787D]'
-                  }`}
+                  } ${isSelected ? 'ring-2 ring-[#351E28]' : ''}`}
                 >
                   {done ? '✓' : i + 1}
                 </button>
-                {i < steps.length - 1 && (
-                  <div
-                    className={`w-[2px] flex-1 min-h-[16px] ${
-                      done ? 'bg-[#D7EFFF]' : 'bg-[#E2E1DA]'
-                    }`}
-                  />
-                )}
-              </div>
-
-              {/* ステップカード */}
-              <div
-                className={`flex-1 min-w-0 mb-2 bg-white rounded-[16px] border ${
-                  isCurrent ? 'border-[#E9F056] border-[1.5px]' : 'border-[#E2E1DA]'
-                }`}
-              >
                 <button
                   type="button"
-                  onClick={() => toggle(i)}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-2.5 cursor-pointer"
+                  onClick={() => setSelected(i)}
+                  className={`mt-1 text-[10px] leading-tight whitespace-nowrap ${
+                    isSelected ? 'font-extrabold text-[#351E28]' : done ? 'text-[#84787D]' : isCurrent ? 'font-bold text-[#666C14]' : 'text-[#84787D]'
+                  }`}
                 >
-                  <span
-                    className={`text-[13px] font-display font-bold flex-1 min-w-0 truncate ${
-                      done ? 'text-[#84787D]' : 'text-[#351E28]'
-                    }`}
-                  >
-                    {s.title}
-                  </span>
-                  <span className="hidden sm:inline text-[11px] text-[#84787D] font-body truncate max-w-[280px]">
-                    {s.summary}
-                  </span>
-                  <span className="rounded-full bg-[#EFEFEA] border border-[#E2E1DA] text-[#4C5544] text-[10px] font-bold px-2 py-[2px] whitespace-nowrap">
-                    {ACTOR_LABEL[s.actor]}
-                  </span>
-                  {isCurrent && (
-                    <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px] whitespace-nowrap">
-                      今ここ
-                    </span>
-                  )}
-                  <span className="text-[#84787D] text-[11px] flex-shrink-0">
-                    {open ? '▴' : '▾'}
-                  </span>
+                  {SHORT_LABELS[i]}
                 </button>
-                {open && (
-                  <div className="px-4 pb-4 pt-1 border-t border-[#EFEFEA]">{s.body}</div>
-                )}
               </div>
-            </li>
-          )
-        })}
-      </ol>
+            )
+          })}
+        </div>
+      </div>
 
-      {/* 線の外の道具箱: 通信・履歴 */}
+      {/* 選択中ステップの詳細 */}
+      <div
+        className={`bg-white rounded-[16px] border mb-3 ${
+          selCurrent ? 'border-[#E9F056] border-[1.5px]' : 'border-[#E2E1DA]'
+        }`}
+      >
+        <div className="px-5 py-3 border-b border-[#EFEFEA] flex items-center gap-2.5 flex-wrap">
+          <span className="fc-num text-[12px] font-extrabold text-[#84787D]">
+            {sel + 1} / {steps.length}
+          </span>
+          <h2 className="text-[15px] font-display font-bold text-[#351E28]">{step.title}</h2>
+          <span className="rounded-full bg-[#EFEFEA] border border-[#E2E1DA] text-[#4C5544] text-[10px] font-bold px-2 py-[2px] whitespace-nowrap">
+            {ACTOR_LABEL[step.actor]}
+          </span>
+          {selCurrent && (
+            <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">今ここ</span>
+          )}
+          {selDone && (
+            <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">完了</span>
+          )}
+          <span className="flex-1" />
+          <span className="hidden sm:inline text-[11px] text-[#84787D] font-body truncate max-w-[340px]">
+            {step.summary}
+          </span>
+        </div>
+        <div className="px-5 py-4">{step.body}</div>
+        <div className="px-5 py-2.5 border-t border-[#EFEFEA] flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setSelected((i) => Math.max(0, i - 1))}
+            disabled={sel === 0}
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#84787D] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30"
+          >
+            ← {sel > 0 ? SHORT_LABELS[sel - 1] : ''}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected((i) => Math.min(steps.length - 1, i + 1))}
+            disabled={sel === steps.length - 1}
+            className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30 hover:brightness-95"
+          >
+            {sel < steps.length - 1 ? SHORT_LABELS[sel + 1] : ''} →
+          </button>
+        </div>
+      </div>
+
+      {/* 線の外の道具箱: 通信・履歴 */}      {/* 線の外の道具箱: 通信・履歴 */}
       <UtilitySection title={`通信の記録 (${communications.length})`}>
         <DealCommunicationTab dealId={deal.id} initial={communications} />
       </UtilitySection>
@@ -383,7 +416,7 @@ export function DealFlow({
 function UtilitySection({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="mt-2 ml-[46px] bg-[#FBFAF6] rounded-[16px] border border-[#E2E1DA]">
+    <div className="mt-2 bg-[#FBFAF6] rounded-[16px] border border-[#E2E1DA]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -547,141 +580,221 @@ function StepSpecs({
   deal,
   products,
   variants,
+  quotes,
+  designFiles,
+  catalog,
 }: {
   deal: FlowDeal
   products: DealProduct[]
   variants: DealProductVariant[]
+  quotes: BuilderQuote[]
+  designFiles: DesignFileRow[]
+  catalog: CatalogNode[]
 }) {
-  const router = useRouter()
-  const { toast } = useUi()
-  const [pending, startTransition] = useTransition()
+  const [wizardTarget, setWizardTarget] = useState<
+    { id: string; category_l1: string | null } | null | 'new'
+  >(null)
 
-  const addProduct = () =>
-    startTransition(async () => {
-      const r = await addBlankProduct(deal.id)
-      if (r.error) toast(r.error, 'warn')
-      else router.refresh()
-    })
-  const addVariant = (productId: string) =>
-    startTransition(async () => {
-      const r = await addBlankVariant(productId)
-      if (r.error) toast(r.error, 'warn')
-      else router.refresh()
-    })
+  const emptyProducts = products.filter((p) => !variants.some((v) => v.product_id === p.id))
+  const filledProducts = products.filter((p) => variants.some((v) => v.product_id === p.id))
 
   return (
-    <div>
-      {products.length === 0 && (
-        <p className="text-[12px] text-[#84787D] font-body py-2">
-          まだ商品がありません。「商品を追加」から始めてください。
-        </p>
-      )}
-      <div className="space-y-3">
-        {products.map((p) => {
-          const vs = variants.filter((v) => v.product_id === p.id)
-          return (
-            <div key={p.id} className="rounded-[12px] border border-[#E2E1DA]">
-              <div className="px-3 py-2 bg-[#FBFAF6] rounded-t-[12px] flex items-center gap-2">
-                <span className="fc-num text-[10.5px] text-[#84787D]">#{p.product_no}</span>
-                <div className="flex-1 min-w-0 text-[12.5px] font-bold">
-                  <InlineCell
-                    value={p.description}
-                    onSave={async (v) => updateProductField(p.id, 'description', v || null)}
-                    placeholder="商品名"
-                  />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  <thead>
-                    <tr className="text-[#84787D] text-[10px] font-bold border-b border-[#EFEFEA]">
-                      <th className="text-left px-3 py-1.5">バリエ</th>
-                      <th className="text-right px-2 py-1.5">巾mm</th>
-                      <th className="text-right px-2 py-1.5">高mm</th>
-                      <th className="text-right px-2 py-1.5">マチmm</th>
-                      <th className="text-left px-2 py-1.5">素材</th>
-                      <th className="text-left px-2 py-1.5">印刷色数</th>
-                      <th className="text-left px-2 py-1.5">加工</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vs.map((v) => (
-                      <tr key={v.id} className="border-b border-[#EFEFEA] last:border-b-0">
-                        <td className="px-3 py-1 font-bold">
-                          <InlineCell
-                            value={v.variant_label}
-                            onSave={async (val) => updateVariantField(v.id, 'variant_label', val || null)}
-                            placeholder="A"
-                          />
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          <InlineCell type="number" align="right" value={v.width_mm}
-                            onSave={async (val) => updateVariantField(v.id, 'width_mm', val || null)} />
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          <InlineCell type="number" align="right" value={v.height_mm}
-                            onSave={async (val) => updateVariantField(v.id, 'height_mm', val || null)} />
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          <InlineCell type="number" align="right" value={v.depth_mm}
-                            onSave={async (val) => updateVariantField(v.id, 'depth_mm', val || null)} />
-                        </td>
-                        <td className="px-2 py-1">
-                          <InlineCell value={v.material}
-                            onSave={async (val) => updateVariantField(v.id, 'material', val || null)}
-                            placeholder="素材" />
-                        </td>
-                        <td className="px-2 py-1">
-                          <InlineCell value={v.print_color_count}
-                            onSave={async (val) => updateVariantField(v.id, 'print_color_count', val || null)}
-                            placeholder="1色" />
-                        </td>
-                        <td className="px-2 py-1">
-                          <InlineCell value={v.processing}
-                            onSave={async (val) => updateVariantField(v.id, 'processing', val || null)}
-                            placeholder="—" />
-                        </td>
-                      </tr>
-                    ))}
-                    {vs.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-2 text-[#84787D]">
-                          バリエーションがありません
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="px-3 py-1.5 border-t border-[#EFEFEA]">
-                <button
-                  type="button"
-                  onClick={() => addVariant(p.id)}
-                  disabled={pending}
-                  className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10.5px] font-bold px-2.5 py-1 disabled:opacity-40 hover:bg-[#FBFAF6]"
-                >
-                  + バリエーションを追加
-                </button>
-              </div>
+    <div className="space-y-4">
+      <p className="text-[12px] font-body text-[#84787D]">
+        商品ごとに 大分類 → 中分類 → 小分類 → 詳細 → 数量 を選ぶだけで仕様が固まります。
+        細かい項目は選択式、書ききれないことは下の備考・添付へ。
+      </p>
+
+      {/* 新規案件ウィザードで作った「これから仕様を選ぶ」枠 */}
+      {emptyProducts.length > 0 && (
+        <div className="space-y-1.5">
+          {emptyProducts.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center gap-3 rounded-[12px] border-[1.5px] border-[#E9F056] bg-white px-4 py-2.5"
+            >
+              <span className="fc-num text-[10.5px] text-[#84787D]">#{p.product_no}</span>
+              <span className="text-[13px] font-bold text-[#351E28]">{p.description}</span>
+              <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">
+                仕様待ち
+              </span>
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setWizardTarget({ id: p.id, category_l1: p.category_l1 || p.description })}
+                className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3.5 py-1.5 hover:brightness-95"
+              >
+                仕様を選ぶ →
+              </button>
             </div>
-          )
-        })}
-      </div>
-      <div className="mt-2.5 flex items-center gap-3 flex-wrap">
+          ))}
+        </div>
+      )}
+
+      {/* 仕様が入った商品 */}
+      {filledProducts.map((p) => {
+        const vs = variants.filter((v) => v.product_id === p.id)
+        return (
+          <div key={p.id} className="rounded-[12px] border border-[#E2E1DA] bg-white">
+            <div className="px-4 py-2 bg-[#FBFAF6] rounded-t-[12px] flex items-center gap-2 flex-wrap">
+              <span className="fc-num text-[10.5px] text-[#84787D]">#{p.product_no}</span>
+              <span className="text-[13px] font-bold text-[#351E28]">{p.description}</span>
+              {p.category_l1 && (
+                <span className="text-[10.5px] text-[#84787D]">
+                  {[p.category_l1, p.category_l2, p.category_l3].filter(Boolean).join(' / ')}
+                </span>
+              )}
+            </div>
+            <div className="divide-y divide-[#EFEFEA]">
+              {vs.map((v) => (
+                <VariantSpecRow key={v.id} dealId={deal.id} variant={v} quotes={quotes.filter((q) => q.variant_id === v.id)} />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
-          onClick={addProduct}
-          disabled={pending}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3.5 py-1.5 disabled:opacity-40 hover:brightness-95"
+          onClick={() => setWizardTarget('new')}
+          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95"
         >
-          + 商品を追加
+          + 商品を追加(カテゴリから選ぶ)
         </button>
         <Link
           href={`/deals?selected=${deal.id}`}
           className="text-[11.5px] text-[#33566F] font-bold no-underline hover:underline"
         >
-          色・パントン・その他の全項目はグリッドで編集 →
+          全50項目を表で編集(グリッド) →
         </Link>
+      </div>
+
+      {/* 備考・補足資料 */}
+      <div className="rounded-[12px] border border-[#E2E1DA] bg-white p-4 space-y-3">
+        <p className="text-[12px] font-bold text-[#351E28]">
+          備考・補足資料
+          <span className="text-[10.5px] font-normal text-[#84787D] ml-2">
+            選択肢で書ききれなかったことは文章・写真・ファイルでどうぞ
+          </span>
+        </p>
+        <InlineCell
+          value={deal.memo}
+          onSave={async (v) => updateDealField(deal.id, 'memo', v || null)}
+          placeholder="補足メモ — クリックで編集"
+        />
+        <AttachmentGallery dealId={deal.id} initial={designFiles} />
+      </div>
+
+      {wizardTarget !== null && (
+        <ProductWizard
+          dealId={deal.id}
+          catalog={catalog}
+          targetProduct={wizardTarget === 'new' ? null : wizardTarget}
+          onClose={() => setWizardTarget(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/** バリエ1行: 仕様サマリ + 数量チップ + 枚数違い追加 */
+function VariantSpecRow({
+  dealId,
+  variant,
+  quotes,
+}: {
+  dealId: string
+  variant: DealProductVariant
+  quotes: BuilderQuote[]
+}) {
+  const router = useRouter()
+  const { toast } = useUi()
+  const [pending, startTransition] = useTransition()
+  const [adding, setAdding] = useState(false)
+  const [qty, setQty] = useState('')
+
+  const size = [variant.width_mm, variant.height_mm, variant.depth_mm].filter((x) => x != null).join('×')
+  const summary = [
+    size && `${size}mm`,
+    variant.material,
+    variant.print_color_count,
+    variant.processing,
+    variant.color_description,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const addQty = () =>
+    startTransition(async () => {
+      const r = await addQuantityToVariant(dealId, variant.id, Number(qty))
+      if (r.success) {
+        toast('数量パターンを追加しました')
+        setQty('')
+        setAdding(false)
+        router.refresh()
+      } else toast(r.error || '追加に失敗しました', 'warn')
+    })
+
+  return (
+    <div className="px-4 py-2.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="fc-num text-[11px] font-bold text-[#33566F] bg-[#D7EFFF] rounded-full px-2 py-[2px]">
+          {variant.variant_label}
+        </span>
+        <span className="text-[12px] text-[#351E28]">{summary || '(詳細未入力)'}</span>
+        <span className="flex-1" />
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+        <span className="text-[10.5px] text-[#84787D]">数量:</span>
+        {quotes.length === 0 && <span className="text-[10.5px] text-[#AEB8A0]">未設定</span>}
+        {quotes
+          .slice()
+          .sort((a, b) => (a.quantity || 0) - (b.quantity || 0))
+          .map((q) => (
+            <span
+              key={q.id}
+              className={`fc-num rounded-full text-[11px] font-bold px-2.5 py-[3px] ${
+                q.status === 'approved'
+                  ? 'bg-[#E9F056] text-[#666C14]'
+                  : 'bg-[#EFEFEA] border border-[#E2E1DA] text-[#351E28]'
+              }`}
+            >
+              {(q.quantity || 0).toLocaleString()}
+            </span>
+          ))}
+        {adding ? (
+          <span className="inline-flex items-center gap-1.5">
+            <input
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              className="w-[90px] text-right fc-num bg-[#EFEFEA] rounded-[8px] px-2 py-1 text-[11px] border border-transparent outline-none focus:border-[#351E28]"
+              placeholder="数量"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={addQty}
+              disabled={pending || !(Number(qty) > 0)}
+              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[10px] font-bold px-2.5 py-1 disabled:opacity-40"
+            >
+              追加
+            </button>
+            <button type="button" onClick={() => setAdding(false)} className="text-[10px] text-[#84787D] underline">
+              やめる
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10px] font-bold px-2.5 py-1 hover:bg-[#FBFAF6]"
+          >
+            + 枚数違い
+          </button>
+        )}
       </div>
     </div>
   )

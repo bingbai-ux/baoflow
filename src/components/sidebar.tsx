@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -11,16 +11,28 @@ interface NavItem {
   k: string
   label: string
   href: string
-  match: (path: string) => boolean
+  match: (path: string, tab: string | null) => boolean
 }
 
+// Sprint 14: メニュー順序は白さん指定の8項目 (設定は最下部固定枠)
 const NAV: NavItem[] = [
-  { k: 'home', label: 'ホーム', href: '/', match: (p) => p === '/' },
-  { k: 'deals', label: '案件', href: '/deals', match: (p) => p.startsWith('/deals') },
-  { k: 'inventory', label: '在庫', href: '/inventory', match: (p) => p.startsWith('/inventory') },
-  { k: 'archive', label: '案件履歴', href: '/archive', match: (p) => p.startsWith('/archive') },
-  { k: 'master', label: '取引先', href: '/master', match: (p) => p.startsWith('/master') },
-  { k: 'docs', label: '帳票', href: '/docs', match: (p) => p.startsWith('/docs') },
+  { k: 'home', label: 'ダッシュボード', href: '/', match: (p) => p === '/' },
+  { k: 'deals', label: '案件管理', href: '/deals', match: (p) => p.startsWith('/deals') || p.startsWith('/archive') },
+  {
+    k: 'clients',
+    label: 'クライアント管理',
+    href: '/master?tab=clients',
+    match: (p, t) => p.startsWith('/master') && (t === 'clients' || t === 'staff' || !t),
+  },
+  {
+    k: 'factories',
+    label: '工場管理',
+    href: '/master?tab=factories',
+    match: (p, t) => p.startsWith('/master') && (t === 'factories' || t === 'logistics'),
+  },
+  { k: 'inventory', label: '在庫管理', href: '/inventory', match: (p) => p.startsWith('/inventory') },
+  { k: 'analytics', label: '売上分析', href: '/analytics', match: (p) => p.startsWith('/analytics') },
+  { k: 'docs', label: '請求書・見積書・納品書', href: '/docs', match: (p) => p.startsWith('/docs') },
 ]
 
 interface UserProfile {
@@ -30,6 +42,8 @@ interface UserProfile {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const tab = searchParams.get('tab')
   const [user, setUser] = useState<UserProfile | null>(null)
 
   useEffect(() => {
@@ -78,7 +92,7 @@ export function Sidebar() {
       {/* ナビ(語で示す。選択中だけ Wasabi) */}
       <nav className="mt-2 flex flex-col gap-0.5 overflow-auto min-h-0">
         {NAV.map((item) => (
-          <Link key={item.k} href={item.href} className={itemCls(item.match(pathname))}>
+          <Link key={item.k} href={item.href} className={itemCls(item.match(pathname, tab))}>
             {item.label}
           </Link>
         ))}

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { SIMPLE_STATUS_CONFIG } from '@/lib/types'
 import { DealsNestedTable } from '@/components/deals/deals-nested-table'
 import { DealPaneHost } from '@/components/deals/deal-pane-host'
 import { getDealPaneData } from '@/lib/actions/deal-pane'
@@ -46,7 +48,17 @@ export default async function DealsPage({ searchParams }: Props) {
     )
   }
 
-  const { data: deals } = await dealsQuery
+  const [{ data: deals }, { data: allStatuses }] = await Promise.all([
+    dealsQuery,
+    supabase.from('deals').select('simple_status').is('archived_at', null),
+  ])
+  const statusCounts = new Map<string, number>()
+  for (const d of allStatuses || []) {
+    statusCounts.set(d.simple_status, (statusCounts.get(d.simple_status) || 0) + 1)
+  }
+  const totalCount = (allStatuses || []).length
+  const activeStatus = params.status && isValidStatus(params.status) ? params.status : null
+
   const dealIds = (deals || []).map((d) => d.id)
 
   let products: Array<{
@@ -171,6 +183,50 @@ export default async function DealsPage({ searchParams }: Props) {
   return (
     <div className="flex h-[calc(100vh-52px)] -mx-5">
       <div className="flex-1 flex flex-col min-w-0 overflow-auto px-5">
+        {/* Sprint 14: 新規案件は左上 + ステータスで絞る一覧 */}
+        <div className="flex items-center gap-2 flex-wrap pt-3 pb-2">
+          <Link
+            href="/deals/new"
+            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12.5px] font-extrabold px-4 py-2 no-underline hover:brightness-95"
+          >
+            + 新規案件
+          </Link>
+          <span className="w-px h-5 bg-[#E2E1DA] mx-1" />
+          <Link
+            href="/deals"
+            className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold no-underline border ${
+              !activeStatus
+                ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
+                : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
+            }`}
+          >
+            すべて <span className="fc-num opacity-80">{totalCount}</span>
+          </Link>
+          {SIMPLE_STATUS_ORDER.map((st) => {
+            const n = statusCounts.get(st) || 0
+            if (n === 0 && activeStatus !== st) return null
+            return (
+              <Link
+                key={st}
+                href={`/deals?status=${st}`}
+                className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold no-underline border ${
+                  activeStatus === st
+                    ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
+                    : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
+                }`}
+              >
+                {SIMPLE_STATUS_CONFIG[st].label} <span className="fc-num opacity-80">{n}</span>
+              </Link>
+            )
+          })}
+          <span className="flex-1" />
+          <Link
+            href="/archive"
+            className="text-[11.5px] text-[#84787D] font-bold no-underline hover:text-[#351E28]"
+          >
+            案件履歴(アーカイブ) →
+          </Link>
+        </div>
         <DealsNestedTable
           deals={deals || []}
           products={products}

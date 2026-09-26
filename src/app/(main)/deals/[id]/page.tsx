@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
 import { DealFlow, type FlowDocument, type FlowHistoryRow } from '@/components/deals/deal-flow'
 import { listDesignFiles } from '@/lib/actions/designs'
+import { listCatalog } from '@/lib/actions/catalog'
 import { type SimpleStatus, SIMPLE_STATUS_CONFIG } from '@/lib/types'
 import { formatJPY } from '@/lib/utils/format'
 
@@ -33,6 +34,7 @@ export default async function DealDetailPage({ params }: Props) {
       deal_code,
       deal_name,
       client_name_text,
+      brand_text,
       desired_delivery_date,
       memo,
       simple_status,
@@ -52,6 +54,7 @@ export default async function DealDetailPage({ params }: Props) {
     { data: variantsRaw },
     { data: quotes },
     designFiles,
+    catalog,
     { data: statusHistory },
     { data: communications },
     { data: documents },
@@ -73,6 +76,7 @@ export default async function DealDetailPage({ params }: Props) {
       .eq('deal_id', id)
       .order('quantity', { ascending: true }),
     listDesignFiles(id),
+    listCatalog(),
     supabase
       .from('deal_status_history')
       .select(
@@ -143,6 +147,7 @@ export default async function DealDetailPage({ params }: Props) {
           </div>
           <p className="text-[13px] text-[#351E28] font-body mt-1 truncate">
             {deal.client_name_text || '(クライアント未設定)'}
+            {deal.brand_text && <span className="text-[#84787D]"> · {deal.brand_text}</span>}
           </p>
         </div>
         <div className="flex gap-3 flex-shrink-0 items-center">
@@ -168,6 +173,7 @@ export default async function DealDetailPage({ params }: Props) {
       <DealFlow
         deal={flowDeal as never}
         products={(products || []) as never}
+        catalog={catalog}
         variants={variants as never}
         quotes={(quotes || []) as never}
         designFiles={designFiles}

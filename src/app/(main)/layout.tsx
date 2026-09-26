@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
 import { UiProvider } from '@/components/ui/ui-store'
@@ -14,7 +15,10 @@ export default function MainLayout({
   return (
     <UiProvider>
       <div className="flex h-screen w-full bg-[#EFEFEA] overflow-hidden">
-        <Sidebar />
+        {/* useSearchParams (タブ判定) を使うため Suspense が必要 */}
+        <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] z-50" />}>
+          <Sidebar />
+        </Suspense>
         <div className="ml-[236px] flex-1 flex flex-col min-w-0">
           <TopBar />
           <main className="flex-1 overflow-auto px-5 pb-6">{children}</main>
