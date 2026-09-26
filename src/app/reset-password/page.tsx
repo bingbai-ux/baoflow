@@ -38,7 +38,8 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center px-4 font-body" style={{ background: '#FBFAF6', color: '#351E28' }}>
       <div className="w-full max-w-[400px]">
         <div className="text-center mb-6">
-          <span className="font-display font-bold text-[32px] tracking-tight" style={{ color: '#B03616' }}>(bao)</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/bao-logo.png" alt="(bao)" className="h-[44px] w-auto mx-auto" />
         </div>
         <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: 'rgba(229,163,46,0.25)' }}>
           <h1 className="text-[17px] font-bold font-display text-center mb-4">新しいパスワードを設定</h1>

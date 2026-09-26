@@ -36,9 +36,8 @@ export function PortalShell({
       <header className="border-b" style={{ borderColor: 'rgba(229,163,46,0.2)' }}>
         <div className={`${maxW} mx-auto px-6 py-4 flex items-center justify-between gap-3`}>
           <div className="flex items-center gap-3">
-            <span className="font-display font-bold text-[24px] tracking-tight" style={{ color: '#B03616' }}>
-              (bao)
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/bao-logo.png" alt="(bao)" className="h-[26px] w-auto" />
             <span className="text-[12px] text-[#84787D]">{title}</span>
           </div>
           <div className="flex items-center gap-3">

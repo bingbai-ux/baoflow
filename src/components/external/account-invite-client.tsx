@@ -85,10 +85,9 @@ export function AccountInviteClient({
     <div className="min-h-screen flex items-center justify-center px-4 font-body" style={{ background: '#FBFAF6', color: '#351E28' }}>
       <div className="w-full max-w-[420px]">
         <div className="text-center mb-6">
-          <span className="font-display font-bold text-[32px] tracking-tight" style={{ color: '#B03616' }}>
-            (bao)
-          </span>
-          <p className="text-[11px] text-[#84787D]">Packaging procurement service</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/bao-logo.png" alt="(bao)" className="h-[44px] w-auto mx-auto" />
+          <p className="text-[11px] text-[#84787D] mt-2">Packaging procurement service</p>
         </div>
 
         <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: 'rgba(229,163,46,0.25)' }}>

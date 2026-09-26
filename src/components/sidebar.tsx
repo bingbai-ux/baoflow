@@ -63,9 +63,11 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] flex flex-col px-3 pt-5 pb-4 z-50">
-      {/* ブランドピル(ロゴ画像未支給のため文字ピルで表す) */}
-      <span className="self-start whitespace-nowrap bg-[#E9F056] text-[#666C14] text-[12px] font-extrabold tracking-[.04em] leading-none px-3.5 py-1.5 rounded-full font-display">
-        BAO Flow
+      {/* ブランドピル(実ロゴ) */}
+      <span className="self-start inline-flex items-center gap-1.5 whitespace-nowrap bg-[#FBFAF6] leading-none px-3.5 py-1.5 rounded-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/bao-logo.png" alt="(bao)" className="h-[16px] w-auto" />
+        <span className="text-[12px] font-extrabold font-display text-[#583F25] tracking-[.04em]">flow</span>
       </span>
 
       <div className="mt-4 px-2 flex items-center justify-between gap-2">

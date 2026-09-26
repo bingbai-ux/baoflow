@@ -24,12 +24,8 @@ export default function ExternalLayout({ children }: { children: React.ReactNode
         style={{ borderColor: 'rgba(229,163,46,0.2)', background: '#FBFAF6' }}
       >
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-3">
-          <span
-            className="font-display font-bold text-[28px] tracking-tight"
-            style={{ color: '#B03616' }}
-          >
-            (bao)
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/bao-logo.png" alt="(bao)" className="h-[30px] w-auto" />
           <span className="text-[11px] text-[#84787D] mt-2 hidden sm:inline">
             Packaging procurement service
           </span>

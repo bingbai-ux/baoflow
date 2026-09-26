@@ -38,8 +38,10 @@ export default function LoginPage() {
       <div className="w-full max-w-[380px] bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-8">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-[28px] font-bold font-display text-[#351E28] tracking-[-0.02em] mb-1">
-            (bao) flow
+          <h1 className="flex items-center justify-center gap-2 mb-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/bao-logo.png" alt="(bao)" className="h-[38px] w-auto" />
+            <span className="text-[22px] font-bold font-display text-[#583F25] tracking-[-0.02em] mt-1.5">flow</span>
           </h1>
           <p className="text-[13px] text-[#84787D] font-body">
             パッケージ受発注管理
