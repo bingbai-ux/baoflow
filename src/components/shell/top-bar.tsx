@@ -12,7 +12,7 @@ const PAGE_META: Record<string, { title: string; sub: string; primary?: { label:
   '/archive': { title: '案件履歴', sub: 'アーカイブした案件', primary: null },
   '/analytics': { title: '売上分析', sub: '採用見積ベースの概況', primary: null },
   '/docs': { title: '帳票管理', sub: '請求書・見積書・納品書・RFQ', primary: null },
-  '/master': { title: '取引先', sub: 'クライアント・工場・担当者・物流', primary: null },
+  '/master': { title: 'アカウント管理', sub: 'クライアント・工場・担当者・物流', primary: null },
   '/settings': { title: '設定', sub: '会社情報・既定値', primary: null },
 }
 

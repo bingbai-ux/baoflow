@@ -136,8 +136,8 @@ export default async function MasterPage({ searchParams }: Props) {
   return (
     <>
       <div className="py-[18px]">
-        <h1 className="font-display text-[22px] font-semibold text-[#351E28] tracking-tight">マスター</h1>
-        <p className="text-[11px] text-[#84787D] font-body mt-1">クライアント・工場・担当者の登録、編集、取引履歴管理</p>
+        <h1 className="font-display text-[22px] font-semibold text-[#351E28] tracking-tight">アカウント管理</h1>
+        <p className="text-[11px] text-[#84787D] font-body mt-1">クライアント・工場・担当者・物流の登録、編集、取引履歴管理</p>
       </div>
 
       <MasterTabs
