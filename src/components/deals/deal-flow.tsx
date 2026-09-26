@@ -32,8 +32,8 @@ import {
 } from '@/lib/actions/inline-edit'
 import { updateDealStatus } from '@/lib/actions/deal-status'
 import { createQuote } from '@/lib/actions/quotes'
-import { addQuantityToVariant } from '@/lib/actions/deal-wizard'
 import { ProductWizard } from '@/components/deals/product-wizard'
+import { SpecTable } from '@/components/deals/spec-table'
 import type { CatalogNode } from '@/lib/actions/catalog'
 import { archiveDeal } from '@/lib/actions/deals'
 import { useUi } from '@/components/ui/ui-store'
@@ -605,24 +605,31 @@ function StepSpecs({
         細かい項目は選択式、書ききれないことは下の備考・添付へ。
       </p>
 
-      {/* 新規案件ウィザードで作った「これから仕様を選ぶ」枠 */}
+      {/* 新規案件ウィザードで作った「これから仕様を選ぶ」枠 — Cool Blue面で「ここを入力」を目立たせる */}
       {emptyProducts.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {emptyProducts.map((p) => (
             <div
               key={p.id}
-              className="flex items-center gap-3 rounded-[12px] border-[1.5px] border-[#E9F056] bg-white px-4 py-2.5"
+              className="flex items-center gap-3 rounded-[12px] bg-[#D7EFFF] px-4 py-3.5"
             >
-              <span className="fc-num text-[10.5px] text-[#84787D]">#{p.product_no}</span>
-              <span className="text-[13px] font-bold text-[#351E28]">{p.description}</span>
-              <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">
-                仕様待ち
-              </span>
+              <span className="fc-num text-[10.5px] text-[#33566F]">#{p.product_no}</span>
+              <div className="min-w-0">
+                <p className="text-[14px] font-extrabold text-[#33566F]">
+                  {p.description}
+                  <span className="rounded-full bg-white text-[#33566F] text-[10px] font-bold px-2 py-[2px] ml-2 align-middle">
+                    仕様待ち
+                  </span>
+                </p>
+                <p className="text-[11px] text-[#33566F] mt-0.5">
+                  ここを入力してください — サイズ・素材・色数・数量を選ぶだけです
+                </p>
+              </div>
               <span className="flex-1" />
               <button
                 type="button"
                 onClick={() => setWizardTarget({ id: p.id, category_l1: p.category_l1 || p.description })}
-                className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3.5 py-1.5 hover:brightness-95"
+                className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95 whitespace-nowrap"
               >
                 仕様を選ぶ →
               </button>
@@ -631,28 +638,15 @@ function StepSpecs({
         </div>
       )}
 
-      {/* 仕様が入った商品 */}
-      {filledProducts.map((p) => {
-        const vs = variants.filter((v) => v.product_id === p.id)
-        return (
-          <div key={p.id} className="rounded-[12px] border border-[#E2E1DA] bg-white">
-            <div className="px-4 py-2 bg-[#FBFAF6] rounded-t-[12px] flex items-center gap-2 flex-wrap">
-              <span className="fc-num text-[10.5px] text-[#84787D]">#{p.product_no}</span>
-              <span className="text-[13px] font-bold text-[#351E28]">{p.description}</span>
-              {p.category_l1 && (
-                <span className="text-[10.5px] text-[#84787D]">
-                  {[p.category_l1, p.category_l2, p.category_l3].filter(Boolean).join(' / ')}
-                </span>
-              )}
-            </div>
-            <div className="divide-y divide-[#EFEFEA]">
-              {vs.map((v) => (
-                <VariantSpecRow key={v.id} dealId={deal.id} variant={v} quotes={quotes.filter((q) => q.variant_id === v.id)} />
-              ))}
-            </div>
-          </div>
-        )
-      })}
+      {/* 仕様が入った商品: 1行=1バリエの表(セルはその場で編集、数量は + で追加) */}
+      {filledProducts.length > 0 && (
+        <SpecTable
+          dealId={deal.id}
+          products={filledProducts}
+          variants={variants}
+          quotes={quotes}
+        />
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <button
@@ -694,108 +688,6 @@ function StepSpecs({
           onClose={() => setWizardTarget(null)}
         />
       )}
-    </div>
-  )
-}
-
-/** バリエ1行: 仕様サマリ + 数量チップ + 枚数違い追加 */
-function VariantSpecRow({
-  dealId,
-  variant,
-  quotes,
-}: {
-  dealId: string
-  variant: DealProductVariant
-  quotes: BuilderQuote[]
-}) {
-  const router = useRouter()
-  const { toast } = useUi()
-  const [pending, startTransition] = useTransition()
-  const [adding, setAdding] = useState(false)
-  const [qty, setQty] = useState('')
-
-  const size = [variant.width_mm, variant.height_mm, variant.depth_mm].filter((x) => x != null).join('×')
-  const summary = [
-    size && `${size}mm`,
-    variant.material,
-    variant.print_color_count,
-    variant.processing,
-    variant.color_description,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
-  const addQty = () =>
-    startTransition(async () => {
-      const r = await addQuantityToVariant(dealId, variant.id, Number(qty))
-      if (r.success) {
-        toast('数量パターンを追加しました')
-        setQty('')
-        setAdding(false)
-        router.refresh()
-      } else toast(r.error || '追加に失敗しました', 'warn')
-    })
-
-  return (
-    <div className="px-4 py-2.5">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="fc-num text-[11px] font-bold text-[#33566F] bg-[#D7EFFF] rounded-full px-2 py-[2px]">
-          {variant.variant_label}
-        </span>
-        <span className="text-[12px] text-[#351E28]">{summary || '(詳細未入力)'}</span>
-        <span className="flex-1" />
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-        <span className="text-[10.5px] text-[#84787D]">数量:</span>
-        {quotes.length === 0 && <span className="text-[10.5px] text-[#AEB8A0]">未設定</span>}
-        {quotes
-          .slice()
-          .sort((a, b) => (a.quantity || 0) - (b.quantity || 0))
-          .map((q) => (
-            <span
-              key={q.id}
-              className={`fc-num rounded-full text-[11px] font-bold px-2.5 py-[3px] ${
-                q.status === 'approved'
-                  ? 'bg-[#E9F056] text-[#666C14]'
-                  : 'bg-[#EFEFEA] border border-[#E2E1DA] text-[#351E28]'
-              }`}
-            >
-              {(q.quantity || 0).toLocaleString()}
-            </span>
-          ))}
-        {adding ? (
-          <span className="inline-flex items-center gap-1.5">
-            <input
-              type="number"
-              min={1}
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className="w-[90px] text-right fc-num bg-[#EFEFEA] rounded-[8px] px-2 py-1 text-[11px] border border-transparent outline-none focus:border-[#351E28]"
-              placeholder="数量"
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={addQty}
-              disabled={pending || !(Number(qty) > 0)}
-              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[10px] font-bold px-2.5 py-1 disabled:opacity-40"
-            >
-              追加
-            </button>
-            <button type="button" onClick={() => setAdding(false)} className="text-[10px] text-[#84787D] underline">
-              やめる
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10px] font-bold px-2.5 py-1 hover:bg-[#FBFAF6]"
-          >
-            + 枚数違い
-          </button>
-        )}
-      </div>
     </div>
   )
 }

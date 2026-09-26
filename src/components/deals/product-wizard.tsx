@@ -90,10 +90,10 @@ function LineIcon({ iconKey }: { iconKey: string | null }) {
   }
 }
 
-const MATERIAL_PRESETS = ['クラフト紙', 'コート紙', 'PET', 'PP', 'PE', 'アルミ蒸着', '生分解素材']
-const COLOR_PRESETS = ['1色', '2色', '3色', '4色', 'フルカラー', '印刷なし']
-const PRINT_PRESETS = ['オフセット', 'グラビア', 'フレキソ', 'シルク', 'デジタル']
-const PROCESS_PRESETS = ['マット加工', 'グロス加工', '箔押し', 'エンボス', '窓付き', 'ジップ', 'バルブ']
+export const MATERIAL_PRESETS = ['クラフト紙', 'コート紙', 'PET', 'PP', 'PE', 'アルミ蒸着', '生分解素材']
+export const COLOR_PRESETS = ['1色', '2色', '3色', '4色', 'フルカラー', '印刷なし']
+export const PRINT_PRESETS = ['オフセット', 'グラビア', 'フレキソ', 'シルク', 'デジタル']
+export const PROCESS_PRESETS = ['マット加工', 'グロス加工', '箔押し', 'エンボス', '窓付き', 'ジップ', 'バルブ']
 
 export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props) {
   const router = useRouter()
