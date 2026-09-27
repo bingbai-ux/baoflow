@@ -1,18 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { SIMPLE_STATUS_CONFIG } from '@/lib/types'
 import { DealsNestedTable } from '@/components/deals/deals-nested-table'
 import { DealPaneHost } from '@/components/deals/deal-pane-host'
 import { getDealPaneData } from '@/lib/actions/deal-pane'
 import { getUserPreferences } from '@/lib/actions/user-preferences'
+import { formatJPY } from '@/lib/utils/format'
 import { type SimpleStatus, SIMPLE_STATUS_ORDER } from '@/lib/types'
+
+// Sprint 15: 案件管理は「取引先カード → 中に入って案件リスト」の2段構成。
+//   /deals                  … 取引先ごとのカード一覧
+//   /deals?client=◯◯        … その取引先の案件リスト (ネスト表)
+//   /deals?status= / ?q= / ?selected= … 従来どおり全件リスト (分析などからのリンク用)
+
+const NO_CLIENT = '__none__'
 
 interface Props {
   searchParams: Promise<{
     status?: string
     q?: string
     selected?: string
+    client?: string
   }>
 }
 
@@ -29,6 +37,9 @@ export default async function DealsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const clientParam = params.client || null
+  const isCardView = !clientParam && !params.status && !params.q && !params.selected
+
   let dealsQuery = supabase
     .from('deals')
     .select(
@@ -38,6 +49,11 @@ export default async function DealsPage({ searchParams }: Props) {
     .is('archived_at', null)
     .order('last_activity_at', { ascending: false })
 
+  if (clientParam === NO_CLIENT) {
+    dealsQuery = dealsQuery.is('client_name_text', null)
+  } else if (clientParam) {
+    dealsQuery = dealsQuery.eq('client_name_text', clientParam)
+  }
   if (params.status && isValidStatus(params.status)) {
     dealsQuery = dealsQuery.eq('simple_status', params.status)
   }
@@ -48,18 +64,158 @@ export default async function DealsPage({ searchParams }: Props) {
     )
   }
 
-  const [{ data: deals }, { data: allStatuses }] = await Promise.all([
-    dealsQuery,
-    supabase.from('deals').select('simple_status').is('archived_at', null),
-  ])
-  const statusCounts = new Map<string, number>()
-  for (const d of allStatuses || []) {
-    statusCounts.set(d.simple_status, (statusCounts.get(d.simple_status) || 0) + 1)
-  }
-  const totalCount = (allStatuses || []).length
-  const activeStatus = params.status && isValidStatus(params.status) ? params.status : null
-
+  const { data: deals } = await dealsQuery
   const dealIds = (deals || []).map((d) => d.id)
+
+  // -------------------------------------------------------------------------
+  // 取引先カード一覧
+  // -------------------------------------------------------------------------
+  if (isCardView) {
+    // 採用見積の合計 (税込) を取引先ごとに積む
+    const approvedByDeal = new Map<string, number>()
+    if (dealIds.length > 0) {
+      const { data: approved } = await supabase
+        .from('deal_quotes')
+        .select('deal_id, total_billing_tax_jpy')
+        .in('deal_id', dealIds)
+        .eq('status', 'approved')
+      for (const q of approved || []) {
+        approvedByDeal.set(
+          q.deal_id,
+          (approvedByDeal.get(q.deal_id) || 0) + (Number(q.total_billing_tax_jpy) || 0)
+        )
+      }
+    }
+
+    interface ClientCard {
+      name: string | null
+      total: number
+      inProgress: number
+      urgent: number
+      approvedTotal: number
+      lastActivity: string | null
+    }
+    const cards = new Map<string, ClientCard>()
+    const now = Date.now()
+    const URGENT_MS = 14 * 24 * 60 * 60 * 1000
+    for (const d of deals || []) {
+      const key = d.client_name_text || NO_CLIENT
+      let c = cards.get(key)
+      if (!c) {
+        c = {
+          name: d.client_name_text,
+          total: 0,
+          inProgress: 0,
+          urgent: 0,
+          approvedTotal: 0,
+          lastActivity: null,
+        }
+        cards.set(key, c)
+      }
+      c.total += 1
+      if (d.simple_status !== 'delivered') {
+        c.inProgress += 1
+        if (d.desired_delivery_date) {
+          const diff = new Date(d.desired_delivery_date).getTime() - now
+          if (diff <= URGENT_MS) c.urgent += 1
+        }
+      }
+      c.approvedTotal += approvedByDeal.get(d.id) || 0
+      if (!c.lastActivity || (d.last_activity_at && d.last_activity_at > c.lastActivity)) {
+        c.lastActivity = d.last_activity_at
+      }
+    }
+    const sorted = Array.from(cards.entries()).sort((a, b) => {
+      // 未設定グループは最後、それ以外は直近の動きがある順
+      if (a[0] === NO_CLIENT) return 1
+      if (b[0] === NO_CLIENT) return -1
+      return (b[1].lastActivity || '').localeCompare(a[1].lastActivity || '')
+    })
+
+    return (
+      <div className="pt-3 pb-6">
+        <div className="flex items-center gap-2 flex-wrap pb-4">
+          <Link
+            href="/deals/new"
+            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12.5px] font-extrabold px-4 py-2 no-underline hover:brightness-95"
+          >
+            + 新規案件
+          </Link>
+          <span className="text-[11.5px] text-[#84787D] font-body ml-1">
+            取引先を選ぶと案件リストに入ります
+          </span>
+          <span className="flex-1" />
+          <Link
+            href="/archive"
+            className="text-[11.5px] text-[#84787D] font-bold no-underline hover:text-[#351E28]"
+          >
+            案件履歴(アーカイブ) →
+          </Link>
+        </div>
+
+        {sorted.length === 0 ? (
+          <div className="rounded-[16px] border border-[#E2E1DA] bg-white p-8 text-center">
+            <p className="text-[13px] text-[#84787D] font-body">
+              まだ案件がありません。「+ 新規案件」から始めてください。
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {sorted.map(([key, c]) => {
+              const displayName = c.name || 'クライアント未設定'
+              const initial = (c.name || '?').trim().charAt(0)
+              return (
+                <Link
+                  key={key}
+                  href={`/deals?client=${encodeURIComponent(key)}`}
+                  className="block rounded-[16px] border border-[#E2E1DA] bg-white p-4 no-underline hover:bg-[#FBFAF6] transition-colors duration-150"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-[14px] font-bold flex-shrink-0 ${
+                        c.name ? 'bg-[#D7EFFF] text-[#33566F]' : 'bg-[#EFEFEA] text-[#84787D]'
+                      }`}
+                    >
+                      {initial}
+                    </span>
+                    <div className="min-w-0">
+                      <p
+                        className={`text-[14px] font-extrabold truncate ${
+                          c.name ? 'text-[#351E28]' : 'text-[#84787D]'
+                        }`}
+                      >
+                        {displayName}
+                      </p>
+                      <p className="text-[11px] text-[#84787D] font-body fc-num">
+                        進行中 {c.inProgress} / 全 {c.total}件
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-end justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] text-[#84787D] font-body">採用合計 (税込)</p>
+                      <p className="fc-num text-[17px] font-extrabold text-[#351E28] leading-tight">
+                        {c.approvedTotal > 0 ? formatJPY(c.approvedTotal) : '—'}
+                      </p>
+                    </div>
+                    {c.urgent > 0 && (
+                      <span className="fc-num rounded-full bg-[#FFD8C2] text-[#B03616] text-[10.5px] font-bold px-2.5 py-[3px] whitespace-nowrap">
+                        納期 ≤14日 {c.urgent}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // 案件リスト (取引先の中 / 検索・ステータスリンク経由)
+  // -------------------------------------------------------------------------
 
   let products: Array<{
     id: string
@@ -174,57 +330,42 @@ export default async function DealsPage({ searchParams }: Props) {
   // Right pane data — fetched only when ?selected=X is present
   const paneData = params.selected ? await getDealPaneData(params.selected) : null
 
-  // Sprint 7-3-3: 列幅をユーザーごとに DB 永続化。初回ロード時の優先順:
-  //   1. user_preferences.deals_table_column_widths (DB)
-  //   2. localStorage (クライアント側で fallback、useEffect 内)
-  //   3. ハードコードされたデフォルト
+  // Sprint 7-3-3: 列幅をユーザーごとに DB 永続化
   const userPrefs = await getUserPreferences()
+
+  const clientTitle =
+    clientParam === NO_CLIENT ? 'クライアント未設定' : clientParam
 
   return (
     <div className="flex h-[calc(100vh-52px)] -mx-5">
       <div className="flex-1 flex flex-col min-w-0 overflow-auto px-5">
-        {/* Sprint 14: 新規案件は左上 + ステータスで絞る一覧 */}
-        <div className="flex items-center gap-2 flex-wrap pt-3 pb-2">
-          <Link
-            href="/deals/new"
-            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12.5px] font-extrabold px-4 py-2 no-underline hover:brightness-95"
-          >
-            + 新規案件
-          </Link>
-          <span className="w-px h-5 bg-[#E2E1DA] mx-1" />
+        <div className="flex items-center gap-2.5 flex-wrap pt-3 pb-2">
           <Link
             href="/deals"
-            className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold no-underline border ${
-              !activeStatus
-                ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
-                : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
-            }`}
+            className="inline-flex items-center gap-1 text-[12px] text-[#84787D] font-bold no-underline hover:text-[#351E28]"
           >
-            すべて <span className="fc-num opacity-80">{totalCount}</span>
+            ← 取引先一覧
           </Link>
-          {SIMPLE_STATUS_ORDER.map((st) => {
-            const n = statusCounts.get(st) || 0
-            if (n === 0 && activeStatus !== st) return null
-            return (
-              <Link
-                key={st}
-                href={`/deals?status=${st}`}
-                className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold no-underline border ${
-                  activeStatus === st
-                    ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
-                    : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
-                }`}
-              >
-                {SIMPLE_STATUS_CONFIG[st].label} <span className="fc-num opacity-80">{n}</span>
-              </Link>
-            )
-          })}
+          {clientTitle && (
+            <>
+              <span className="w-px h-5 bg-[#E2E1DA]" />
+              <span className="w-6 h-6 rounded-full bg-[#D7EFFF] text-[#33566F] flex items-center justify-center text-[11px] font-bold">
+                {(clientTitle || '?').charAt(0)}
+              </span>
+              <h2 className="text-[15px] font-extrabold text-[#351E28]">{clientTitle}</h2>
+              <span className="fc-num text-[11.5px] text-[#84787D]">{(deals || []).length}件</span>
+            </>
+          )}
           <span className="flex-1" />
           <Link
-            href="/archive"
-            className="text-[11.5px] text-[#84787D] font-bold no-underline hover:text-[#351E28]"
+            href={
+              clientParam && clientParam !== NO_CLIENT
+                ? `/deals/new?client=${encodeURIComponent(clientParam)}`
+                : '/deals/new'
+            }
+            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-extrabold px-3.5 py-1.5 no-underline hover:brightness-95"
           >
-            案件履歴(アーカイブ) →
+            + 新規案件
           </Link>
         </div>
         <DealsNestedTable

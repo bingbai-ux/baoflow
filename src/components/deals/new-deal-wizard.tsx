@@ -25,19 +25,27 @@ interface Props {
   staff: StaffOpt[]
   selfId: string
   itemPresets: string[]
+  /** 取引先カードから来たときの事前選択 (クライアント名) */
+  initialClientName?: string | null
 }
 
 const inputCls =
   'w-full bg-[#EFEFEA] rounded-[12px] px-3.5 py-2.5 text-[13px] font-body text-[#351E28] border border-transparent outline-none focus:border-[#351E28]'
 
-export function NewDealWizard({ clients, staff, selfId, itemPresets }: Props) {
+export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClientName }: Props) {
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
 
-  const [clientId, setClientId] = useState('')
-  const [freeClient, setFreeClient] = useState('')
-  const [useFree, setUseFree] = useState(clients.length === 0)
+  // 取引先カードから来た場合はそのクライアントを事前選択 (登録済みなら select、未登録なら自由入力)
+  const initialMatch = initialClientName
+    ? clients.find((c) => c.name === initialClientName || c.fullName === initialClientName)
+    : undefined
+  const [clientId, setClientId] = useState(initialMatch?.id || '')
+  const [freeClient, setFreeClient] = useState(!initialMatch ? initialClientName || '' : '')
+  const [useFree, setUseFree] = useState(
+    initialClientName ? !initialMatch : clients.length === 0
+  )
   const [brand, setBrand] = useState('')
   const [items, setItems] = useState<string[]>([])
   const [customItem, setCustomItem] = useState('')

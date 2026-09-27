@@ -7,7 +7,12 @@ import { NewDealWizard } from '@/components/deals/new-deal-wizard'
 // Sprint 14: 新規案件ウィザード。
 // クライアント / ブランド / 何を作るか(複数) / 希望納期 / 担当。案件名は自動生成。
 
-export default async function NewDealPage() {
+interface Props {
+  searchParams: Promise<{ client?: string }>
+}
+
+export default async function NewDealPage({ searchParams }: Props) {
+  const params = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -49,6 +54,7 @@ export default async function NewDealPage() {
         staff={(profiles || []).map((p) => ({ id: p.id, name: p.display_name || '担当' }))}
         selfId={user.id}
         itemPresets={catalog.filter((n) => n.level === 1).map((n) => n.name)}
+        initialClientName={params.client && params.client !== '__none__' ? params.client : null}
       />
     </>
   )

@@ -812,8 +812,9 @@ function DealRowItem({
       : stale
         ? 'bg-[#FBFAF6] hover:bg-[#EFEFEA]'
         : 'bg-white hover:bg-[#FBFAF6]'
+  // 選択中は Cassis の枠 (警告色と混ざらないように)。警告(納期)は Orange Tint 面のまま
   const rowBg = isSelected
-    ? 'bg-[#FFD8C2] hover:bg-[#FFD8C2] ring-1 ring-inset ring-[#FF5C34]'
+    ? `${baseBg} ring-1 ring-inset ring-[#351E28] shadow-[inset_3px_0_0_#351E28]`
     : baseBg
 
   return (
