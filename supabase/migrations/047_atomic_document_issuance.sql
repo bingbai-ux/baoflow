@@ -39,14 +39,23 @@ begin
     else
       if jsonb_typeof(p_snapshot->'quotes') is distinct from 'array' then raise exception 'Approved quotation snapshot is required'; end if;
       select count(*) filter(where q->>'status'='approved'),bool_or(q->>'status'='approved' and
-        (coalesce(q->>'quantity','') !~ '^[1-9][0-9]*$' or coalesce(q->>'total_billing_jpy','') !~ '^[0-9]+(\.[0-9]+)?$'))
+        (coalesce(q->>'quantity','') !~ '^[1-9][0-9]*$' or coalesce(q->>'total_billing_jpy','') !~ '^[0-9]+(\.[0-9]+)?$'
+          or coalesce(q->>'selling_price_jpy','') !~ '^[0-9]+(\.[0-9]+)?$'))
         into v_approved,v_invalid from jsonb_array_elements(p_snapshot->'quotes') q;
       if v_approved=0 or coalesce(v_invalid,false) then raise exception 'Valid approved quotations are required'; end if;
+      if exists(select 1 from jsonb_array_elements(p_snapshot->'quotes') q
+        where q->>'status'='approved' group by q->>'id' having count(*)>1) then
+        raise exception 'Approved quotation IDs must be unique';
+      end if;
       perform 1 from public.deal_quotes where deal_id=p_deal_id and status='approved' for share;
       if v_approved<>(select count(*) from public.deal_quotes where deal_id=p_deal_id and status='approved')
+        or exists(select 1 from public.deal_quotes live where live.deal_id=p_deal_id and live.status='approved'
+          and not exists(select 1 from jsonb_array_elements(p_snapshot->'quotes') q
+            where q->>'status'='approved' and q->>'id'=live.id::text))
         or exists(select 1 from jsonb_array_elements(p_snapshot->'quotes') q left join public.deal_quotes live
           on live.id::text=q->>'id' and live.deal_id=p_deal_id and live.status='approved'
           where q->>'status'='approved' and (live.id is null or live.quantity::numeric is distinct from (q->>'quantity')::numeric
+            or live.selling_price_jpy is distinct from (q->>'selling_price_jpy')::numeric
             or live.total_billing_jpy is distinct from (q->>'total_billing_jpy')::numeric
             or live.total_billing_tax_jpy is distinct from nullif(q->>'total_billing_tax_jpy','')::numeric)) then
         raise exception 'Approved quotations changed; reload before issuing';
