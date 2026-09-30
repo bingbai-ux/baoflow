@@ -5,9 +5,9 @@
 // 各分類はプリセット + その場で追加できる。数量は複数入れると数量違いの
 // 見積枠がまとめて作られ、後からバリエ単位で枚数違いを追加できる。
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { stableRequestId } from '@/lib/utils/request-key'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { X } from 'lucide-react'
 import type { CatalogNode } from '@/lib/actions/catalog'
 import { addCatalogNode } from '@/lib/actions/catalog'
@@ -97,10 +97,14 @@ export const PRINT_PRESETS = ['オフセット', 'グラビア', 'フレキソ',
 export const PROCESS_PRESETS = ['マット加工', 'グロス加工', '箔押し', 'エンボス', '窓付き', 'ジップ', 'バルブ']
 
 export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props) {
-  const request = useRef<{ signature: string; id: string } | null>(null)
+  const recovery = useWorkflowRequest(`spec/${dealId}/${targetProduct?.id || 'new'}`, 'spec', dealId)
+  const { recovered, complete: completeRecovery } = recovery
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
+  useEffect(() => {
+    if (recovered) { completeRecovery(); toast('前回保存した商品仕様を確認しました'); router.refresh(); onClose() }
+  }, [recovered, completeRecovery, router, onClose, toast])
   const [nodes, setNodes] = useState<CatalogNode[]>(catalog)
 
   const initialL1 = targetProduct?.category_l1 || null
@@ -167,17 +171,19 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
         other_notes: otherNote || null,
         quantities,
       }
-      const r = await createProductFromWizard(dealId, { ...payload, request_id: stableRequestId(request, { dealId, ...payload }) })
+      const r = await createProductFromWizard(dealId, { ...payload, request_id: await recovery.requestId({ dealId, ...payload }) })
       if (r.success) {
+        recovery.complete()
         toast('商品仕様を登録しました')
         router.refresh()
         onClose()
       } else {
         toast(r.error || '登録に失敗しました', 'warn')
       }
-      } catch { toast('保存結果を確認できませんでした。同じ内容で再試行してください', 'warn') }
+      } catch (e) { toast(e instanceof Error ? e.message : '保存結果を確認できませんでした。同じ内容で再試行してください', 'warn') }
     })
 
+  const recoveryNotice = recovery.error || (recovery.unfinished && !recovery.recovered ? '前回の保存結果が未確認です。同じ入力で再試行してください' : null)
   const crumbs = [l1, l2, l3].filter(Boolean).join(' / ')
 
   return (
@@ -186,6 +192,7 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
         className="w-[720px] max-w-[95vw] bg-white rounded-[16px] shadow-[0_20px_60px_rgba(53,30,40,0.3)] overflow-hidden font-body"
         onClick={(e) => e.stopPropagation()}
       >
+        {recoveryNotice && <p role="alert" className="p-3 text-[12px] text-[#B03616]">{recoveryNotice}<button type="button" className="underline ml-2" onClick={recovery.complete}>登録済み仕様を確認済み・新しい入力を始める</button></p>}
         <div className="px-5 py-3 border-b border-[#E2E1DA] flex items-center gap-3">
           <p className="font-display text-[15px] font-bold text-[#351E28]">商品を追加</p>
           {crumbs && <p className="text-[11.5px] text-[#84787D] truncate">{crumbs}</p>}
@@ -356,7 +363,7 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
                 <button
                   type="button"
                   onClick={finish}
-                  disabled={pending || qtys.every((q) => !(Number(q) > 0))}
+                  disabled={!recovery.ready || pending || qtys.every((q) => !(Number(q) > 0))}
                   className="rounded-full bg-[#E9F056] text-[#666C14] text-[13px] font-extrabold px-5 py-2.5 disabled:opacity-40 hover:brightness-95"
                 >
                   {pending ? '登録中…' : 'この内容で登録する'}

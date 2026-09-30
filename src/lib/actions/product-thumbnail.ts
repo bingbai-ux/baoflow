@@ -6,6 +6,8 @@
 // MIME 制限なし (migration 028)、サイズは 50 MB 上限。
 // 商品サムネは画像形式のみを推奨 (image/*) — 拡張子で軽くチェック。
 
+import { requireSalesAccess } from './deal-access'
+import { randomUUID } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { classifyFile, getExtension } from '@/lib/utils/file-classify'
@@ -22,6 +24,8 @@ export async function uploadProductThumbnail(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { url: null, error: 'Unauthorized' }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { url: null, error: accessError }
 
   if (file.size > 52428800) {
     return { url: null, error: 'ファイルサイズが大きすぎます (上限 50 MB)' }
@@ -45,7 +49,7 @@ export async function uploadProductThumbnail(
   if (!prod) return { url: null, error: '商品が見つかりません' }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${prod.deal_id}/thumb_${productId}_${Date.now()}_${safeName}`
+  const storagePath = `${prod.deal_id}/thumb_${productId}_${randomUUID()}_${safeName}`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, file, {
     cacheControl: '3600',
@@ -61,16 +65,18 @@ export async function uploadProductThumbnail(
     .from('deal_products')
     .update({ thumbnail_url: publicUrl, updated_at: new Date().toISOString() })
     .eq('id', productId)
+    .select('id')
+    .single()
 
   if (updError) {
-    await supabase.storage.from(BUCKET).remove([storagePath])
-    return { url: null, error: updError.message }
+    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([storagePath])
+    return { url: null, error: cleanupError ? `${updError.message}。アップロードの取り消しにも失敗しました。管理者へ確認してください` : updError.message }
   }
 
   // 旧サムネを Storage から削除 (ベストエフォート、エラーは無視)
   if (prod.thumbnail_url) {
-    const m = String(prod.thumbnail_url).match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/)
-    if (m) {
+    const m = String(prod.thumbnail_url).match(/\/storage\/v1\/object\/public\/deal-images\/([^?]+)(?:\?.*)?$/)
+    if (m && m[1].startsWith(`${prod.deal_id}/`)) {
       void supabase.storage.from(BUCKET).remove([m[1]]).catch(() => {})
     }
   }
@@ -84,6 +90,8 @@ export async function clearProductThumbnail(
   productId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
 
   const { data: prod } = await supabase
     .from('deal_products')
@@ -92,21 +100,25 @@ export async function clearProductThumbnail(
     .single()
   if (!prod) return { success: false, error: '商品が見つかりません' }
 
-  if (prod.thumbnail_url) {
-    const m = String(prod.thumbnail_url).match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/)
-    if (m) {
-      void supabase.storage.from(BUCKET).remove([m[1]]).catch(() => {})
-    }
-  }
-
   const { error } = await supabase
     .from('deal_products')
     .update({ thumbnail_url: null, updated_at: new Date().toISOString() })
     .eq('id', productId)
+    .select('id')
+    .single()
 
   if (error) return { success: false, error: error.message }
 
+  let cleanupFailed = false
+  if (prod.thumbnail_url) {
+    const m = String(prod.thumbnail_url).match(/\/storage\/v1\/object\/public\/deal-images\/([^?]+)(?:\?.*)?$/)
+    if (m && m[1].startsWith(`${prod.deal_id}/`)) {
+      const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([m[1]])
+      cleanupFailed = !!cleanupError
+    }
+  }
+
   revalidatePath('/deals')
   revalidatePath(`/deals/${prod.deal_id}`)
-  return { success: true }
+  return cleanupFailed ? { success: false, error: 'サムネイルの表示を解除しましたが、ファイルの削除に失敗しました。管理者へ確認してください' } : { success: true }
 }

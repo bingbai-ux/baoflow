@@ -4,9 +4,9 @@
 // 入力: クライアント(選択) / ブランド / 何を作るか(プリセット+任意追加・複数) /
 //       希望納期 / 担当スタッフ。案件名は自動生成 (プレビュー表示、後から編集可)。
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { stableRequestId } from '@/lib/utils/request-key'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { createDealFromWizard } from '@/lib/actions/deal-wizard'
 import { useUi } from '@/components/ui/ui-store'
 
@@ -34,7 +34,8 @@ const inputCls =
   'w-full bg-[#EFEFEA] rounded-[12px] px-3.5 py-2.5 text-[13px] font-body text-[#351E28] border border-transparent outline-none focus:border-[#351E28]'
 
 export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClientName }: Props) {
-  const request = useRef<{ signature: string; id: string } | null>(null)
+  const recovery = useWorkflowRequest('deal/new', 'deal')
+  const { recovered, complete: completeRecovery } = recovery
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -54,6 +55,14 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
   const [desired, setDesired] = useState('')
   const [salesId, setSalesId] = useState(selfId)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (typeof recovered?.dealId === 'string') {
+      const id = recovered.dealId
+      completeRecovery()
+      toast('前回保存した案件を開きました')
+      router.replace(`/deals/${id}`)
+    }
+  }, [recovered, completeRecovery, router, toast])
 
   const selectedClient = clients.find((c) => c.id === clientId)
   const clientName = useFree ? freeClient.trim() : selectedClient?.name || ''
@@ -86,19 +95,22 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         desired_delivery_date: desired || null,
         sales_user_id: salesId,
       }
-      const r = await createDealFromWizard({ ...payload, request_id: stableRequestId(request, payload) })
+      const r = await createDealFromWizard({ ...payload, request_id: await recovery.requestId(payload) })
       if (r.dealId) {
+        recovery.complete()
         if (r.error) toast(r.error, 'warn')
         else toast(`案件を作成しました(${r.dealCode})`)
         router.push(`/deals/${r.dealId}`)
       } else {
         setError(r.error || '作成に失敗しました')
       }
-      } catch { setError('保存結果を確認できませんでした。同じ内容で再試行してください') }
+      } catch (e) { setError(e instanceof Error ? e.message : '保存結果を確認できませんでした。同じ内容で再試行してください') }
     })
 
   return (
     <div className="max-w-[640px] bg-white rounded-[16px] border border-[#E2E1DA] p-6 space-y-5 mb-8">
+      {recovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{recovery.error}</p>}
+      {recovery.unfinished && !recovery.recovered && <p className="text-[12px]">前回の保存結果が未確認です。同じ入力で再試行できます。<button type="button" className="underline ml-2" onClick={recovery.complete}>一覧を確認済み・新しい入力を始める</button></p>}
       {/* 1. クライアント */}
       <section>
         <p className="text-[12px] font-bold text-[#351E28] mb-1.5">
@@ -261,7 +273,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
       <button
         type="button"
         onClick={submit}
-        disabled={pending || !clientName || items.length === 0}
+        disabled={!recovery.ready || pending || !clientName || items.length === 0}
         className="w-full rounded-full bg-[#E9F056] text-[#666C14] text-[14px] font-extrabold py-3 disabled:opacity-40 hover:brightness-95"
       >
         {pending ? '作成中…' : 'この内容で案件をつくる'}

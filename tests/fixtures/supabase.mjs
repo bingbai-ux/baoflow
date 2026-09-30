@@ -64,7 +64,7 @@ const server=http.createServer(async(req,res)=>{
     }else{send({code:'22023',message:'保存要求が不正です'},400);return}
     db.deal_status_history.push({id:randomUUID(),deal_id:p.deal_id,to_status:'M01',changed_by:IDs.user,kind:'variant',note:'仕様・数量追加',changed_at:now})
    }
-   db.wizard_requests.push({request_id:key,operation,payload:p,result});send(result);return
+   db.wizard_requests.push({request_id:key,user_id:IDs.user,operation,payload:p,result});send(result);return
   }
  
   if(table==='create_rfq_atomic'){try{send(rfqAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
@@ -102,9 +102,9 @@ function rfqAtomic(input) {
  if(!['admin','sales'].includes(db.profiles[0]?.role))throw new Error('Sales or administrator access required')
  const snapshot=structuredClone(db)
  snapshot.rfq_creation_requests ||= [];snapshot.rfq_factory_invitations ||= [];snapshot.external_forms ||= []
- const payload=JSON.stringify({...input,p_product_ids:[...input.p_product_ids].sort(),p_factory_ids:[...input.p_factory_ids].sort()})
+ const payload={deal:input.p_deal_id,products:[...input.p_product_ids].sort(),factories:[...input.p_factory_ids].sort(),pending:input.p_pending_factories||[],deadline:input.p_deadline,message:input.p_message?.trim()||null}
  const saved=snapshot.rfq_creation_requests.find(r=>r.request_id===input.p_request_id)
- if(saved){if(saved.payload!==payload)throw new Error('Request ID was already used with different input');return saved.result}
+ if(saved){if(JSON.stringify(saved.payload)!==JSON.stringify(payload))throw new Error('Request ID was already used with different input');return saved.result}
  if(!input.p_product_ids?.length||!input.p_factory_ids?.length)throw new Error('Select products and factories')
  if(new Set(input.p_product_ids).size!==input.p_product_ids.length||new Set(input.p_factory_ids).size!==input.p_factory_ids.length)throw new Error('Duplicate selections')
  if(input.p_product_ids.some(id=>!snapshot.deal_products.some(p=>p.id===id&&p.deal_id===input.p_deal_id)))throw new Error('Products do not belong to this deal')
@@ -122,7 +122,7 @@ function rfqAtomic(input) {
   return {invitationId:inv.id,factoryId,factoryName:factory.factory_name,formToken:form.token}
  })
  const result={rfqId:rfq.id,rfqNumber:rfq.rfq_number,invitations}
- snapshot.rfq_creation_requests.push({request_id:input.p_request_id,payload,result})
+ snapshot.rfq_creation_requests.push({request_id:input.p_request_id,created_by:IDs.user,payload,result})
  db=snapshot
  return result
 }
@@ -179,9 +179,9 @@ function workflowRpc(name,input) {
 function issueDocumentAtomic(input){
  if(!['admin','sales'].includes(db.profiles[0]?.role))throw new Error('Sales or administrator access required')
  const snapshot=structuredClone(db);snapshot.document_issue_requests ||= []
- const payload=JSON.stringify({deal:input.p_deal_id,type:input.p_type,metadata:input.p_metadata,snapshot:input.p_snapshot})
+ const payload={deal_id:input.p_deal_id,type:input.p_type,metadata:input.p_metadata,snapshot:input.p_snapshot}
  const saved=snapshot.document_issue_requests.find(r=>r.request_id===input.p_request_id)
- if(saved){if(saved.created_by!==IDs.user||saved.payload!==payload)throw new Error('Request ID was already used with different input or snapshot');return snapshot.documents.find(d=>d.id===saved.document_id)}
+ if(saved){if(saved.created_by!==IDs.user||JSON.stringify(saved.payload)!==JSON.stringify(payload))throw new Error('Request ID was already used with different input or snapshot');return snapshot.documents.find(d=>d.id===saved.document_id)}
  if(input.p_deal_id&&!snapshot.deals.some(d=>d.id===input.p_deal_id&&!d.archived_at))throw new Error('Deal not found or archived')
  if(input.p_deal_id&&input.p_type!=='rfq'&&!input.p_snapshot.quotes.some(q=>q.status==='approved'&&q.quantity>0))throw new Error('Valid approved quotations are required')
  const row={id:randomUUID(),deal_id:input.p_deal_id,document_type:input.p_type,document_number:`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]}-202609-${String(number).padStart(3,'0')}`,version:1,metadata:{...input.p_metadata,snapshot_version:1,snapshot:input.p_snapshot},issued_at:now,issued_by_user_id:IDs.user,created_at:now}

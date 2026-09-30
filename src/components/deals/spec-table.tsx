@@ -5,9 +5,9 @@
 // 各セルはその場でプルダウン(プリセット+自由入力)や数値入力で編集でき、
 // 数量は丸い + でどんどん追加できる。
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { stableRequestId } from '@/lib/utils/request-key'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { updateVariantField } from '@/lib/actions/inline-edit'
 import { addQuantityToVariant } from '@/lib/actions/deal-wizard'
 import {
@@ -269,31 +269,38 @@ function QtyCell({
   variantId: string
   quotes: BuilderQuote[]
 }) {
-  const request = useRef<{ signature: string; id: string } | null>(null)
+  const recovery = useWorkflowRequest(`quantity/${dealId}/${variantId}`, 'quantity', dealId)
+  const { recovered, complete: completeRecovery } = recovery
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
   const [adding, setAdding] = useState(false)
   const [qty, setQty] = useState('')
+  useEffect(() => {
+    if (recovered) { completeRecovery(); toast('前回保存した数量パターンを確認しました'); router.refresh() }
+  }, [recovered, completeRecovery, router, toast])
 
   const addQty = () => {
     const n = Number(qty)
     if (!(n > 0)) return
     startTransition(async () => {
       try {
-      const r = await addQuantityToVariant(dealId, variantId, n, stableRequestId(request, { dealId, variantId, quantity: n }))
+      const r = await addQuantityToVariant(dealId, variantId, n, await recovery.requestId({ dealId, variantId, quantity: n }))
       if (r.success) {
+        recovery.complete()
         toast('数量パターンを追加しました')
         setQty('')
         setAdding(false)
         router.refresh()
-      } else toast(r.error || '追加に失敗しました', 'warn')
-      } catch { toast('保存結果を確認できませんでした。同じ数量で再試行してください', 'warn') }
+      } else { toast(r.error || '追加に失敗しました', 'warn') }
+      } catch (e) { toast(e instanceof Error ? e.message : '保存結果を確認できませんでした。同じ数量で再試行してください', 'warn') }
     })
   }
 
   return (
     <span className="inline-flex items-center gap-1.5 flex-wrap">
+      {recovery.error && <span role="alert" className="text-[#B03616] text-[11px]">{recovery.error}</span>}
+      {recovery.unfinished && !recovery.recovered && <button type="button" className="underline text-[11px]" onClick={recovery.complete}>登録済み数量を確認済み・新しい入力</button>}
       {quotes.length === 0 && !adding && (
         <span className="text-[10.5px] text-[#AEB8A0]">未設定</span>
       )}
@@ -330,7 +337,7 @@ function QtyCell({
           <button
             type="button"
             onClick={addQty}
-            disabled={pending || !(Number(qty) > 0)}
+            disabled={!recovery.ready || pending || !(Number(qty) > 0)}
             className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[10px] font-bold px-2.5 py-1 disabled:opacity-40"
           >
             追加

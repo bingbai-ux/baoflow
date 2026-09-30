@@ -106,3 +106,16 @@ test('pending factory receives transactional linked form and network retries reu
     assert.equal((await db.query<{name:string}>('select context->>\'pending_factory_name\' name from external_forms')).rows[0].name,'New supplier')
   } finally { await db.close() }
 })
+
+test('reload recovery ledger is readable by its original staff actor only',async()=>{
+ const db=await setup()
+ try{
+  await call(db)
+  await db.exec(`grant usage on schema auth to authenticated; grant select on profiles to authenticated; insert into profiles values('10000000-0000-0000-0000-000000000002','sales'),('10000000-0000-0000-0000-000000000003','client'); set role authenticated;`)
+  assert.equal((await db.query('select request_id from rfq_creation_requests')).rows.length,1)
+  await db.exec(`set test.actor='10000000-0000-0000-0000-000000000002'`)
+  assert.equal((await db.query('select request_id from rfq_creation_requests')).rows.length,0)
+  await db.exec(`set test.actor='10000000-0000-0000-0000-000000000003'`)
+  assert.equal((await db.query('select request_id from rfq_creation_requests')).rows.length,0)
+ }finally{await db.close()}
+})

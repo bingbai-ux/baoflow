@@ -1,0 +1,32 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
+
+export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document'
+/** Read only the current staff user's saved transaction result, never another actor's request. */
+export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
+  const supabase = await createClient()
+  const denied = await requireSalesAccess(supabase)
+  if (denied) return { actorId: null, result: null, error: denied }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { actorId: null, result: null, error: 'ログインしてください' }
+  if (!requestId) return { actorId: user.id, result: null, error: null }
+  if (!/^[0-9a-f-]{36}$/i.test(requestId)) return { actorId: user.id, result: null, error: '保存要求IDが無効です' }
+  if (operation === 'document') {
+    const { data, error } = await supabase.from('document_issue_requests').select('document_id,payload').eq('request_id', requestId).eq('created_by', user.id).maybeSingle()
+    if (error) return { actorId: user.id, result: null, error: '前回の帳票発行を確認できません。履歴を確認してください' }
+    if (!data) return { actorId: user.id, result: null, error: null }
+    if (data.payload?.deal_id !== (dealId || null)) return { actorId: user.id, result: null, error: '帳票の案件が一致しません' }
+    const doc = await supabase.from('documents').select('*').eq('id', data.document_id).maybeSingle()
+    return { actorId: user.id, result: doc.data as Record<string, unknown> | null, error: doc.error || !doc.data ? '前回の帳票を取得できません' : null }
+  }
+  const rfq = operation === 'rfq'
+  let query = supabase.from(rfq ? 'rfq_creation_requests' : 'wizard_requests')
+    .select('result,payload').eq('request_id', requestId).eq(rfq ? 'created_by' : 'user_id', user.id)
+  if (!rfq) query = query.eq('operation', operation)
+  const { data, error } = await query.maybeSingle()
+  if (error) return { actorId: user.id, result: null, error: '前回の保存結果を確認できません。入力を変えず再読込してください' }
+  if (data && dealId && (rfq ? data.payload?.deal : data.payload?.deal_id) !== dealId) return { actorId: user.id, result: null, error: '保存要求の案件が一致しません' }
+  return { actorId: user.id, result: (data?.result || null) as Record<string, unknown> | null, error: null }
+}

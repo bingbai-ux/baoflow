@@ -4,8 +4,8 @@
 // 現在庫カートン数 × クライアント別の月額単価で概算する (簡易版)。
 // 単価は clients.storage_rate_config.monthly_per_carton に保存され、次回も使われる。
 
-import { useMemo, useState, useTransition, useRef } from 'react'
-import { stableRequestId } from '@/lib/utils/request-key'
+import { useMemo, useState, useTransition } from 'react'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { useRouter } from 'next/navigation'
 import type { InventoryItemRow } from '@/lib/actions/inventory'
 import { updateClientStorageRate } from '@/lib/actions/inventory'
@@ -27,7 +27,7 @@ export function StorageFeeSection({
   items: InventoryItemRow[]
   clients: ClientOpt[]
 }) {
-  const certRequest = useRef<{ signature: string; id: string } | null>(null)
+  const certRecovery = useWorkflowRequest('inventory-cert', 'document')
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -78,25 +78,33 @@ export function StorageFeeSection({
 
   const issueCert = (clientId: string | null, name: string) => {
     startTransition(async () => {
+      try {
       const metadata = { client_id: clientId, client_name: name }
-      const request_id = stableRequestId(certRequest, metadata)
+      const request_id = await certRecovery.requestId(metadata)
       const r = await issueStandaloneDocument({
         request_id,
         document_type: 'inventory_cert',
         metadata,
       })
       if (r.number && clientId) {
-        certRequest.current = null
+        certRecovery.complete()
         toast(`在庫証明書 ${r.number} を発行しました`)
         window.open(`/print/stock/${clientId}?no=${encodeURIComponent(r.number)}`, '_blank')
       } else {
         toast(r.error || '発行に失敗しました', 'warn')
       }
+      } catch(e) { toast(e instanceof Error ? e.message : '発行結果を確認できません。履歴を確認してください', 'warn') }
     })
   }
 
   return (
     <div className="space-y-3">
+      {certRecovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{certRecovery.error}</p>}
+      {certRecovery.recovered && <div className="text-[12px]">前回発行した在庫証明書: {String(certRecovery.recovered.document_number || '')}
+        <a className="underline ml-2" target="_blank" rel="noreferrer" href={`/print/stock/${encodeURIComponent(String((certRecovery.recovered.metadata as Record<string, unknown>)?.client_id || ''))}?no=${encodeURIComponent(String(certRecovery.recovered.document_number || ''))}`}>表示する</a>
+        <button type="button" className="underline ml-2" onClick={certRecovery.complete}>新しい発行を始める</button>
+      </div>}
+      {certRecovery.unfinished && !certRecovery.recovered && <button type="button" className="underline text-[12px]" onClick={certRecovery.complete}>発行履歴を確認済み・新しい発行を始める</button>}
       <p className="text-[12px] text-[#84787D] font-body">
         現在庫のカートン数 × クライアント別の月額単価で概算します(簡易版)。単価は保存され、次回もそのまま使われます。
       </p>
@@ -133,7 +141,7 @@ export function StorageFeeSection({
                         const v = Number(e.target.value)
                         if (r.clientId && Number.isFinite(v) && v !== r.savedRate) saveRate(r.clientId, v)
                       }}
-                      disabled={!r.clientId || pending}
+                      disabled={!certRecovery.ready || !r.clientId || pending}
                       className="w-[90px] text-right fc-num bg-[#EFEFEA] rounded-[10px] px-2.5 py-1.5 border border-transparent outline-none focus:border-[#351E28] disabled:opacity-40"
                       placeholder="0"
                     />
@@ -145,7 +153,7 @@ export function StorageFeeSection({
                     <button
                       type="button"
                       onClick={() => issueCert(r.clientId, r.name)}
-                      disabled={!r.clientId || pending}
+                      disabled={!certRecovery.ready || !r.clientId || pending}
                       className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10.5px] font-bold px-2.5 py-1 hover:bg-[#FBFAF6] disabled:opacity-40"
                     >
                       在庫証明書

@@ -59,7 +59,7 @@ async function sendRfqEmail(args: {
           <p>Dear ${escapeHtml(args.factoryName)},</p>
           <p>We would like to request a quotation. Please open the link below to see the specifications and submit your prices.</p>
           <p>请通过以下链接查看产品规格并提交报价。</p>
-          <p><a href="${args.formUrl}">${args.formUrl}</a></p>
+          <p><a href="${escapeHtml(args.formUrl)}">${escapeHtml(args.formUrl)}</a></p>
           ${args.deadline ? `<p>Deadline / 截止日: ${args.deadline}</p>` : ''}
           ${args.message ? `<p>${escapeHtml(args.message)}</p>` : ''}
           <p>(bao) — Packaging procurement service</p>`,
@@ -109,16 +109,16 @@ export async function emailRfqInvitation(invitationId: string): Promise<{ error:
   if (error || !invitation) return { error: '依頼先が見つかりません' }
   if (invitation.invitation_sent_at) return { error: null }
   const [{ data: request }, { data: form }, { data: factory }] = await Promise.all([
-    supabase.from('rfq_requests').select('rfq_number, response_deadline, request_message').eq('id', invitation.rfq_id).single(),
-    supabase.from('external_forms').select('token, status, expires_at').eq('id', invitation.external_form_id).single(),
+    supabase.from('rfq_requests').select('rfq_number, response_deadline, request_message, status').eq('id', invitation.rfq_id).single(),
+    supabase.from('external_forms').select('token, status, expires_at, cancelled_at, related_id, form_type').eq('id', invitation.external_form_id).single(),
     invitation.factory_id ? supabase.from('factories').select('factory_name, contact_email').eq('id', invitation.factory_id).single() : Promise.resolve({ data: null }),
   ])
-  if (!request || !form || form.status !== 'pending' || new Date(form.expires_at).getTime() <= Date.now()) return { error: '回答リンクが無効または期限切れです' }
+  if (!request || !['open','partially_responded'].includes(request.status) || !form || form.form_type !== 'rfq_response' || form.related_id !== invitation.id || form.cancelled_at || form.status !== 'pending' || !Number.isFinite(new Date(form.expires_at).getTime()) || new Date(form.expires_at).getTime() <= Date.now()) return { error: '回答リンクが無効または期限切れです' }
   const origin = process.env.NEXT_PUBLIC_APP_URL
   if (!origin || !/^https?:\/\//.test(origin)) return { error: '送信には公開アプリURLの設定が必要です' }
   const sent = await sendRfqEmail({ to: factory?.contact_email || invitation.factory_email_pending || '', factoryName: factory?.factory_name || invitation.factory_name_pending || '', rfqNumber: request.rfq_number, formUrl: `${origin.replace(/\/$/, '')}/external/${form.token}`, deadline: request.response_deadline, message: request.request_message, invitationId })
   if (!sent) return { error: 'メールを送信できませんでした。メールアドレス・送信設定を確認してください' }
-  const { error: saveError } = await supabase.from('rfq_factory_invitations').update({ invitation_sent_at: new Date().toISOString() }).eq('id', invitationId)
+  const { error: saveError } = await supabase.from('rfq_factory_invitations').update({ invitation_sent_at: new Date().toISOString() }).eq('id', invitationId).select('id').single()
   return { error: saveError ? '送信済みですが履歴の保存に失敗しました。再送する前に送信履歴を確認してください' : null }
 }
 

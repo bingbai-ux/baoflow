@@ -67,7 +67,7 @@ F&Cの色・字体・面/角丸の原則を保持。比較画像は `artifacts/u
 
 - プレビューDBの接続先確認と、実本番相当の既存dataを持つ隔離ステージングでのmigration適合確認が必要。本番migration・push・PR・deployは別承認。
 - RFQの未登録工場pending API回答を登録後に見積へ取り込む機能は対象主UIに未接続。代表経路は登録済み工場を使用。snapshotのない旧RFQは再作成を要求し、現在値へ黙って置換しない。
-- request UUIDは画面内retryを保護するが、ブラウザ再読込後の新UUIDでの同一案件/RFQ再登録を自動同定しない。画面を閉じた後は作成済み一覧を確認する必要がある。
+- request UUIDとSHA-256をactor/操作/案件別sessionStorageへ保存し、同じタブの再読込後も同一要求を保持する。フォーム内容・秘密値・回答URLは保存しない。案件/仕様/数量/RFQ/帳票/在庫証明書は本人の保存結果を読み取り復帰する。タブ終了・別ブラウザ・手動解除後の新要求を自動同定しないため、作成済み一覧/履歴の確認が必要。
 - 検品費を原価とdeal_feesへ重ねる業務判断、倉庫別物流権限、旧snapshotなし帳票の完全再現、分割入庫予定の詳細入力UXは今回の代表受入範囲外。業務判断を推測して新機能化していない。
 - 配送と案件完了は担当の明示確認で進める。実顧客への配送成功をテストデータで保証していない。
 
@@ -76,3 +76,17 @@ F&Cの色・字体・面/角丸の原則を保持。比較画像は `artifacts/u
 コードだけを先行公開せず、既存schema/RLS/関数の保存、履歴version照合、バックアップ後に新DB相当の隔離ステージングへ038→047を順番に適用し確認する。038の在庫/台帳権限、044の発注UPDATE/DELETE撤回と物流状態trigger、045の旧RFQ snapshot不足拒否が旧アプリにも影響する。旧DB031を混ぜない。
 
 既存dataを削除しない。046は歴史的duplicateを保持し新duplicateだけ拒否する。047のcounter/docs/ledger同transaction、request保存表や044発注snapshotは監査/再試行の根拠なので、rollback時も保存する。古いアプリへ戻すだけでは安全性が戻らない。障害操作を停止し、保存した関数/権限定義との比較、帳票番号/在庫/発注/履歴整合性確認の後に必要部分のみ変更する。台帳訂正は補償取引とし、migrationの丸ごと逆適用や発行履歴削除をrollbackにしない。
+
+## 接続断後の追加差分（2026年9月30日）
+
+既存タスクのcompleted/idleと対象プロセス・localhostポートの停止を確認して引き継いだ。Docker/専用Supabaseを再起動せず、未commit差分だけを精査した。
+
+- 保存結果が不明なエラー返却/通信断ではIDを保持し、異なる入力への変更を拒否する。同一内容の再試行か、履歴確認済みボタンで明示解除する。RFQ台帳payloadの案件キーは`deal`、wizard/帳票は`deal_id`であり、復帰照合を実migrationに合わせた。保存済み帳票は発行済みsnapshotを表示する。
+- 043/047に本人かつstaffだけのSELECT policy/grantを追加。PGliteで本人/別営業/顧客のアクセスを検証。本番へ直接追加していない。
+- メールHTMLをescapeし、RFQ/フォーム状態・期限・招待リンク対応を送信前に確認。provider idempotency keyと履歴更新失敗の表示をモック検証。実メール送信は未実行。
+- Storage操作に営業権限確認を追加。DB更新/削除成功を確認してから旧blobを削除する。新uploadのDB失敗時cleanupとcleanup失敗表示をモック検証。実Storageとの連携は未検証。
+- `scripts/preflight-release-038-047.sql`は読み取り専用transaction・短いtimeout・集計のみ・rollbackで審査材料を出す。RLSで集計が欠けるactorでは停止し、欠落schemaや検査失敗を成功としない。空のPGliteで構文/欠落schema/rollbackを検証。本番/既存実データでは未実行。件数だけではschema/RLS定義や履歴の適合を証明しない。
+- 追加focusedテスト29件PASS（復帰4、mail/Storage16、SQL/RLS8、preflight1）。ブラウザ5件PASS（案件/RFQ/帳票の保存後応答消失→再読込復帰3、既存wizard/RFQ retry2）。fixtureのRFQ/帳票payloadも実migration形式に合わせた。ブラウザ確認はlocalhost合成データのみ、保存フォームの秘密値を永続化しないことも確認した。
+- 最終lint（警告なし）/typecheck/build/差分チェックPASS。重処理は直列実行し、既知の全suite/実Supabase代表経路は再実行していない。検証用サーバーは試験終了時に停止。
+
+追加受入はローカル条件付きであり、本番完了ではない。038〜047の審査、schema/RLS/grant/関数/履歴/既存データの保存と適合確認、隔離ステージング、mail/Storage実連携をリリース条件とする。登録済み工場の代表経路が前提で、未登録pending回答→登録後見積の主UI導線は未実装。

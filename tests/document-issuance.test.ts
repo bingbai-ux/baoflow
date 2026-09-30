@@ -69,3 +69,16 @@ test('approved snapshot IDs match the full live set exactly and unit prices cann
   assert.deepEqual((issued.metadata as {snapshot:{quotes:unknown}}).snapshot.quotes,[second,snapshot.quotes[0]])
  }finally{await db.close()}
 })
+
+test('saved document issuance recovery grants no other staff or customer access to the request ledger',async()=>{
+ const db=await setup()
+ try{
+  await issue(db)
+  await db.exec(`grant usage on schema auth to authenticated; grant select on profiles to authenticated; insert into profiles values('10000000-0000-0000-0000-000000000002','sales'),('10000000-0000-0000-0000-000000000003','client'); set role authenticated;`)
+  assert.equal((await db.query('select request_id from document_issue_requests')).rows.length,1)
+  await db.exec(`set test.actor='10000000-0000-0000-0000-000000000002'`)
+  assert.equal((await db.query('select request_id from document_issue_requests')).rows.length,0)
+  await db.exec(`set test.actor='10000000-0000-0000-0000-000000000003'`)
+  assert.equal((await db.query('select request_id from document_issue_requests')).rows.length,0)
+ }finally{await db.close()}
+})

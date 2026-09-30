@@ -93,3 +93,8 @@ end;
 $$;
 revoke all on function public.create_rfq_atomic(uuid,uuid,uuid[],uuid[],jsonb,date,text) from public, anon;
 grant execute on function public.create_rfq_atomic(uuid,uuid,uuid[],uuid[],jsonb,date,text) to authenticated;
+
+-- Reload recovery: only the original staff actor may read their saved result.
+create policy rfq_creation_request_owner_read on public.rfq_creation_requests
+  for select to authenticated using(created_by=auth.uid() and public.is_staff());
+grant select on public.rfq_creation_requests to authenticated;

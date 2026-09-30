@@ -1,5 +1,7 @@
 # BAOFlow Database Schema (Actual)
 
+> 追加復帰コードが参照するローカル未リリース台帳は042/043/047のSQL定義に基づく。本番適用は未確認。`wizard_requests`: request_id uuid PK / user_id uuid NOT NULL / operation text NOT NULL / payload jsonb NOT NULL / result jsonb NULL / created_at timestamptz NOT NULL。`rfq_creation_requests`: request_id uuid PK / created_by uuid NOT NULL / payload jsonb NOT NULL / result jsonb NOT NULL / created_at timestamptz NOT NULL。`document_issue_requests`: request_id uuid PK / created_by uuid NOT NULL / payload jsonb NOT NULL / document_id uuid NOT NULL / created_at timestamptz NOT NULL。RFQ payload案件キーは`deal`、wizard/帳票は`deal_id`。SELECTは本人かつstaffに限定し、帳票はdocument_idからdocumentsを参照する。リリース前に実DBの型/RLS/grantを確認する。
+
 > **Auto-generated: 2026-02-12**
 > This file contains the actual database schema from Supabase.
 > **Always reference this file when writing code that interacts with the database.**

@@ -1,5 +1,7 @@
 'use server'
 
+import { requireSalesAccess } from './deal-access'
+import { randomUUID } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { classifyFile, getExtension, type FileType } from '@/lib/utils/file-classify'
@@ -65,6 +67,10 @@ export async function uploadDesignImage(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Unauthorized' }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  const { data: deal, error: dealError } = await supabase.from('deals').select('id').eq('id', dealId).single()
+  if (dealError || !deal) return { data: null, error: '案件が見つかりません' }
 
   // Sprint 7-4-2-A: MIME による事前 reject は削除。サイズだけクライアント側で簡易チェック。
   // 50MB 超は migration 028 でバケット側が拒否する (Storage エラー)。
@@ -76,7 +82,7 @@ export async function uploadDesignImage(
   const fileCategory = classifyFile(ext)
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${dealId}/${Date.now()}_${safeName}`
+  const storagePath = `${dealId}/${randomUUID()}_${safeName}`
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, file, {
     cacheControl: '3600',
     upsert: false,
@@ -90,12 +96,16 @@ export async function uploadDesignImage(
   } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
 
   // version_number は NOT NULL なので max+1 を計算
-  const { data: existing } = await supabase
+  const { data: existing, error: versionError } = await supabase
     .from('deal_design_files')
     .select('version_number')
     .eq('deal_id', dealId)
     .order('version_number', { ascending: false })
     .limit(1)
+  if (versionError) {
+    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([storagePath])
+    return { data: null, error: cleanupError ? '添付履歴の取得とアップロードの取り消しに失敗しました。管理者へ確認してください' : '添付履歴を取得できませんでした。再試行してください' }
+  }
   const nextVersion = existing && existing.length > 0 ? (existing[0].version_number || 0) + 1 : 1
 
   const { data: row, error: insertError } = await supabase
@@ -121,8 +131,8 @@ export async function uploadDesignImage(
 
   if (insertError) {
     // ロールバック: Storage から消す
-    await supabase.storage.from(BUCKET).remove([storagePath])
-    return { data: null, error: insertError.message }
+    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([storagePath])
+    return { data: null, error: cleanupError ? `${insertError.message}。アップロードの取り消しにも失敗しました。管理者へ確認してください` : insertError.message }
   }
 
   revalidatePath(`/deals/${dealId}`)
@@ -137,6 +147,8 @@ export async function deleteDesignImage(
   fileId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
 
   const { data: existing } = await supabase
     .from('deal_design_files')
@@ -146,16 +158,13 @@ export async function deleteDesignImage(
 
   if (!existing) return { success: false, error: '対象が見つかりません' }
 
-  if (existing.storage_path) {
-    await supabase.storage.from(BUCKET).remove([existing.storage_path])
-  }
-
-  const { error } = await supabase.from('deal_design_files').delete().eq('id', fileId)
+  const { error } = await supabase.from('deal_design_files').delete().eq('id', fileId).select('id').single()
   if (error) return { success: false, error: error.message }
-
+  // Preserve the referenced blob when DB deletion fails; clean up only after success.
+  const cleanup = existing.storage_path ? await supabase.storage.from(BUCKET).remove([existing.storage_path]) : { error: null }
   revalidatePath(`/deals/${existing.deal_id}`)
   revalidatePath(`/deals/${existing.deal_id}/designs`)
-  return { success: true }
+  return cleanup.error ? { success: false, error: '添付記録を削除しましたが、ファイルの削除に失敗しました。管理者へ確認してください' } : { success: true }
 }
 
 export async function updateDesignComment(
@@ -163,6 +172,8 @@ export async function updateDesignComment(
   comment: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const trimmed = comment.trim().slice(0, 300)
 
   const { data, error } = await supabase
@@ -185,6 +196,8 @@ export async function updateDesignCategory(
   category: string | null
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data, error } = await supabase
     .from('deal_design_files')
     .update({ category: category || null })

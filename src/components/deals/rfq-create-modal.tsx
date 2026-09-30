@@ -7,10 +7,10 @@
 //   - 送信で rfq_requests + 各工場 invitation + external_forms トークンを作成
 //   - 送信完了後、各工場用の URL を表示してコピー可能 (§0.5-3 リンクコピーのみ)
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { Copy, X, FileText } from 'lucide-react'
 import { useUi } from '@/components/ui/ui-store'
-import { stableRequestId } from '@/lib/utils/request-key'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { createRfq, emailRfqInvitation, listFactoriesForRfq } from '@/lib/actions/rfq'
 import type { ProductRow } from '@/components/deals/deals-nested-table'
 
@@ -31,7 +31,8 @@ interface FactoryOpt {
 export function RfqCreateModal({ dealId, products, onClose }: Props) {
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
-  const requestRef = useRef<{ signature: string; id: string } | null>(null)
+  const recovery = useWorkflowRequest(`rfq/${dealId}`, 'rfq', dealId)
+  const { recovered, complete: completeRecovery } = recovery
   const [error, setError] = useState<string | null>(null)
   const [loadingFactories, setLoadingFactories] = useState(true)
   const [emailPending, setEmailPending] = useState<string | null>(null)
@@ -52,6 +53,15 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
   useEffect(() => {
     listFactoriesForRfq().then(setFactories).catch(() => setError('工場一覧を取得できませんでした')).finally(() => setLoadingFactories(false))
   }, [])
+
+  useEffect(() => {
+    const invitations = recovered?.invitations
+    if (Array.isArray(invitations)) {
+      setCreatedInvites(invitations.map(i => ({ invitationId: i.invitationId, factoryName: i.factoryName, url: new URL(`/external/${i.formToken}`, window.location.origin).href })))
+      completeRecovery()
+      toast('前回保存した見積依頼と回答リンクを復帰しました')
+    }
+  }, [recovered, completeRecovery, toast])
 
   const toggleProduct = (id: string) => {
     setProductIds((s) => {
@@ -75,8 +85,8 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
     if (pending) return
     startTransition(async () => {
       setError(null)
-      const requestId = stableRequestId(requestRef, { dealId, products: [...productIds].sort(), factories: [...factoryIds].sort(), deadline, message })
       try {
+      const requestId = await recovery.requestId({ dealId, products: [...productIds].sort(), factories: [...factoryIds].sort(), deadline, message })
       const r = await createRfq({
         requestId,
         dealId,
@@ -89,6 +99,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         setError(r.error || 'RFQ 作成に失敗しました。同じ内容で再試行してください')
         return
       }
+      recovery.complete()
       toast(`${r.data.rfqNumber} を作成しました`)
       setCreatedInvites(
         r.data.invitations.map((i) => ({
@@ -97,7 +108,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
           url: new URL(i.formUrl, window.location.origin).href,
         }))
       )
-      } catch { setError('通信に失敗しました。同じ内容で再試行しても依頼は重複しません') }
+      } catch (e) { setError(e instanceof Error ? e.message : '通信に失敗しました。同じ内容で再試行しても依頼は重複しません') }
     })
   }
 
@@ -179,7 +190,9 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
       <div className="space-y-4">
         <p className="text-[12px] text-[#84787D]">作成すると回答リンクを保存します。メール送信は作成後に選べます。</p>
         {error && <p role="alert" className="text-[12px] text-[#B03616]">{error}</p>}
-        <fieldset disabled={pending} className="space-y-4">
+        {recovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{recovery.error}</p>}
+        {recovery.unfinished && !recovery.recovered && <p className="text-[12px]">前回の保存結果が未確認です。同じ内容で再試行してください。<button type="button" className="underline ml-2" onClick={recovery.complete}>既存RFQを確認済み・新しい入力を始める</button></p>}
+        <fieldset disabled={!recovery.ready || pending} className="space-y-4">
         {/* 商品選択 */}
         <Section title="対象商品">
           {products.length === 0 ? (
@@ -276,7 +289,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={pending || loadingFactories || productIds.size === 0 || factoryIds.size === 0}
+            disabled={!recovery.ready || pending || loadingFactories || productIds.size === 0 || factoryIds.size === 0}
             className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] disabled:opacity-50 inline-flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />

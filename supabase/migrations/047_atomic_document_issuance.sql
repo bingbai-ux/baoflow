@@ -72,3 +72,8 @@ revoke all on function public.issue_document_atomic(uuid,uuid,text,jsonb,jsonb) 
 grant execute on function public.issue_document_atomic(uuid,uuid,text,jsonb,jsonb) to authenticated;
 -- Rollback: revoke execute/drop issue_document_atomic. Preserve issued documents,
 -- request ledger and counters; revert UI only with issuance disabled.
+
+-- Recover a saved issuance after a browser reload without creating a second document.
+create policy document_issue_request_owner_read on public.document_issue_requests
+  for select to authenticated using(created_by=auth.uid() and public.is_staff());
+grant select on public.document_issue_requests to authenticated;
