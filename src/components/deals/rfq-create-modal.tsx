@@ -42,6 +42,8 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
     new Set(products.map((p) => p.id))
   )
   const [factoryIds, setFactoryIds] = useState<Set<string>>(new Set())
+  const [pendingName, setPendingName] = useState('')
+  const [pendingEmail, setPendingEmail] = useState('')
   const [deadline, setDeadline] = useState<string>('')
   const [message, setMessage] = useState<string>('')
 
@@ -83,15 +85,25 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
 
   const handleSubmit = () => {
     if (pending) return
+    const name = pendingName.trim(), email = pendingEmail.trim()
+    if (email && (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) {
+      setError('未登録工場名と有効なメールアドレスを入力してください')
+      return
+    }
+    if (name && factories.some(f => factoryIds.has(f.id) && f.factory_name.trim().toLowerCase() === name.toLowerCase())) {
+      setError('選択済みの登録工場と同じ名前の未登録工場は追加できません')
+      return
+    }
     startTransition(async () => {
       setError(null)
       try {
-      const requestId = await recovery.requestId({ dealId, products: [...productIds].sort(), factories: [...factoryIds].sort(), deadline, message })
+      const requestId = await recovery.requestId({ dealId, products: [...productIds].sort(), factories: [...factoryIds].sort(), pendingFactories: pendingName.trim() ? [{ name: pendingName.trim(), email: pendingEmail.trim() }] : [], deadline, message })
       const r = await createRfq({
         requestId,
         dealId,
         productIds: Array.from(productIds),
         factoryIds: Array.from(factoryIds),
+        pendingFactories: pendingName.trim() ? [{ name: pendingName.trim(), email: pendingEmail.trim() }] : [],
         responseDeadline: deadline || null,
         requestMessage: message,
       })
@@ -257,6 +269,11 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         </Section>
 
         {/* 期限 + メッセージ */}
+        <Section title="未登録工場への依頼 (任意)">
+          <p className="text-[11px] text-[#84787D] mb-2">回答は保存されます。工場の基本情報を登録した後、この案件で登録工場を選んで回答を取り込めます。</p>
+          <label className="block text-[12px]">未登録工場名<input value={pendingName} maxLength={200} onChange={e => setPendingName(e.target.value)} className="block min-h-11 w-full border border-[#E2E1DA] rounded-[8px] p-2" /></label>
+          <label className="block text-[12px] mt-2">未登録工場メール (任意)<input type="email" value={pendingEmail} maxLength={254} onChange={e => setPendingEmail(e.target.value)} className="block min-h-11 w-full border border-[#E2E1DA] rounded-[8px] p-2" /></label>
+        </Section>
         <Section title="補足">
           <label className="block">
             <span className="block text-[10px] text-[#351E28] mb-1">回答期限 (任意)</span>
@@ -289,7 +306,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!recovery.ready || pending || loadingFactories || productIds.size === 0 || factoryIds.size === 0}
+            disabled={!recovery.ready || pending || loadingFactories || productIds.size === 0 || (factoryIds.size === 0 && !pendingName.trim())}
             className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] disabled:opacity-50 inline-flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />

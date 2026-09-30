@@ -67,6 +67,15 @@ const server=http.createServer(async(req,res)=>{
    db.wizard_requests.push({request_id:key,user_id:IDs.user,operation,payload:p,result});send(result);return
   }
  
+  if(table==='import_pending_rfq_answer'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({message:'Staff only'},403);return}
+   const inv=db.rfq_factory_invitations?.find(i=>i.id===input.p_invitation_id),r=db.rfq_requests.find(r=>r.id===inv?.rfq_id),f=db.external_forms?.find(f=>f.id===inv?.external_form_id)
+   if(!inv||r?.deal_id!==input.p_deal_id||f?.status!=='submitted'||!db.factories.some(f=>f.id===input.p_factory_id&&f.basic_info_completed)){send({message:'Invalid import'},400);return}
+   db.rfq_answer_imports ||= [];const saved=db.rfq_answer_imports.find(i=>i.invitation_id===inv.id)
+   if(saved){send({success:true,replayed:true});return}
+   for(const line of f.submission_data.products)for(const quantity of f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities)db.deal_quotes.push({id:randomUUID(),deal_id:r.deal_id,variant_id:line.variant_id,factory_id:input.p_factory_id,quantity,moq:line.moq,factory_unit_price_usd:line.unit_price_usd,status:'drafting',source_type:'rfq_response',factory_response:{line,invitation_id:inv.id}})
+   inv.factory_id=input.p_factory_id;db.rfq_answer_imports.push({invitation_id:inv.id,factory_id:input.p_factory_id});send({success:true,replayed:false});return
+  }
   if(table==='create_rfq_atomic'){try{send(rfqAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='select_quote_atomic') {const q=db.deal_quotes.find(q=>q.id===input.p_quote_id);if(q){db.deal_quotes.filter(x=>x.variant_id===q.variant_id).forEach(x=>x.status='draft');q.status='approved'}send({success:true,deal_id:q?.deal_id});return}
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
@@ -105,15 +114,15 @@ function rfqAtomic(input) {
  const payload={deal:input.p_deal_id,products:[...input.p_product_ids].sort(),factories:[...input.p_factory_ids].sort(),pending:input.p_pending_factories||[],deadline:input.p_deadline,message:input.p_message?.trim()||null}
  const saved=snapshot.rfq_creation_requests.find(r=>r.request_id===input.p_request_id)
  if(saved){if(JSON.stringify(saved.payload)!==JSON.stringify(payload))throw new Error('Request ID was already used with different input');return saved.result}
- if(!input.p_product_ids?.length||!input.p_factory_ids?.length)throw new Error('Select products and factories')
+ if(!input.p_product_ids?.length||(!input.p_factory_ids?.length&&!input.p_pending_factories?.length))throw new Error('Select products and factories')
  if(new Set(input.p_product_ids).size!==input.p_product_ids.length||new Set(input.p_factory_ids).size!==input.p_factory_ids.length)throw new Error('Duplicate selections')
  if(input.p_product_ids.some(id=>!snapshot.deal_products.some(p=>p.id===id&&p.deal_id===input.p_deal_id)))throw new Error('Products do not belong to this deal')
  if(input.p_factory_ids.some(id=>!snapshot.factories.some(f=>f.id===id&&f.basic_info_completed)))throw new Error('Factories missing or basic information incomplete')
  const rfq={id:randomUUID(),deal_id:input.p_deal_id,product_ids:input.p_product_ids,rfq_number:`RFQ-202609-${String(snapshot.rfq_requests.length+1).padStart(3,'0')}`,request_message:input.p_message,response_deadline:input.p_deadline,status:'open',created_by:IDs.user,created_at:now}
  snapshot.rfq_requests.push(rfq)
- const invitations=input.p_factory_ids.map((factoryId,index)=>{
-  const factory=snapshot.factories.find(f=>f.id===factoryId)
-  const inv={id:randomUUID(),rfq_id:rfq.id,factory_id:factoryId,invitation_sent_at:null,created_at:now}
+ const recipients=[...input.p_factory_ids.map(id=>({factoryId:id,factory:snapshot.factories.find(f=>f.id===id)})),...(input.p_pending_factories||[]).map(f=>({factoryId:null,factory:{factory_name:f.name,contact_email:f.email}}))]
+ const invitations=recipients.map(({factoryId,factory},index)=>{
+  const inv={id:randomUUID(),rfq_id:rfq.id,factory_id:factoryId,factory_name_pending:factoryId?null:factory.factory_name,factory_email_pending:factoryId?null:factory.contact_email,invitation_sent_at:null,created_at:now}
   snapshot.rfq_factory_invitations.push(inv)
   if(failure==='rfq_form'&&index===1){failure=null;throw new Error('Local forced second form failure')}
   const requested_lines=snapshot.deal_product_variants.filter(v=>snapshot.deal_products.some(p=>input.p_product_ids.includes(p.id)&&p.id===v.product_id)).map(v=>({...v,variant_id:v.id,product_description:snapshot.deal_products.find(p=>p.id===v.product_id).description,quantities:[...new Set(snapshot.deal_quotes.filter(q=>q.variant_id===v.id&&q.quantity>0).map(q=>q.quantity))]}))
@@ -139,11 +148,11 @@ function workflowRpc(name,input) {
   const f=db.external_forms?.find(f=>f.token===input.p_token),inv=db.rfq_factory_invitations?.find(i=>i.id===f?.related_id),rfq=db.rfq_requests.find(r=>r.id===inv?.rfq_id)
   if(!f||!inv||!rfq)throw new Error('Unavailable form')
   if(f.status==='submitted'){if(JSON.stringify(f.submission_data)===JSON.stringify(input.p_payload))return {success:true};throw new Error('Already submitted')}
-  for(const line of input.p_payload.products){
+  if(inv.factory_id)for(const line of input.p_payload.products){
    const quantities=f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities
    for(const quantity of quantities)db.deal_quotes.push({id:randomUUID(),deal_id:rfq.deal_id,variant_id:line.variant_id,factory_id:inv.factory_id,quantity,moq:line.moq,factory_unit_price_usd:line.unit_price_usd,status:'drafting',source_type:'rfq_response',version:db.deal_quotes.length+1,factory_response:{line,invitation_id:inv.id}})
   }
-  inv.responded_at=now;f.status='submitted';f.submission_data=input.p_payload;rfq.status='fully_responded';return {success:true,deal_id:rfq.deal_id}
+  inv.responded_at=now;f.submitted_at=now;f.status='submitted';f.submission_data=input.p_payload;rfq.status='fully_responded';return {success:true,deal_id:rfq.deal_id}
  }
  if(name==='portal_factory_rfqs')return (db.rfq_factory_invitations||[]).filter(i=>i.factory_id===db.profiles[0].factory_id).map(inv=>{const r=db.rfq_requests.find(r=>r.id===inv.rfq_id),f=db.external_forms.find(f=>f.id===inv.external_form_id);return {invitation_id:inv.id,rfq_number:r.rfq_number,response_deadline:r.response_deadline,request_message:r.request_message,responded_at:inv.responded_at,form_token:f.token,form_status:f.status,product_count:r.product_ids.length}})
  if(name==='portal_my_deals')return db.deals.filter(d=>d.client_id===db.profiles[0].client_id)

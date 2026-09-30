@@ -2,6 +2,8 @@
 
 2026-09-30 09:38 UTC。判定は**本番適用・公開を保留**。認証済み読み取りは完了したが、既存6案件の仕様移行、Storage権限、バックアップ復元・隔離ステージングの確認が残る。migration適用、業務データ修正、メール送信、Storage書込、push/deployは実行していない。
 
+**後続のローカル修正**：[048〜050追加・合成fixture検証・手動対応一覧と新しい承認対象](CODEX_RELEASE_FOLLOWUP_048_050.md)。以下は09:38 UTC時点の審査記録。後続で実データコピーの不要性と、未登録回答/メール/権限の候補を検証したが、本番適用・公開は保留を継続する。
+
 ## 対象と証拠
 
 - DBはTokyoの`baoflow-v2` / `uocpewtmhmdfhdvnrljl`、Postgres 17.6。取得時のactorは`postgres`、BYPASSRLS=true。権限不足の迂回は行っていない。

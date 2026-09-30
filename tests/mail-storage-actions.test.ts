@@ -10,6 +10,7 @@ import ts from 'typescript'
 const nodeRequire=createRequire(import.meta.url)
 const compiled=new Map<string,string>()
 function harness(role='sales'){
+ const env:Record<string,string>={RESEND_API_KEY:'synthetic-no-secret',RFQ_MAIL_FROM:'Synthetic Sender <sender@example.test>',NEXT_PUBLIC_APP_URL:'https://app.example.test'}
  const calls:{kind:string;value?:unknown}[]=[]
  const state={role,authenticated:true,uploadFailure:false,cleanupFailure:false,mailResponses:[true],mailThrow:false,dbFailures:new Set<string>(),rows:{
   deals:[{id:'deal'}],deal_products:[{id:'product',deal_id:'deal',thumbnail_url:'https://storage.example.test/storage/v1/object/public/deal-images/deal/old.png'}],
@@ -24,7 +25,23 @@ function harness(role='sales'){
   getPublicUrl:(path:string)=>({data:{publicUrl:`https://storage.example.test/storage/v1/object/public/deal-images/${path}`}}),
   remove:async(paths:string[])=>{calls.push({kind:'remove',value:structuredClone(paths)});return {error:state.cleanupFailure?{message:'synthetic cleanup failure'}:null}},
  }
- const client={auth:{getUser:async()=>({data:{user:state.authenticated?{id:'staff'}:null},error:null})},storage:{from:()=>storage},from:(table:string)=>{
+ const receipts=new Map<string, {status:string;attemptId:string}>()
+ const client={rpc:async(name:string,args:Record<string,any>)=>{
+  calls.push({kind:'rpc:'+name})
+  if(state.dbFailures.has('rpc:'+name))return {data:null,error:{message:'synthetic DB failure'}}
+  if(name==='claim_rfq_email'){
+   const receipt=receipts.get(args.p_invitation_id)
+   if(receipt)return {data:{claimed:false,...receipt},error:null}
+   const newReceipt={status:'attempting',attemptId:'synthetic-attempt'};receipts.set(args.p_invitation_id,newReceipt)
+   return {data:{claimed:true,...newReceipt},error:null}
+  }
+  if(name==='finish_rfq_email'){
+   receipts.get(args.p_invitation_id)!.status=args.p_status
+   if(args.p_status==='accepted')state.rows.rfq_factory_invitations[0].invitation_sent_at='synthetic-sent'
+   return {data:null,error:null}
+  }
+  throw new Error('Unexpected RPC '+name)
+ },auth:{getUser:async()=>({data:{user:state.authenticated?{id:'staff'}:null},error:null})},storage:{from:()=>storage},from:(table:string)=>{
   let operation='read';let payload:Record<string,unknown>={};const filters:Array<[string,unknown]>=[];let limit=Infinity
   const resolve=(single=false)=>{
    calls.push({kind:`${operation}:${table}`})
@@ -55,34 +72,39 @@ function harness(role='sales'){
   const fakeFetch=async(_url:string,options:{headers:Record<string,string>;body:string})=>{
    calls.push({kind:'email',value:structuredClone(options)})
    if(state.mailThrow)throw new Error('synthetic network timeout')
-   return {ok:state.mailResponses.shift()??true}
+   return {ok:state.mailResponses.shift()??true,json:async()=>({id:'synthetic-provider-id'})}
   }
-  runInNewContext(compiled.get(relative)!,{exports,module:{exports},require,process:{env:{RESEND_API_KEY:'synthetic-no-secret',NEXT_PUBLIC_APP_URL:'https://app.example.test'}},fetch:fakeFetch,Date,File,Promise,setTimeout,console})
+  runInNewContext(compiled.get(relative)!,{exports,module:{exports},require,process:{env},fetch:fakeFetch,Date,File,Promise,setTimeout,console})
   return exports
  }
- return {state,calls,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts')}
+ return {state,calls,env,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts')}
 }
 const image=()=>new File(['synthetic image'],'photo.png',{type:'image/png'})
 const attachment=()=>new File(['synthetic PDF'],'design.pdf',{type:'application/pdf'})
 
-test('explicit RFQ email failure and retry use the same provider idempotency key; successful send is recorded once',async()=>{
- const h=harness();h.state.mailResponses=[false,true]
- assert.ok((await h.rfq.emailRfqInvitation('invitation')).error)
- assert.equal(h.state.rows.rfq_factory_invitations[0].invitation_sent_at,null)
+test('accepted RFQ email is sent once and stored atomically',async()=>{
+ const h=harness()
  assert.equal((await h.rfq.emailRfqInvitation('invitation')).error,null)
  assert.equal((await h.rfq.emailRfqInvitation('invitation')).error,null)
  const sends=h.calls.filter(c=>c.kind==='email').map(c=>c.value as {headers:Record<string,string>;body:string})
- assert.equal(sends.length,2);assert.equal(sends[0].headers['Idempotency-Key'],'rfq-invitation/invitation');assert.equal(sends[0].headers['Idempotency-Key'],sends[1].headers['Idempotency-Key'])
- assert.equal(sends[0].body,sends[1].body);assert.match(sends[0].body,/&lt;script&gt;/);assert.doesNotMatch(sends[0].body,/<script>/)
- assert.equal(h.calls.filter(c=>c.kind==='update:rfq_factory_invitations').length,1)
+ assert.equal(sends.length,1);assert.equal(sends[0].headers['Idempotency-Key'],'rfq-invitation/invitation')
+ assert.match(sends[0].body,/&lt;script&gt;/);assert.doesNotMatch(sends[0].body,/<script>/)
+ assert.equal(h.calls.filter(c=>c.kind==='rpc:finish_rfq_email').length,1)
 })
-test('unknown RFQ send outcome retries with stable provider key; DB receipt failure is clearly reported',async()=>{
- const h=harness();h.state.mailThrow=true
+for(const failure of ['rejected','unknown','receipt-save'])test(`RFQ ${failure} permanently blocks another provider POST`,async()=>{
+ const h=harness()
+ if(failure==='rejected')h.state.mailResponses=[false]
+ if(failure==='unknown')h.state.mailThrow=true
+ if(failure==='receipt-save')h.state.dbFailures.add('rpc:finish_rfq_email')
  assert.ok((await h.rfq.emailRfqInvitation('invitation')).error)
- h.state.mailThrow=false;h.state.dbFailures.add('update:rfq_factory_invitations')
- assert.match((await h.rfq.emailRfqInvitation('invitation')).error,/送信済み.*保存に失敗/)
- const sends=h.calls.filter(c=>c.kind==='email').map(c=>(c.value as {headers:Record<string,string>}).headers['Idempotency-Key'])
- assert.deepEqual(sends,['rfq-invitation/invitation','rfq-invitation/invitation'])
+ h.state.mailThrow=false;h.state.dbFailures.clear()
+ assert.match((await h.rfq.emailRfqInvitation('invitation')).error,/再送を停止/)
+ assert.equal(h.calls.filter(c=>c.kind==='email').length,1)
+})
+test('claim database failure stops before external mail request',async()=>{
+ const h=harness();h.state.dbFailures.add('rpc:claim_rfq_email')
+ assert.ok((await h.rfq.emailRfqInvitation('invitation')).error)
+ assert.equal(h.calls.filter(c=>c.kind==='email').length,0)
 })
 for(const condition of ['closed','expired','mismatch','cancelled'])test(`RFQ ${condition} prevents provider send`,async()=>{
  const h=harness()
@@ -132,4 +154,10 @@ test('attachment version lookup failure rolls back upload instead of silently is
  assert.match((await h.designs.uploadDesignImage('deal',attachment())).error,/添付履歴を取得/)
  assert.deepEqual(h.calls.filter(c=>c.kind==='remove').map(c=>c.value),[[h.calls.find(c=>c.kind==='upload')!.value]])
  assert.equal(h.calls.filter(c=>c.kind==='insert:deal_design_files').length,0)
+})
+
+for(const setting of ['RESEND_API_KEY','RFQ_MAIL_FROM','NEXT_PUBLIC_APP_URL'])test(`missing ${setting} never consumes mail reservation`,async()=>{
+ const h=harness();h.env[setting]=''
+ assert.ok((await h.rfq.emailRfqInvitation('invitation')).error)
+ assert.equal(h.calls.filter(c=>c.kind==='email'||c.kind==='rpc:claim_rfq_email').length,0)
 })

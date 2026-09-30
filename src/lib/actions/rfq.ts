@@ -11,7 +11,7 @@ interface CreateRfqInput {
   dealId: string
   productIds: string[]
   factoryIds: string[] // factories マスターから選択
-  pendingFactories?: Array<{ name: string; email?: string }> // 未登録工場 (Sprint 8 では先送り、UI 簡略化)
+  pendingFactories?: Array<{ name: string; email?: string }> // 登録後、保存済み回答を明示的に取込
   responseDeadline?: string | null
   requestMessage?: string | null
 }
@@ -43,10 +43,10 @@ async function sendRfqEmail(args: {
   formUrl: string
   deadline?: string | null
   message?: string | null
-}): Promise<boolean> {
+}): Promise<{ status: 'accepted' | 'rejected' | 'unknown'; providerId?: string }> {
   const key = process.env.RESEND_API_KEY
-  const from = process.env.RFQ_MAIL_FROM || 'BAO Flow <onboarding@resend.dev>'
-  if (!key || !args.to) return false
+  const from = process.env.RFQ_MAIL_FROM
+  if (!key || !from || !args.to) return { status: 'rejected' }
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -65,9 +65,11 @@ async function sendRfqEmail(args: {
           <p>(bao) — Packaging procurement service</p>`,
       }),
     })
-    return res.ok
+    if (!res.ok) return { status: 'rejected' }
+    const result = await res.json()
+    return typeof result.id === 'string' && result.id ? { status: 'accepted', providerId: result.id } : { status: 'unknown' }
   } catch {
-    return false
+    return { status: 'unknown' }
   }
 }
 
@@ -100,7 +102,7 @@ export async function createRfq(input: CreateRfqInput): Promise<{ data: CreatedR
   return { data: { ...result, invitations: result.invitations.map(i => ({ ...i, formUrl: `${origin}/external/${i.formToken}`, emailed: false })) }, error: null }
 }
 
-/** Explicit user action, separate from RFQ creation. Stable provider key prevents network retry duplicates. */
+/** Explicit user action. Permanent DB reservation precedes the provider request. */
 export async function emailRfqInvitation(invitationId: string): Promise<{ error: string | null }> {
   const supabase = await createClient()
   const accessError = await requireSalesAccess(supabase)
@@ -116,10 +118,17 @@ export async function emailRfqInvitation(invitationId: string): Promise<{ error:
   if (!request || !['open','partially_responded'].includes(request.status) || !form || form.form_type !== 'rfq_response' || form.related_id !== invitation.id || form.cancelled_at || form.status !== 'pending' || !Number.isFinite(new Date(form.expires_at).getTime()) || new Date(form.expires_at).getTime() <= Date.now()) return { error: '回答リンクが無効または期限切れです' }
   const origin = process.env.NEXT_PUBLIC_APP_URL
   if (!origin || !/^https?:\/\//.test(origin)) return { error: '送信には公開アプリURLの設定が必要です' }
-  const sent = await sendRfqEmail({ to: factory?.contact_email || invitation.factory_email_pending || '', factoryName: factory?.factory_name || invitation.factory_name_pending || '', rfqNumber: request.rfq_number, formUrl: `${origin.replace(/\/$/, '')}/external/${form.token}`, deadline: request.response_deadline, message: request.request_message, invitationId })
-  if (!sent) return { error: 'メールを送信できませんでした。メールアドレス・送信設定を確認してください' }
-  const { error: saveError } = await supabase.from('rfq_factory_invitations').update({ invitation_sent_at: new Date().toISOString() }).eq('id', invitationId).select('id').single()
-  return { error: saveError ? '送信済みですが履歴の保存に失敗しました。再送する前に送信履歴を確認してください' : null }
+  const to = factory?.contact_email || invitation.factory_email_pending || ''
+  if (!process.env.RESEND_API_KEY || !process.env.RFQ_MAIL_FROM || !to) return { error: 'メールアドレス・送信設定を確認してください' }
+  // Claim commits before external I/O. A lost result or failed receipt save never permits another POST,
+  // including retries after the provider's 24-hour idempotency window.
+  const { data: claim, error: claimError } = await supabase.rpc('claim_rfq_email', { p_invitation_id: invitationId })
+  if (claimError || !claim) return { error: '送信予約を確認できません。送信履歴を確認するか回答リンクを共有してください' }
+  if (!claim.claimed) return { error: claim.status === 'accepted' ? null : 'この依頼には送信試行の履歴があります。再送を停止しました。管理者が送信サービスの履歴を確認するか、回答リンクを共有してください' }
+  const sent = await sendRfqEmail({ to, factoryName: factory?.factory_name || invitation.factory_name_pending || '', rfqNumber: request.rfq_number, formUrl: `${origin.replace(/\/$/, '')}/external/${form.token}`, deadline: request.response_deadline, message: request.request_message, invitationId })
+  const { error: saveError } = await supabase.rpc('finish_rfq_email', { p_invitation_id: invitationId, p_attempt_id: claim.attemptId, p_status: sent.status, p_provider_id: sent.providerId || null })
+  if (saveError) return { error: '送信結果の保存に失敗しました。重複防止のため再送を停止しています。管理者が送信履歴を確認してください' }
+  return { error: sent.status === 'accepted' ? null : '送信を確認できませんでした。重複防止のため再送を停止しています。送信履歴を確認するか回答リンクを共有してください' }
 }
 
 export async function listFactoriesForRfq() {
@@ -138,4 +147,45 @@ export async function listFactoriesForRfq() {
     basic_info_completed: boolean
     contact_email: string | null
   }>
+}
+
+
+export interface PendingRfqAnswer {
+  invitationId: string
+  factoryName: string
+  rfqNumber: string
+  submittedAt: string | null
+}
+
+export async function listPendingRfqAnswers(dealId: string): Promise<{ answers: PendingRfqAnswer[]; factories: Array<{ id: string; factory_name: string }> }> {
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) throw new Error(accessError)
+  const { data: requests, error: requestError } = await supabase.from('rfq_requests').select('id, rfq_number').eq('deal_id', dealId)
+  if (requestError) throw new Error('未登録工場の回答を取得できませんでした')
+  if (!requests?.length) return { answers: [], factories: [] }
+  const { data: invitations, error: invitationError } = await supabase.from('rfq_factory_invitations').select('id, rfq_id, factory_name_pending, external_form_id').in('rfq_id', requests.map(r => r.id)).is('factory_id', null)
+  if (invitationError) throw new Error('未登録工場の回答を取得できませんでした')
+  if (!invitations?.length) return { answers: [], factories: [] }
+  const { data: forms, error: formError } = await supabase.from('external_forms').select('id, submitted_at').in('id', invitations.map(i => i.external_form_id)).eq('status', 'submitted').eq('form_type', 'rfq_response').is('cancelled_at', null)
+  if (formError) throw new Error('未登録工場の回答を取得できませんでした')
+  const answers = invitations.flatMap(i => {
+    const form = forms?.find(f => f.id === i.external_form_id)
+    return form ? [{ invitationId: i.id, factoryName: i.factory_name_pending || '未登録工場', rfqNumber: requests.find(r => r.id === i.rfq_id)?.rfq_number || '', submittedAt: form.submitted_at }] : []
+  })
+  if (!answers.length) return { answers, factories: [] }
+  const { data: factories, error: factoryError } = await supabase.from('factories').select('id, factory_name').eq('basic_info_completed', true).order('factory_name', { ascending: true })
+  if (factoryError) throw new Error('登録工場を取得できませんでした')
+  return { answers, factories: factories || [] }
+}
+
+export async function importPendingRfqAnswer(dealId: string, invitationId: string, factoryId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { error: accessError }
+  const { error } = await supabase.rpc('import_pending_rfq_answer', { p_deal_id: dealId, p_invitation_id: invitationId, p_factory_id: factoryId })
+  if (error) return { error: '回答を取り込めませんでした。案件・工場登録・保存された仕様を確認してください。同じ工場への再試行では重複しません' }
+  revalidatePath('/deals')
+  revalidatePath(`/deals/${dealId}`)
+  return { error: null }
 }

@@ -20,6 +20,7 @@ import {
   type DealHead,
   type VariantHead,
 } from '@/components/deals/quote-builder'
+import { PendingRfqAnswers } from '@/components/deals/pending-rfq-answers'
 import { RfqCreateModal } from '@/components/deals/rfq-create-modal'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { AttachmentGallery } from '@/components/deals/attachment-gallery'
@@ -311,6 +312,7 @@ export function DealFlow({
 
   return (
     <div className="pb-8">
+      {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
       <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
         <p className="text-[12.5px] text-[#351E28]">次の作業: {SHORT_LABELS[currentIdx]}。ステップの選択だけではステータスは変わりません。</p>
         <button type="button" onClick={() => setSelected(null)} className="rounded-full border border-[#E2E1DA] bg-white px-4 py-2 text-[12px] font-bold text-[#351E28]">次の作業を開く</button>
@@ -745,6 +747,7 @@ function StepRfq({
         )}
         <BallButton dealId={deal.id} to="factory" label="送った → ボールを工場待ちに" />
       </div>
+      <PendingRfqAnswers dealId={deal.id} />
       <Hint>RFQの作成だけでは工場への送信は完了しません。作成した依頼を工場に共有し、送信後に「工場待ち」に切り替えてください。</Hint>
       {modalOpen && (
         <RfqCreateModal
@@ -1245,7 +1248,7 @@ function FactoryOrderLine({ quote, order, factories }: { quote: BuilderQuote; or
   return <div className="rounded-[12px] border border-[#E2E1DA] p-3 flex gap-2 flex-wrap items-center">
     <span className="text-[12px]">見積 v{quote.version} · {quote.quantity?.toLocaleString()} 個 · 工場単価 ${Number(quote.factory_unit_price_usd).toFixed(4)}</span>
     <select aria-label={`見積v${quote.version}の発注先工場`} value={factoryId} disabled={pending || !!quote.factory_id} onChange={e => setFactoryId(e.target.value)} className="min-h-11 rounded-[10px] border border-[#E2E1DA] px-3 text-[12px]"><option value="">発注先工場を選ぶ</option>{factories.map(f => <option key={f.id} value={f.id}>{f.factory_name}</option>)}</select>
-    <button type="button" disabled={pending || !factoryId} className="min-h-11 rounded-full bg-[#351E28] text-[#C9A2B8] px-4 text-[12px] font-bold disabled:opacity-50" onClick={() => start(async () => { const r = await createFactoryOrder(quote.id, factoryId); if (r.success) { toast('工場発注を保存しました'); router.refresh() } else toast(r.error || '発注を保存できませんでした', 'warn') })}>{pending ? '保存中…' : 'この内容で工場に発注する'}</button>
+    <button type="button" disabled={pending || !factoryId || !quote.variant_id} className="min-h-11 rounded-full bg-[#351E28] text-[#C9A2B8] px-4 text-[12px] font-bold disabled:opacity-50" onClick={() => start(async () => { const r = await createFactoryOrder(quote.id, factoryId); if (r.success) { toast('工場発注を保存しました'); router.refresh() } else toast(r.error || '発注を保存できませんでした', 'warn') })}>{pending ? '保存中…' : 'この内容で工場に発注する'}</button>
   </div>
 }
 

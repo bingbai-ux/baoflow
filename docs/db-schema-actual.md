@@ -703,3 +703,48 @@
 | note | text | YES | null |
 | created_by | uuid | YES | null |
 | created_at | timestamptz | NO | now() |
+
+
+## ローカル候補048〜050のschema確認 (2026-09-30)
+
+以下は実顧客データを使わず、001〜037のsource schemaに038〜050を適用したPGliteのcatalogから取得。本番適用済みを意味しない。029/030/034/037以降のカラムと、新RPCが使う列の参照台帳。各SQL自体を正典とする。
+
+### deal_product_variants (候補source schema)
+
+`id` (uuid, not null), `product_id` (uuid, not null), `variant_label` (text, not null), `variant_order` (integer, not null), `width_mm` (numeric, nullable), `height_mm` (numeric, nullable), `depth_mm` (numeric, nullable), `material` (text, nullable), `color_description` (text, nullable), `pantone_colors` (text, nullable), `processing` (text, nullable), `other_notes` (text, nullable), `print_color_count` (text, nullable), `print_method` (text, nullable), `pcs_per_carton` (integer, nullable), `carton_width_cm` (numeric, nullable), `carton_height_cm` (numeric, nullable), `carton_depth_cm` (numeric, nullable), `gross_weight_kg` (numeric, nullable), `production_lead_days` (integer, nullable), `shipping_lead_days` (integer, nullable), `food_inspection_days` (integer, nullable), `shipping_address` (text, nullable), `is_selected` (boolean, not null), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null)。
+
+### deal_products (候補source schema)
+
+`id` (uuid, not null), `deal_id` (uuid, not null), `product_no` (integer, not null), `description` (text, not null), `factory_staff_code` (text, nullable), `production_process` (text, nullable), `food_grade_status` (text, nullable), `food_inspection_status` (text, nullable), `product_memo` (text, nullable), `is_selected` (boolean, not null), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `shipping_address_label` (text, nullable), `shipping_address_full` (text, nullable), `shipping_recipient_name` (text, nullable), `shipping_phone` (text, nullable), `shipping_address_id` (uuid, nullable), `thumbnail_url` (text, nullable), `category_l1` (text, nullable), `category_l2` (text, nullable), `category_l3` (text, nullable)。
+
+### deal_quotes (候補source schema)
+
+`id` (uuid, not null), `deal_id` (uuid, not null), `factory_id` (uuid, nullable), `version` (integer, not null), `quantity` (integer, nullable), `factory_unit_price_usd` (numeric, nullable), `plate_fee_usd` (numeric, nullable), `other_fees_usd` (numeric, nullable), `total_cost_usd` (numeric, nullable), `unit_cost_usd` (numeric, nullable), `cost_ratio` (numeric, nullable), `exchange_rate` (numeric, nullable), `selling_price_usd` (numeric, nullable), `selling_price_jpy` (numeric, nullable), `total_billing_jpy` (numeric, nullable), `total_billing_tax_jpy` (numeric, nullable), `moq` (integer, nullable), `status` (USER-DEFINED, nullable), `source_type` (text, nullable), `source_file_url` (text, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `spec_id` (uuid, nullable), `variant_id` (uuid, nullable), `shipping_weight_kg` (numeric, nullable), `volumetric_weight_kg` (numeric, nullable), `actual_weight_total_kg` (numeric, nullable), `china_freight_yuan` (numeric, nullable), `china_freight_usd` (numeric, nullable), `domestic_china_freight_usd` (numeric, nullable), `pantone_color_fee_usd` (numeric, nullable), `food_inspection_fee_yuan` (numeric, nullable), `sample_cost_usd` (numeric, nullable), `sample_shipping_usd` (numeric, nullable), `yuan_to_usd_rate` (numeric, nullable), `incoterm` (text, nullable), `packing_info_text` (text, nullable), `sample_production_days` (integer, nullable), `sample_shipping_days` (integer, nullable), `factory_calculated_freight_usd` (numeric, nullable), `factory_response` (jsonb, nullable)。
+
+### deals (候補source schema)
+
+`id` (uuid, not null), `deal_code` (text, not null), `deal_name` (text, nullable), `client_id` (uuid, nullable), `sales_user_id` (uuid, nullable), `master_status` (USER-DEFINED, not null), `win_probability` (USER-DEFINED, nullable), `deal_group_id` (uuid, nullable), `parent_deal_id` (uuid, nullable), `delivery_type` (USER-DEFINED, nullable), `ai_mode` (USER-DEFINED, nullable), `last_activity_at` (timestamp with time zone, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `simple_status` (USER-DEFINED, not null), `visibility` (text, not null), `client_name_text` (text, nullable), `desired_delivery_date` (date, nullable), `memo` (text, nullable), `use_client_master` (boolean, not null), `shipping_method_1` (text, nullable), `contract_number` (text, nullable), `contract_signed_at` (timestamp with time zone, nullable), `column_widths` (jsonb, not null), `archived_at` (timestamp with time zone, nullable), `archived_by` (uuid, nullable), `archive_reason` (text, nullable), `archive_note` (text, nullable), `tags` (ARRAY, not null), `waiting_on` (text, not null), `brand_text` (text, nullable)。
+
+### external_forms (候補source schema)
+
+`id` (uuid, not null), `form_type` (text, not null), `token` (text, not null), `related_id` (uuid, nullable), `status` (text, not null), `expires_at` (timestamp with time zone, nullable), `submitted_at` (timestamp with time zone, nullable), `submitted_by_email` (text, nullable), `submission_ip` (text, nullable), `submission_user_agent` (text, nullable), `cancelled_at` (timestamp with time zone, nullable), `cancelled_by` (uuid, nullable), `created_by` (uuid, nullable), `context` (jsonb, nullable), `submission_data` (jsonb, nullable), `created_at` (timestamp with time zone, not null)。
+
+### factories (候補source schema)
+
+`id` (uuid, not null), `contact_name` (text, nullable), `factory_name` (text, not null), `rating` (numeric, nullable), `specialties` (ARRAY, nullable), `quality` (text, nullable), `price_level` (text, nullable), `response_speed` (text, nullable), `politeness` (text, nullable), `contact_method` (text, nullable), `address` (text, nullable), `bank_info` (jsonb, nullable), `default_payment_terms` (text, nullable), `default_payment_method` (USER-DEFINED, nullable), `excel_template_id` (text, nullable), `avg_response_days` (integer, nullable), `notes` (text, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `name_cn` (text, nullable), `contact_phone` (text, nullable), `contact_email` (text, nullable), `wechat` (text, nullable), `payment_terms` (text, nullable), `incoterm` (text, nullable), `lead_time_range` (text, nullable), `quality_stars` (integer, nullable), `delivery_stars` (integer, nullable), `price_stars` (integer, nullable), `since` (date, nullable), `catalog_files` (jsonb, not null), `self_registered_at` (timestamp with time zone, nullable), `self_registration_form_id` (uuid, nullable), `basic_info_completed` (boolean, not null)。
+
+### rfq_answer_imports (候補source schema)
+
+`invitation_id` (uuid, not null), `factory_id` (uuid, not null), `created_by` (uuid, not null), `imported_at` (timestamp with time zone, not null), `answer` (jsonb, not null), `quote_ids` (ARRAY, not null)。
+
+### rfq_email_receipts (候補source schema)
+
+`invitation_id` (uuid, not null), `attempt_id` (uuid, not null), `actor_id` (uuid, not null), `status` (text, not null), `provider_message_id` (text, nullable), `started_at` (timestamp with time zone, not null), `finished_at` (timestamp with time zone, nullable)。
+
+### rfq_factory_invitations (候補source schema)
+
+`id` (uuid, not null), `rfq_id` (uuid, not null), `factory_id` (uuid, nullable), `factory_name_pending` (text, nullable), `factory_email_pending` (text, nullable), `external_form_id` (uuid, nullable), `invitation_sent_at` (timestamp with time zone, nullable), `responded_at` (timestamp with time zone, nullable), `created_at` (timestamp with time zone, not null)。
+
+### rfq_requests (候補source schema)
+
+`id` (uuid, not null), `deal_id` (uuid, not null), `product_ids` (ARRAY, not null), `rfq_number` (text, not null), `request_message` (text, nullable), `status` (text, not null), `response_deadline` (date, nullable), `created_by` (uuid, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null)。
