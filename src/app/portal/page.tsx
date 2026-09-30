@@ -10,6 +10,7 @@ import { listInventory, listOutboundHistory } from '@/lib/actions/inventory'
 import { listShipmentRequests } from '@/lib/actions/shipment-requests'
 import { listInboundShipments } from '@/lib/actions/inbound'
 import { portalMyDeals } from '@/lib/actions/portal-data'
+import Link from 'next/link'
 
 export default async function PortalHome() {
   const supabase = await createClient()
@@ -57,6 +58,7 @@ export default async function PortalHome() {
 
   return (
     <PortalShell {...shell} wide>
+      <Link href="/portal/invoices" className="underline inline-flex items-center min-h-[44px] text-[13px]">保管料請求書を確認</Link>
       <ClientPortal
         clientName={client?.short_name || client?.company_name || 'お客'}
         items={inv.items}

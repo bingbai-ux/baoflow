@@ -22,11 +22,13 @@ export default async function DocsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: docs } = await supabase
+  const { data: docs, error: docsError } = await supabase
     .from('documents')
     .select('id, deal_id, document_type, document_number, issued_at, created_at, deals(deal_code, deal_name, client_name_text)')
     .order('created_at', { ascending: false })
     .limit(100)
+  const {data:bills,error:billingError}=await supabase.from('storage_billing').select('id,invoice_document_id,snapshot')
+  const billByDoc=new Map((bills||[]).map(b=>[b.invoice_document_id,b]))
 
   const rows = (docs || []).map((d) => ({
     ...d,
@@ -43,6 +45,8 @@ export default async function DocsPage() {
         </p>
       </div>
 
+      {(docsError||billingError)&&<p role="alert" className="text-[12px] text-[#B03616] mb-3">帳票または保管請求の履歴を取得できません。再読込して確認してください。</p>}
+
       {rows.length === 0 ? (
         <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
           まだ帳票がありません。案件詳細の「帳票発行」から見積書・請求書・納品書・RFQをつくれます。
@@ -58,6 +62,8 @@ export default async function DocsPage() {
             <span className="text-right"></span>
           </div>
           {rows.map((d) => {
+            const bill=billByDoc.get(d.id)
+            const storagePdf=d.document_type==='storage_invoice'&&bill?.snapshot
             const t = DOC_TYPE_LABEL[d.document_type || ''] || {
               label: d.document_type || '—',
               bg: '#EFEFEA',
@@ -78,21 +84,21 @@ export default async function DocsPage() {
                   {d.document_number || '—'}
                 </span>
                 <span className="text-[12px] text-[#351E28] truncate">
-                  {d.deal?.deal_name || '(案件名未設定)'}
+                  {d.deal?.deal_name || (d.document_type==='storage_invoice'?'保管料請求':'(案件名未設定)')}
                   <span className="fc-num text-[10.5px] text-[#84787D] ml-1.5">{d.deal?.deal_code}</span>
                 </span>
                 <span className="text-[11.5px] text-[#84787D] truncate">
-                  {d.deal?.client_name_text || '—'}
+                  {d.deal?.client_name_text || bill?.snapshot?.client?.name || '—'}
                 </span>
                 <span className="fc-num text-[11px] text-[#84787D]">
                   {formatDate(d.issued_at || d.created_at)}
                 </span>
                 <span className="text-right">
                   <Link
-                    href={`/deals/${d.deal_id}/documents`}
+                    href={storagePdf?`/api/storage-invoices/${bill.id}/pdf`:d.deal_id?`/deals/${d.deal_id}/documents`:'/inventory?tab=fees'}
                     className="no-underline rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10.5px] font-bold px-3 py-1.5 hover:bg-[#FBFAF6] whitespace-nowrap"
                   >
-                    案件の帳票へ
+                    {storagePdf?'請求書PDF':d.deal_id?'案件の帳票へ':'保管請求履歴へ'}
                   </Link>
                 </span>
               </div>

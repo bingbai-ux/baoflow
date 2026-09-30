@@ -1,5 +1,7 @@
 # 本番公開に付随する個別確認案
 
+更新：038〜050の権限変更はユーザー承認済み。最新成功backupは2026-09-29 21:56:58 UTC、7世代/Restore確認画面を読み取り確認済み（復元未実行）、PITR未契約。下記未確認記述は初版時点の履歴。最新状態は[追加受入記録](CODEX_ACCEPTANCE_20261001.md)。追加051の営業/admin発行・送信管理は既承認と同じ業務権限で、顧客自社請求SELECT/PDF取得のみアクセス拡大の差分。supabase_admin default ACLは現接続から変更できないため未適用とし、現存53表（すべてpostgres所有）・今回の新表・postgres将来表を保護する代替範囲を提示中。
+
 2026-09-30。公開/push/必要merge/deploy/通常schema migrationは承認済み。本書は個別確認を一度に提示するための候補で、本番変更・backup export・課金はまだ行わない。対象DB `uocpewtmhmdfhdvnrljl` / baoflow-v2、公開app `baoflow.vercel.app`。候補SQLは038〜050と別の両owner default ACL案。既存6件は推測紐付けしない。
 
 「staff」は営業sales/管理者admin。新表は本番にまだ存在せず、現状は「旧個別保存/新RPCなし」からの追加となる。新RPCの実行grantはauthenticatedでも、関数内role/所有者/token検証で業務権限を限定する。invoker RPCは既存RLSも維持する。
@@ -8,7 +10,7 @@
 |---|---|---|
 | 038 `shipment_request_items` client INSERT policy | 顧客が自分の依頼に明細追加→自分のrequested依頼＋自分の在庫商品だけ追加可。別顧客商品/確認後明細追加を拒否 | 確認後の明細追加は停止。staffの別policyは撤回しない |
 | 038 `inventory_transactions` grant、在庫/入出庫RPC | authenticated全員の既存台帳UPDATE/DELETEを撤回。staff/物流は在庫登録・増減・入庫予定・検収・確認済み出荷の原子RPC可。顧客は自社出荷依頼作成可、工場/anonの在庫操作不可 | 台帳の直接訂正/削除は停止し補償増減を追加。既存RLSで見えないrecordはRPCでも操作不可 |
-| 040 `deal_quotes` / `select_quote_atomic` | staffだけが候補見積採用を原子的に変更。顧客/工場/物流/anonは採用RPC不可。既存quotes policy自体は変更なし | archive案件、不正/重複候補等は拒否。旧6件の採用値は自動変更なし |
+| 039–040 `deals` / `deal_status_history` / `deal_quotes` | 039はstaffだけが状態変更/close/再開と履歴を原子保存、anon実行撤回。040はstaffだけが見積採用を原子的に変更。顧客/工場/物流/anonは不可。既存表policy自体は変更なし | archive案件の状態変更・納品前の完了close・競合状態を拒否。旧6件の採用値は自動変更なし |
 | 041 `document_number_counters` / `reserve_document_number` | 新counterはRLS・直接アクセスpolicyなし。staffだけRPC採番、他role不可 | 採番の手動直接変更不可。発行失敗後の欠番を再利用しない |
 | 042 `wizard_requests` / `wizard_atomic` | staff本人の要求だけRLSで読取/書込、他人・顧客・工場・物流・anon不可。staffは案件/仕様/数量を原子保存 | 本人staffのdirect要求変更もpolicy上可能な既存候補設計（不可変監査台帳とは扱わない）。旧writerと新writer併用不可 |
 | 043 `rfq_creation_requests` / `create_rfq_atomic` | staff作成者本人だけ要求台帳読取、direct書込policyなし。staffだけRFQ＋招待＋外部formを原子作成 | 仕様不備/archive案件を拒否。途中だけ保存される旧経路を新appで置換 |
@@ -22,7 +24,7 @@
 | 050 Storage objects INSERT/DELETE 2policy | bucket一致だけの全authenticated→staff＋存在する案件UUID path。uploadは非archive、deleteは既存案件 | 顧客/工場/物流の直接upload/delete、旧形式path操作は停止。UPDATE不可。public読取/既存file/bucket設定は維持 |
 | 050 public全53既存表＋新7表、両owner default ACL追加案 | PUBLIC/anon/authenticatedのTRUNCATEを撤回。postgres/supabase_admin作成の将来表も同じ撤回 | 全表消去不可。service_role・通常CRUDはこの撤回で変更なし。両owner変更に既存operator権限が必要、membership付与で迂回しない |
 
-039（料金source重複制約）にはRLS/grant変更なし。不整合料金データはmigration前検査で止める。046と044はgrant以外にtriggerが業務操作を制限するため上表に含めた。Storage/TRUNCATEを他の行で重複承認させない。未知policy/ACL・schema差があれば適用を止める。
+訂正：初版で039を料金source制約と記したのは誤り。実SQLは案件状態/closeと履歴の原子RPC・grantであり、上表に修正した。料金不整合は別のpreflight検査で止める。046と044はgrant以外にtriggerが業務操作を制限するため上表に含めた。Storage/TRUNCATEを他の行で重複承認させない。未知policy/ACL・schema差があれば適用を止める。
 
 ## 本番backupの確認結果と最小案
 

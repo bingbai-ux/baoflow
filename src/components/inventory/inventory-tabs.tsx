@@ -15,6 +15,7 @@ import type { ShipmentRequestRow } from '@/lib/actions/shipment-requests'
 
 interface ClientOpt {
   id: string
+  email?: string | null
   company_name: string
   short_name: string | null
   storage_rate_config?: Record<string, unknown> | null

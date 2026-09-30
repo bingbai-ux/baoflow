@@ -12,11 +12,13 @@ import { updateClientStorageRate } from '@/lib/actions/inventory'
 import { issueStandaloneDocument } from '@/lib/actions/documents'
 import { useUi } from '@/components/ui/ui-store'
 import { formatJPY } from '@/lib/utils/format'
+import { StorageInvoices } from './storage-invoices'
 
 interface ClientOpt {
   id: string
   company_name: string
   short_name: string | null
+  email?: string | null
   storage_rate_config?: Record<string, unknown> | null
 }
 
@@ -179,6 +181,7 @@ export function StorageFeeSection({
       <p className="text-[10.5px] text-[#84787D] font-body">
         ※ カートン数が未入力の商品は 0 として計算。正式な料金体系(日割り・坪単価等)が決まったら精緻化します。
       </p>
+      <StorageInvoices clients={clients} />
     </div>
   )
 }

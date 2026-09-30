@@ -588,6 +588,8 @@
 | updated_at | timestamptz | NO | now() |
 
 ### storage_billing
+051 local candidate（本番未適用、実source SQLをPGliteで検証）：nullable `snapshot jsonb` / `request_id uuid UNIQUE` / `created_by uuid FK profiles`を追加。client_id・billing_month非nullの組はUNIQUE。既存行を補完しない。auth SELECTはstaffとclient自社、直接INSERT/UPDATE/DELETE/TRUNCATEは禁止、staff限定issue_storage_invoiceで作成する。
+
 | Column | Type | Nullable | Default |
 |--------|------|----------|---------|
 | id | uuid | NO | gen_random_uuid() |

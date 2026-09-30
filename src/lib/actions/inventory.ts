@@ -8,6 +8,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { inventoryRpcError, isInventoryInteger } from '@/lib/utils/inventory-validation'
+import { requireSalesAccess } from './deal-access'
 
 export interface InventoryItemRow {
   id: string
@@ -169,6 +170,8 @@ export async function uploadInventoryItemPhoto(
   formData: FormData
 ): Promise<{ success: boolean; error?: string; url?: string }> {
   const supabase = await createClient()
+  const denied = await requireSalesAccess(supabase)
+  if (denied) return { success: false, error: denied }
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -176,13 +179,17 @@ export async function uploadInventoryItemPhoto(
 
   const file = formData.get('file') as File | null
   if (!file || file.size === 0) return { success: false, error: 'ファイルを選択してください' }
-  if (!file.type.startsWith('image/'))
+  if (!['image/png','image/jpeg','image/gif','image/webp'].includes(file.type))
     return { success: false, error: '画像ファイルを選択してください' }
   if (file.size > 10 * 1024 * 1024)
     return { success: false, error: '10MB以下の画像にしてください' }
 
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
-  const path = `inventory/${itemId}/${Date.now()}.${ext}`
+  const {data:item,error:itemError}=await supabase.from('inventory_items').select('deal_id').eq('id',itemId).single()
+  if(itemError||!item?.deal_id)return {success:false,error:'写真の保存には根拠のある案件への紐付けが必要です'}
+  const {data:deal,error:dealError}=await supabase.from('deals').select('id').eq('id',item.deal_id).is('archived_at',null).maybeSingle()
+  if(dealError||!deal)return {success:false,error:'有効な案件を確認できません'}
+  const ext=({'image/png':'png','image/jpeg':'jpg','image/gif':'gif','image/webp':'webp'} as Record<string,string>)[file.type]
+  const path = `${deal.id}/inventory/${itemId}/${crypto.randomUUID()}.${ext}`
   const { error: upErr } = await supabase.storage.from('deal-images').upload(path, file, {
     contentType: file.type,
     upsert: false,
@@ -199,7 +206,10 @@ export async function uploadInventoryItemPhoto(
     .eq('id', itemId)
     .select('id')
     .single()
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    const cleanup=await supabase.storage.from('deal-images').remove([path])
+    return { success: false, error: cleanup.error?'写真履歴の保存とアップロード取消に失敗しました。担当者へ確認してください':'写真履歴を保存できなかったためアップロードを取り消しました' }
+  }
 
   revalidatePath('/inventory')
   revalidatePath('/portal')
@@ -213,14 +223,17 @@ export async function updateClientStorageRate(
   monthlyPerCarton: number
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const denied=await requireSalesAccess(supabase)
+  if(denied)return {success:false,error:denied}
   const rate = Number(monthlyPerCarton)
   if (!Number.isFinite(rate) || rate < 0)
     return { success: false, error: '単価は0以上で入力してください' }
-  const { data: current } = await supabase
+  const { data: current, error: currentError } = await supabase
     .from('clients')
     .select('storage_rate_config')
     .eq('id', clientId)
     .single()
+  if(currentError||!current)return {success:false,error:'既存の料金設定を確認できません'}
   const cfg = { ...((current?.storage_rate_config as Record<string, unknown>) || {}), monthly_per_carton: rate }
   const { error } = await supabase
     .from('clients')

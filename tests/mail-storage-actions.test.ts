@@ -12,13 +12,15 @@ const compiled=new Map<string,string>()
 function harness(role='sales'){
  const env:Record<string,string>={RESEND_API_KEY:'synthetic-no-secret',RFQ_MAIL_FROM:'Synthetic Sender <sender@example.test>',NEXT_PUBLIC_APP_URL:'https://app.example.test'}
  const calls:{kind:string;value?:unknown}[]=[]
- const state={role,authenticated:true,uploadFailure:false,cleanupFailure:false,mailResponses:[true],mailThrow:false,dbFailures:new Set<string>(),rows:{
-  deals:[{id:'deal'}],deal_products:[{id:'product',deal_id:'deal',thumbnail_url:'https://storage.example.test/storage/v1/object/public/deal-images/deal/old.png'}],
+ const state={role,authenticated:true,uploadFailure:false,cleanupFailure:false,pdfFailure:false,mailResponses:[true],mailThrow:false,dbFailures:new Set<string>(),rows:{
+  deals:[{id:'deal',archived_at:null}],deal_products:[{id:'product',deal_id:'deal',thumbnail_url:'https://storage.example.test/storage/v1/object/public/deal-images/deal/old.png'}],
   deal_design_files:[{id:'file',deal_id:'deal',storage_path:'deal/old.pdf',version_number:1}],
   rfq_factory_invitations:[{id:'invitation',rfq_id:'rfq',factory_id:'factory',external_form_id:'form',invitation_sent_at:null}],
   rfq_requests:[{id:'rfq',rfq_number:'RFQ-TEST',status:'open',request_message:'<b>Customer message</b>',response_deadline:null}],
   external_forms:[{id:'form',form_type:'rfq_response',related_id:'invitation',token:'synthetic-only-token',status:'pending',cancelled_at:null,expires_at:'2100-01-01T00:00:00Z'}],
   factories:[{id:'factory',factory_name:'<script>Factory</script>',contact_email:'factory@example.test'}],
+  inventory_items:[{id:'item',deal_id:'deal',thumbnail_url:'old.png'}],
+  storage_billing:[{id:'bill',invoice_document_id:'storage-doc',snapshot:{document_number:'STI-TEST',total:4510,input:{recipient:'client@example.test',month:'2026-08',due_date:'2026-09-30'}}}],
  } as Record<string,Array<Record<string,unknown>>>}
  const storage={
   upload:async(path:string)=>{calls.push({kind:'upload',value:path});return {error:state.uploadFailure?{message:'synthetic upload failure'}:null}},
@@ -29,15 +31,15 @@ function harness(role='sales'){
  const client={rpc:async(name:string,args:Record<string,any>)=>{
   calls.push({kind:'rpc:'+name})
   if(state.dbFailures.has('rpc:'+name))return {data:null,error:{message:'synthetic DB failure'}}
-  if(name==='claim_rfq_email'){
-   const receipt=receipts.get(args.p_invitation_id)
+  if(name==='claim_rfq_email'||name==='claim_storage_invoice_email'){
+   const receipt=receipts.get(args.p_invitation_id||args.p_document_id)
    if(receipt)return {data:{claimed:false,...receipt},error:null}
-   const newReceipt={status:'attempting',attemptId:'synthetic-attempt'};receipts.set(args.p_invitation_id,newReceipt)
+   const newReceipt={status:'attempting',attemptId:'synthetic-attempt'};receipts.set(args.p_invitation_id||args.p_document_id,newReceipt)
    return {data:{claimed:true,...newReceipt},error:null}
   }
-  if(name==='finish_rfq_email'){
-   receipts.get(args.p_invitation_id)!.status=args.p_status
-   if(args.p_status==='accepted')state.rows.rfq_factory_invitations[0].invitation_sent_at='synthetic-sent'
+  if(name==='finish_rfq_email'||name==='finish_storage_invoice_email'){
+   receipts.get(args.p_invitation_id||args.p_document_id)!.status=args.p_status
+   if(name==='finish_rfq_email'&&args.p_status==='accepted')state.rows.rfq_factory_invitations[0].invitation_sent_at='synthetic-sent'
    return {data:null,error:null}
   }
   throw new Error('Unexpected RPC '+name)
@@ -53,7 +55,7 @@ function harness(role='sales'){
    if(operation==='insert'){const row={id:'new-file',...payload};(state.rows[table]||=[]).push(row);rows=[row]}
    return {data:structuredClone(single?(rows[0]||null):rows),error:null}
   }
-  const query: any={select:(_fields?:string)=>query,eq:(key:string,value:unknown)=>{filters.push([key,value]);return query},order:()=>query,limit:(n:number)=>{limit=n;return query},insert:(data:Record<string,unknown>)=>{operation='insert';payload=data;return query},update:(data:Record<string,unknown>)=>{operation='update';payload=data;return query},delete:()=>{operation='delete';return query},single:async()=>resolve(true),then:(fulfilled:(value:unknown)=>unknown,rejected?:(error:unknown)=>unknown)=>Promise.resolve(resolve()).then(fulfilled,rejected)}
+  const query: any={select:(_fields?:string)=>query,eq:(key:string,value:unknown)=>{filters.push([key,value]);return query},is:(key:string,value:unknown)=>{filters.push([key,value]);return query},order:()=>query,limit:(n:number)=>{limit=n;return query},insert:(data:Record<string,unknown>)=>{operation='insert';payload=data;return query},update:(data:Record<string,unknown>)=>{operation='update';payload=data;return query},delete:()=>{operation='delete';return query},single:async()=>resolve(true),maybeSingle:async()=>resolve(true),then:(fulfilled:(value:unknown)=>unknown,rejected?:(error:unknown)=>unknown)=>Promise.resolve(resolve()).then(fulfilled,rejected)}
   return query
  }}
  const modules=new Map<string,Record<string,any>>()
@@ -66,6 +68,9 @@ function harness(role='sales'){
    if(id==='next/cache')return {revalidatePath:(path:string)=>calls.push({kind:'revalidate',value:path})}
    if(id==='./deal-access')return load('lib/actions/deal-access.ts')
    if(id==='@/lib/utils/file-classify')return load('lib/utils/file-classify.ts')
+   if(id==='@/lib/utils/storage-invoice')return load('lib/utils/storage-invoice.ts')
+   if(id==='@/lib/utils/inventory-validation')return load('lib/utils/inventory-validation.ts')
+   if(id==='@/lib/pdf/storage-invoice')return {storageInvoicePDF:async()=>{calls.push({kind:'pdf'});if(state.pdfFailure)throw Error('Synthetic PDF failure');return new Uint8Array(Buffer.from('%PDF-synthetic'))}}
    if(id==='node:crypto')return nodeRequire('node:crypto')
    throw new Error('Unexpected real dependency: '+id)
   }
@@ -74,10 +79,10 @@ function harness(role='sales'){
    if(state.mailThrow)throw new Error('synthetic network timeout')
    return {ok:state.mailResponses.shift()??true,json:async()=>({id:'synthetic-provider-id'})}
   }
-  runInNewContext(compiled.get(relative)!,{exports,module:{exports},require,process:{env},fetch:fakeFetch,Date,File,Promise,setTimeout,console})
+  runInNewContext(compiled.get(relative)!,{exports,module:{exports},require,process:{env},fetch:fakeFetch,Date,File,Promise,Buffer,crypto:nodeRequire('node:crypto').webcrypto,setTimeout,console})
   return exports
  }
- return {state,calls,env,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts')}
+ return {state,calls,env,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts'),billing:load('lib/actions/storage-billing.ts'),inventory:load('lib/actions/inventory.ts')}
 }
 const image=()=>new File(['synthetic image'],'photo.png',{type:'image/png'})
 const attachment=()=>new File(['synthetic PDF'],'design.pdf',{type:'application/pdf'})
@@ -160,4 +165,42 @@ for(const setting of ['RESEND_API_KEY','RFQ_MAIL_FROM','NEXT_PUBLIC_APP_URL'])te
  const h=harness();h.env[setting]=''
  assert.ok((await h.rfq.emailRfqInvitation('invitation')).error)
  assert.equal(h.calls.filter(c=>c.kind==='email'||c.kind==='rpc:claim_rfq_email').length,0)
+})
+
+test('storage invoice mail attaches saved PDF once with a permanent document claim',async()=>{
+ const h=harness();assert.equal((await h.billing.emailStorageInvoice('bill')).error,null)
+ assert.equal((await h.billing.emailStorageInvoice('bill')).error,null)
+ const sends=h.calls.filter(c=>c.kind==='email');assert.equal(sends.length,1)
+ const sent=sends[0].value as {headers:Record<string,string>;body:string},body=JSON.parse(sent.body)
+ assert.equal(sent.headers['Idempotency-Key'],'storage-invoice/storage-doc')
+ assert.deepEqual(body.to,['client@example.test']);assert.match(body.text,/4510/);assert.match(body.text,/2026-09-30/)
+ assert.equal(body.attachments[0].filename,'STI-TEST.pdf');assert.equal(Buffer.from(body.attachments[0].content,'base64').toString(),'%PDF-synthetic')
+})
+for(const failure of ['rejected','unknown','receipt-save'])test(`storage invoice ${failure} prevents another provider POST`,async()=>{
+ const h=harness();if(failure==='rejected')h.state.mailResponses=[false]
+ if(failure==='unknown')h.state.mailThrow=true
+ if(failure==='receipt-save')h.state.dbFailures.add('rpc:finish_storage_invoice_email')
+ assert.ok((await h.billing.emailStorageInvoice('bill')).error)
+ h.state.mailThrow=false;h.state.dbFailures.clear()
+ assert.match((await h.billing.emailStorageInvoice('bill')).error,/再送を停止/)
+ assert.equal(h.calls.filter(c=>c.kind==='email').length,1)
+})
+test('PDF generation failure reserves no mail attempt; claim DB failure sends nothing',async()=>{
+ const h=harness();h.state.pdfFailure=true;assert.ok((await h.billing.emailStorageInvoice('bill')).error)
+ assert.equal(h.calls.filter(c=>c.kind==='rpc:claim_storage_invoice_email'||c.kind==='email').length,0)
+ h.state.pdfFailure=false;h.state.dbFailures.add('rpc:claim_storage_invoice_email')
+ assert.ok((await h.billing.emailStorageInvoice('bill')).error);assert.equal(h.calls.filter(c=>c.kind==='email').length,0)
+})
+for(const role of ['client','factory','logistics'])test(`${role} cannot send storage invoices or upload inventory pictures`,async()=>{
+ const h=harness(role);assert.ok((await h.billing.emailStorageInvoice('bill')).error)
+ const form=new FormData();form.set('file',image());assert.ok((await h.inventory.uploadInventoryItemPhoto('item',form)).error)
+ assert.equal(h.calls.filter(c=>['email','pdf','upload'].includes(c.kind)).length,0)
+})
+test('inventory photo uses a real deal path and preserves old image on DB failure',async()=>{
+ const h=harness();h.state.dbFailures.add('update:inventory_items')
+ const form=new FormData();form.set('file',image())
+ assert.match((await h.inventory.uploadInventoryItemPhoto('item',form)).error,/取り消しました/)
+ const path=h.calls.find(c=>c.kind==='upload')!.value;assert.match(String(path),/^deal\/inventory\/item\/[a-f0-9-]+\.png$/)
+ assert.deepEqual(h.calls.filter(c=>c.kind==='remove').map(c=>c.value),[[path]])
+ assert.equal(h.state.rows.inventory_items[0].thumbnail_url,'old.png')
 })
