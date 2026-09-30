@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PortalShell } from '@/components/external/portal-shell'
 import { portalFactoryRfqs } from '@/lib/actions/portal-data'
+import { listFactoryOrders } from '@/lib/actions/factory-orders'
 
 function fmt(d: string | null): string {
   if (!d) return '—'
@@ -19,9 +20,10 @@ export default async function FactoryHome() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/factory/login')
 
-  const [{ data: profile }, rfqs] = await Promise.all([
+  const [{ data: profile }, rfqs, purchaseOrders] = await Promise.all([
     supabase.from('profiles').select('display_name, email, factory_id').eq('id', user.id).single(),
     portalFactoryRfqs(),
+    listFactoryOrders(),
   ])
 
   const { data: factory } = profile?.factory_id
@@ -59,6 +61,16 @@ export default async function FactoryHome() {
           </div>
         ) : (
           <>
+            <section className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
+              <h2 className="text-[14px] font-bold mb-2">Purchase orders / 工厂订单</h2>
+              {purchaseOrders.error ? <p className="text-[12px] text-[#B03616]">Orders could not be loaded. / 订单暂时无法加载。</p> : purchaseOrders.orders.length === 0 ? <p className="text-[12px] text-[#84787D]">No purchase orders yet. / 暂无订单。</p> : purchaseOrders.orders.map((order) => (
+                <div key={order.id} className="py-3 border-b border-[#E2E1DA] last:border-b-0 text-[12.5px]">
+                  <p className="font-bold">{order.order_no} · {order.snapshot.item_name || 'Product'}</p>
+                  <p>{order.quantity.toLocaleString()} pcs · USD {Number(order.unit_price_usd).toFixed(4)} / pc · {order.status === 'ordered' ? 'Ordered / 已下单' : 'Cancelled / 已取消'}</p>
+                  {order.expected_delivery_date && <p className="text-[11px] text-[#84787D]">Expected delivery / 预计交货: {fmt(order.expected_delivery_date)}</p>}
+                </div>
+              ))}
+            </section>
             <section>
               <h2 className="text-[14px] font-display font-bold mb-2">
                 Open RFQs / 待回复询价 ({open.length})

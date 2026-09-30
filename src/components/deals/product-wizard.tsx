@@ -5,8 +5,9 @@
 // 各分類はプリセット + その場で追加できる。数量は複数入れると数量違いの
 // 見積枠がまとめて作られ、後からバリエ単位で枚数違いを追加できる。
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { stableRequestId } from '@/lib/utils/request-key'
 import { X } from 'lucide-react'
 import type { CatalogNode } from '@/lib/actions/catalog'
 import { addCatalogNode } from '@/lib/actions/catalog'
@@ -96,6 +97,7 @@ export const PRINT_PRESETS = ['オフセット', 'グラビア', 'フレキソ',
 export const PROCESS_PRESETS = ['マット加工', 'グロス加工', '箔押し', 'エンボス', '窓付き', 'ジップ', 'バルブ']
 
 export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props) {
+  const request = useRef<{ signature: string; id: string } | null>(null)
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -147,8 +149,9 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
 
   const finish = () =>
     startTransition(async () => {
-      const quantities = qtys.map((q) => Number(q)).filter((q) => q > 0)
-      const r = await createProductFromWizard(dealId, {
+      try {
+      const quantities = qtys.filter((q) => q.trim() !== '').map((q) => Number(q))
+      const payload = {
         product_id: targetProduct?.id || null,
         category_l1: l1 || '',
         category_l2: l2,
@@ -163,7 +166,8 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
         color_description: colorNote || null,
         other_notes: otherNote || null,
         quantities,
-      })
+      }
+      const r = await createProductFromWizard(dealId, { ...payload, request_id: stableRequestId(request, { dealId, ...payload }) })
       if (r.success) {
         toast('商品仕様を登録しました')
         router.refresh()
@@ -171,6 +175,7 @@ export function ProductWizard({ dealId, catalog, targetProduct, onClose }: Props
       } else {
         toast(r.error || '登録に失敗しました', 'warn')
       }
+      } catch { toast('保存結果を確認できませんでした。同じ内容で再試行してください', 'warn') }
     })
 
   const crumbs = [l1, l2, l3].filter(Boolean).join(' / ')

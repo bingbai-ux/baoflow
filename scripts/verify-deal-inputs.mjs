@@ -7,9 +7,14 @@ import { join } from 'node:path'
 import { createRequire } from 'node:module'
 const output = mkdtempSync(join(tmpdir(), 'baoflow-deal-input-'))
 try {
-  execFileSync('node_modules/.bin/tsc', ['src/lib/validation/deal-input.ts', 'src/lib/calc/quote-engine.ts', '--outDir', output, '--module', 'commonjs', '--target', 'es2020', '--skipLibCheck'], { stdio: 'inherit' })
+  execFileSync('node_modules/.bin/tsc', ['src/lib/validation/deal-input.ts', 'src/lib/calc/quote-engine.ts', 'src/lib/utils/request-key.ts', '--outDir', output, '--module', 'commonjs', '--target', 'es2020', '--skipLibCheck'], { stdio: 'inherit' })
   const require = createRequire(import.meta.url)
   const { validateQuantities, validateQuoteNumbers, nextQuoteVersion } = require(join(output, 'validation/deal-input.js'))
+  const { stableRequestId } = require(join(output, 'utils/request-key.js'))
+  const request = { current: null }
+  const requestId = stableRequestId(request, { quantity: 100 })
+  assert.equal(stableRequestId(request, { quantity: 100 }), requestId)
+  assert.notEqual(stableRequestId(request, { quantity: 200 }), requestId)
   const { calculateFullQuote } = require(join(output, 'calc/quote-engine.js'))
   assert.equal(nextQuoteVersion([]), 1)
   assert.equal(nextQuoteVersion([{ version: 1 }, { version: 4 }]), 5)

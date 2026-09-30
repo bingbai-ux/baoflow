@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs src/lib/deals/*.test.mjs && node scripts/verify-deal-inputs.mjs && node scripts/verify-quote-selection.mjs",
+    "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs src/lib/deals/*.test.mjs && node scripts/verify-deal-inputs.mjs && node scripts/verify-quote-selection.mjs && node scripts/verify-wizard-atomic.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

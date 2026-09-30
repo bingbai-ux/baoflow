@@ -31,8 +31,11 @@ export function quoteAdoptionIssue(q: {
 
 export function hasFactoryReplies(
   variants: Array<Parameters<typeof hasCarton>[0] & { id: string }>,
-  quotes: Array<Parameters<typeof hasFactoryPrice>[0] & { variant_id?: string | null }>
+  quotes: Array<Parameters<typeof hasFactoryPrice>[0] & { variant_id?: string | null; factory_response?: { line?: Record<string, unknown> } | null }>
 ): boolean {
-  return variants.length > 0 && variants.every((variant) => hasCarton(variant)
-    && quotes.some((quote) => quote.variant_id === variant.id && hasFactoryPrice(quote)))
+  return variants.length > 0 && variants.every((variant) => quotes.some((quote) => {
+    const line = quote.factory_response?.line
+    const carton = line ? { pcs_per_carton: Number(line.pcs_per_carton), carton_width_cm: Number(line.carton_w_cm), carton_height_cm: Number(line.carton_h_cm), carton_depth_cm: Number(line.carton_d_cm), gross_weight_kg: Number(line.gross_weight_kg) } : variant
+    return quote.variant_id === variant.id && hasFactoryPrice(quote) && hasCarton(carton)
+  }))
 }

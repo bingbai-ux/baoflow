@@ -53,6 +53,8 @@ export default async function PortalHome() {
     portalMyDeals(),
   ])
 
+  if ([inv.error, reqs.error, inb.error, out.error].some(Boolean)) throw new Error('在庫と依頼を取得できませんでした')
+
   return (
     <PortalShell {...shell} wide>
       <ClientPortal

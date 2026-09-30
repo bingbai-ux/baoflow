@@ -15,7 +15,8 @@ export interface PortalDeal {
 
 export async function portalMyDeals(): Promise<PortalDeal[]> {
   const supabase = await createClient()
-  const { data } = await supabase.rpc('portal_my_deals')
+  const { data, error } = await supabase.rpc('portal_my_deals')
+  if (error) throw new Error('案件の進捗を取得できませんでした')
   return (data || []) as PortalDeal[]
 }
 
@@ -33,6 +34,7 @@ export interface FactoryRfqEntry {
 
 export async function portalFactoryRfqs(): Promise<FactoryRfqEntry[]> {
   const supabase = await createClient()
-  const { data } = await supabase.rpc('portal_factory_rfqs')
+  const { data, error } = await supabase.rpc('portal_factory_rfqs')
+  if (error) throw new Error('工場への依頼を取得できませんでした')
   return (data || []) as FactoryRfqEntry[]
 }

@@ -17,7 +17,7 @@ export default async function LogisticsHome() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/logistics/login')
 
-  const [{ data: profile }, inv, inb, reqs, out, { data: clientsRaw }] = await Promise.all([
+  const [{ data: profile }, inv, inb, reqs, out, { data: clientsRaw, error: clientsError }] = await Promise.all([
     supabase.from('profiles').select('display_name, email').eq('id', user.id).single(),
     listInventory(),
     listInboundShipments(),
@@ -25,6 +25,8 @@ export default async function LogisticsHome() {
     listOutboundHistory(),
     supabase.from('clients').select('id, company_name, short_name').order('company_name'),
   ])
+
+  if ([inv.error, inb.error, reqs.error, out.error, clientsError].some(Boolean)) throw new Error('物流データを取得できませんでした')
 
   return (
     <PortalShell

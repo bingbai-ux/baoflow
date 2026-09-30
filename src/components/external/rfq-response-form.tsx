@@ -3,7 +3,7 @@
 // Sprint 8-7: 工場が見る RFQ 回答フォーム (anonymous)。
 // §0.5-5 通り、案件名は表示しない。商品仕様+入力欄のみ。
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { submitRfqResponse } from '@/lib/actions/external-forms'
 import {
   ExternalFormSuccess,
@@ -23,6 +23,7 @@ interface MaskedVariant {
   material: string | null
   print_color_count: string | null
   pcs_per_carton: number | null
+  requested_quantities?: number[]
 }
 
 interface MaskedProduct {
@@ -39,6 +40,8 @@ export function RfqResponseForm({
   products: MaskedProduct[]
 }) {
   const [pending, startSubmit] = useTransition()
+  const [ready, setReady] = useState(false)
+  useEffect(() => setReady(true), [])
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -95,6 +98,7 @@ export function RfqResponseForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <ExternalFormError message={error} />}
+      <fieldset disabled={!ready || pending} className="space-y-5">
 
       {/* 工場連絡先 (任意、回答者の確認用) */}
       <Section titleEn="Your contact" titleCn="您的联系方式">
@@ -148,6 +152,7 @@ export function RfqResponseForm({
                                 {v.depth_mm ? `×${v.depth_mm}` : ''} mm
                               </span>
                             )}
+                            {!!v.requested_quantities?.length && <span>Quantity / 数量: {v.requested_quantities.map(q => q.toLocaleString()).join(' / ')} pcs</span>}
                             {v.material && <span>· {v.material}</span>}
                             {v.print_color_count && <span>· print {v.print_color_count}</span>}
                           </div>
@@ -195,6 +200,7 @@ export function RfqResponseForm({
       >
         {pending ? 'Submitting… / 提交中…' : 'Submit quotation / 提交报价'}
       </button>
+      </fieldset>
     </form>
   )
 }
@@ -215,6 +221,8 @@ function ProductLineInputs({
       <SmallField label="Unit USD / 单价">
         <input
           type="number"
+          required
+          min="0.001"
           step="0.001"
           value={line.unit_price_usd ?? ''}
           onChange={(e) => onChange('unit_price_usd', num(e.target.value))}
@@ -224,6 +232,9 @@ function ProductLineInputs({
       <SmallField label="MOQ">
         <input
           type="number"
+          required
+          min="1"
+          step="1"
           value={line.moq ?? ''}
           onChange={(e) => onChange('moq', num(e.target.value))}
           className={smallInputCls}
@@ -232,6 +243,9 @@ function ProductLineInputs({
       <SmallField label="PCS/CTN">
         <input
           type="number"
+          required
+          min="1"
+          step="1"
           value={line.pcs_per_carton ?? ''}
           onChange={(e) => onChange('pcs_per_carton', num(e.target.value))}
           className={smallInputCls}
@@ -240,6 +254,8 @@ function ProductLineInputs({
       <SmallField label="Lead days / 交期">
         <input
           type="number"
+          required
+          min="0"
           value={line.production_lead_days ?? ''}
           onChange={(e) => onChange('production_lead_days', num(e.target.value))}
           className={smallInputCls}
@@ -248,6 +264,9 @@ function ProductLineInputs({
       <SmallField label="Carton W cm">
         <input
           type="number"
+          required
+          min="0.001"
+          step="any"
           value={line.carton_w_cm ?? ''}
           onChange={(e) => onChange('carton_w_cm', num(e.target.value))}
           className={smallInputCls}
@@ -256,6 +275,9 @@ function ProductLineInputs({
       <SmallField label="Carton H cm">
         <input
           type="number"
+          required
+          min="0.001"
+          step="any"
           value={line.carton_h_cm ?? ''}
           onChange={(e) => onChange('carton_h_cm', num(e.target.value))}
           className={smallInputCls}
@@ -264,6 +286,9 @@ function ProductLineInputs({
       <SmallField label="Carton D cm">
         <input
           type="number"
+          required
+          min="0.001"
+          step="any"
           value={line.carton_d_cm ?? ''}
           onChange={(e) => onChange('carton_d_cm', num(e.target.value))}
           className={smallInputCls}
@@ -272,7 +297,9 @@ function ProductLineInputs({
       <SmallField label="G.W kg">
         <input
           type="number"
-          step="0.1"
+          required
+          min="0.001"
+          step="any"
           value={line.gross_weight_kg ?? ''}
           onChange={(e) => onChange('gross_weight_kg', num(e.target.value))}
           className={smallInputCls}

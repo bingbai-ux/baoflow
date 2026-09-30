@@ -56,6 +56,9 @@ export interface BuilderQuote {
   total_billing_jpy: number | null
   total_billing_tax_jpy: number | null
   status: string | null
+  factory_id?: string | null
+  factory?: { factory_name: string } | null
+  factory_response?: { line?: Record<string, unknown> } | null
 }
 
 const num = (v: number | null | undefined, digits = 0) =>
@@ -303,6 +306,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
     <tr className={`border-b border-[#EFEFEA] last:border-b-0 ${approvedRow ? 'bg-[rgba(233,240,86,0.28)]' : index % 2 ? 'bg-[#FBFAF6]' : 'bg-white'}`}>
       <td className="px-3 py-2 whitespace-nowrap">
         <span className="text-[10.5px] text-[#84787D] fc-num">v{q.version ?? '—'}</span>
+        {q.factory_id && <span className="block text-[10px] text-[#84787D]">{q.factory?.factory_name || '工場回答'}</span>}
         {approvedRow && (
           <span className="ml-1.5 rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">採用</span>
         )}
@@ -342,6 +346,11 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
         {margin == null ? '—' : `${margin.toFixed(1)}%`}
       </td>
       <td className="px-3 py-2 text-right whitespace-nowrap">
+        {q.factory_response && !q.total_cost_usd && <button type="button" disabled={pending} className="block mb-1 rounded-full border border-[#351E28] px-3 py-1.5 text-[11px]" onClick={() => startTransition(async () => {
+          const r = await updateQuoteField(q.id, 'quantity', String(q.quantity))
+          if (r.success) { toast('工場回答のカートン条件から原価・売値を計算しました'); router.refresh() }
+          else toast(r.error || '計算に失敗しました', 'warn')
+        })}>工場回答から売値を計算</button>}
         <button
           type="button"
           onClick={toggleApprove}

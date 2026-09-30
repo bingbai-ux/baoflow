@@ -5,9 +5,12 @@ import { ChevronLeft } from 'lucide-react'
 import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
 import { DealFlow, type FlowDocument, type FlowHistoryRow } from '@/components/deals/deal-flow'
 import { listDesignFiles } from '@/lib/actions/designs'
+import { listFactoryOrders } from '@/lib/actions/factory-orders'
+import { listFactoriesForRfq } from '@/lib/actions/rfq'
 import { listCatalog } from '@/lib/actions/catalog'
 import { type SimpleStatus, SIMPLE_STATUS_CONFIG } from '@/lib/types'
-import { formatJPY } from '@/lib/utils/format'
+import { normalizeWaitingOn } from '@/lib/utils/waiting-on'
+import { formatJPY, formatDate } from '@/lib/utils/format'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
 // 問い合わせ→仕様→RFQ→工場回答→原価→売値→見積書→入金→入稿→製作→輸送→到着→完了 の
@@ -50,6 +53,9 @@ export default async function DealDetailPage({ params }: Props) {
   if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
+  const [factoryOrderResult, factories] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq()])
+  if (factoryOrderResult.error) throw new Error('Factory orders could not be loaded')
+
   const [
     { data: products, error: productsError },
     { data: variantsRaw, error: variantsError },
@@ -73,7 +79,7 @@ export default async function DealDetailPage({ params }: Props) {
       .order('variant_order', { ascending: true }),
     supabase
       .from('deal_quotes')
-      .select('*')
+      .select('*,factory:factories(factory_name)')
       .eq('deal_id', id)
       .order('quantity', { ascending: true }),
     listDesignFiles(id),
@@ -155,8 +161,8 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
         <div className="flex gap-3 flex-shrink-0 items-center">
           {approvedQuotes.length > 0 && (
-            <div className="text-right">
-              <p className="text-[10px] text-[#84787D] font-body">
+            <div className="text-right rounded-[16px] bg-[#D7EFFF] px-4 py-3">
+              <p className="text-[10px] text-[#33566F] font-body">
                 採用見積 {approvedQuotes.length}件 (税込)
               </p>
               <p className="text-[18px] font-display font-extrabold text-[#33566F] tabular-nums">
@@ -173,6 +179,32 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
       </div>
 
+      <section aria-label="案件の状況" className="mb-4 rounded-[16px] border border-[#E2E1DA] bg-white">
+        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4 py-3">
+          <div>
+            <dt className="text-[11px] text-[#84787D]">現在の工程</dt>
+            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{statusCfg.label}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-[#84787D]">次に動く人</dt>
+            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{{us: '自分の作業', client: 'クライアントの返事待ち', factory: '工場の返事待ち', none: '返事待ちなし'}[normalizeWaitingOn(deal.waiting_on)]}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-[#84787D]">希望納期</dt>
+            <dd className="mt-1 text-[14px] font-bold text-[#351E28] tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 納期を設定する</Link>}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-[#84787D]">担当者</dt>
+            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{flowDeal.sales_user?.display_name || '未設定'}</dd>
+          </div>
+        </dl>
+        <p className="border-t border-[#EFEFEA] px-4 py-2 text-[12px] text-[#84787D]">
+          {normalizeWaitingOn(deal.waiting_on) === 'client' || normalizeWaitingOn(deal.waiting_on) === 'factory'
+            ? '返事が来たら、案件名の横の待ち先を「自分の番」に戻して、下の次の作業を進めてください。催促や回答は「通信の記録」に残せます。'
+            : '下の「次の作業」から入力・確認を進めてください。相手に依頼を送ったら、案件名の横の待ち先を切り替えます。'}
+        </p>
+      </section>
+
       <DealFlow
         deal={flowDeal as never}
         products={(products || []) as never}
@@ -182,6 +214,8 @@ export default async function DealDetailPage({ params }: Props) {
         designFiles={designFiles}
         documents={(documents || []) as FlowDocument[]}
         rfqCount={rfqCount || 0}
+        factoryOrders={factoryOrderResult.orders}
+        factories={factories}
         statusHistory={historyLite}
         communications={(communications || []) as never}
       />

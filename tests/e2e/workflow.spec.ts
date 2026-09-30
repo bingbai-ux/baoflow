@@ -76,3 +76,16 @@ test('invoice step opens the invoice issuer and prints its modal',async({page})=
  await expect(page.locator('.document-frame')).toBeVisible()
  await page.screenshot({path:'test-results/invoice-modal-print.png',fullPage:true})
 })
+
+
+test('document late failure can retry once without consuming a number or leaving partial issuance',async({page,request})=>{
+ await page.goto(deal+'/quote-builder');await page.getByRole('button',{name:'この価格で採用',exact:true}).click();await expect(page.getByRole('button',{name:'採用を解除',exact:true})).toBeVisible()
+ await page.goto(deal+'/documents')
+ await request.post('http://127.0.0.1:55440/__fail',{data:{table:'docissue'}})
+ await page.getByRole('button',{name:'この内容で発行する',exact:true}).click()
+ await expect(page.getByText('帳票を発行できませんでした。同じ内容で再試行してください',{exact:true})).toBeVisible()
+ let state=await (await request.get('http://127.0.0.1:55440/__state')).json();expect(state.documents).toHaveLength(0)
+ await page.getByRole('button',{name:'この内容で発行する',exact:true}).click()
+ await expect(page.getByText('発行履歴 (1)',{exact:true})).toBeVisible()
+ state=await (await request.get('http://127.0.0.1:55440/__state')).json();expect(state.documents).toHaveLength(1);expect(state.document_issue_requests).toHaveLength(1);expect(state.documents[0].document_number).toMatch(/-001$/)
+})

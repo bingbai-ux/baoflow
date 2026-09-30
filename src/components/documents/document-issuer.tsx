@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition, useEffect, useMemo } from 'react'
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
+import { stableRequestId } from '@/lib/utils/request-key'
 import { useRouter } from 'next/navigation'
 import { Printer, FileText, Copy, Check } from 'lucide-react'
 import {
@@ -67,6 +68,7 @@ export function DocumentIssuer({
   boilerplateTexts,
 }: DocumentIssuerProps) {
   const router = useRouter()
+  const issueRequest = useRef<{ signature: string; id: string } | null>(null)
   const [active, setActive] = useState<DocumentType>(initialType)
   const [issuing, startIssue] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -108,21 +110,19 @@ export function DocumentIssuer({
     setError(null)
     startIssue(async () => {
       try {
+      const metadata = { payment_due_date: paymentDueDate || undefined, shipping_date: shippingDate || undefined, shipping_address: shippingAddress || undefined, notes: meta.notes || undefined }
+      const request_id = stableRequestId(issueRequest, { deal_id: deal.id, document_type: active, metadata })
       const r = await issueDocument({
+        request_id,
         deal_id: deal.id,
         document_type: active,
-        metadata: {
-          payment_due_date: paymentDueDate || undefined,
-          shipping_date: shippingDate || undefined,
-          shipping_address: shippingAddress || undefined,
-          notes: meta.notes || undefined,
-        },
+        metadata,
       })
       if (r.error || !r.data) {
         setError(r.error || '発行に失敗しました')
         return
       }
-      setDocs(previous => [r.data!, ...previous])
+      setDocs(previous => previous.some(d => d.id === r.data!.id) ? previous : [r.data!, ...previous])
       setSelectedDoc(r.data)
       router.refresh()
       } catch { setError('帳票の発行に失敗しました。履歴を確認してから再試行してください') }
@@ -259,7 +259,7 @@ export function DocumentIssuer({
         </div>
 
         <p className="text-[12px] text-[#84787D]">{selectedDoc ? '発行済み帳票を表示中。印刷で同じ内容を再出力できます。' : active !== 'rfq' && !canIssue ? '先に見積を採用してください。未採用の見積は帳票に含めません。' : '採用見積と別途費用から作成します。発行すると内容を保存します。'}</p>
-        {selectedDoc && <button type="button" className="rounded-full border border-[#E2E1DA] px-4 py-2 text-[12px]" onClick={() => setSelectedDoc(null)}>新しい帳票を作成する</button>}
+        {selectedDoc && <button type="button" className="rounded-full border border-[#E2E1DA] px-4 py-2 text-[12px]" onClick={() => { setSelectedDoc(null); issueRequest.current = null }}>新しい帳票を作成する</button>}
         {selectedDoc && !snapshot && <p role="alert" className="text-[12px] text-[#B03616]">この旧帳票には発行時の内容が保存されていません。現在の案件情報を参考表示しています。</p>}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button

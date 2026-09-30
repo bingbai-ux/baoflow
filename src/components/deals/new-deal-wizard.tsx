@@ -4,8 +4,9 @@
 // 入力: クライアント(選択) / ブランド / 何を作るか(プリセット+任意追加・複数) /
 //       希望納期 / 担当スタッフ。案件名は自動生成 (プレビュー表示、後から編集可)。
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { stableRequestId } from '@/lib/utils/request-key'
 import { createDealFromWizard } from '@/lib/actions/deal-wizard'
 import { useUi } from '@/components/ui/ui-store'
 
@@ -33,6 +34,7 @@ const inputCls =
   'w-full bg-[#EFEFEA] rounded-[12px] px-3.5 py-2.5 text-[13px] font-body text-[#351E28] border border-transparent outline-none focus:border-[#351E28]'
 
 export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClientName }: Props) {
+  const request = useRef<{ signature: string; id: string } | null>(null)
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -76,14 +78,15 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
     startTransition(async () => {
       setError(null)
       try {
-      const r = await createDealFromWizard({
+      const payload = {
         client_id: useFree ? null : clientId || null,
         client_name_text: clientName,
         brand_text: brand || null,
         items,
         desired_delivery_date: desired || null,
         sales_user_id: salesId,
-      })
+      }
+      const r = await createDealFromWizard({ ...payload, request_id: stableRequestId(request, payload) })
       if (r.dealId) {
         if (r.error) toast(r.error, 'warn')
         else toast(`案件を作成しました(${r.dealCode})`)
@@ -91,7 +94,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
       } else {
         setError(r.error || '作成に失敗しました')
       }
-      } catch { setError('案件の保存を確認できませんでした。案件一覧で確認してから再試行してください') }
+      } catch { setError('保存結果を確認できませんでした。同じ内容で再試行してください') }
     })
 
   return (

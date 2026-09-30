@@ -315,10 +315,22 @@ export async function updateQuoteField(
     }
   }
 
+  // RFQ packaging belongs to that factory answer, never to every factory's shared variant.
+  if (quote.factory_response?.line) {
+    const response = quote.factory_response.line
+    physics = {
+      pcsPerCarton: Number(response.pcs_per_carton) || 0,
+      cartonWidthCm: Number(response.carton_w_cm) || 0,
+      cartonHeightCm: Number(response.carton_h_cm) || 0,
+      cartonDepthCm: Number(response.carton_d_cm) || 0,
+      grossWeightKg: Number(response.gross_weight_kg) || 0,
+    }
+  }
+
   // Get settings for tax rate
   const { data: settings } = await supabase
     .from('system_settings')
-    .select('default_tax_rate, default_china_freight_rate_yuan_per_kg, default_yuan_to_usd_rate')
+    .select('default_tax_rate, default_china_freight_rate_yuan_per_kg, default_yuan_to_usd_rate, default_exchange_rate, default_cost_ratio')
     .single()
   const taxRate = Number(settings?.default_tax_rate) || 10
   const chinaFreightRate =
@@ -327,14 +339,16 @@ export async function updateQuoteField(
   const yuanRate =
     Number(newQuote.yuan_to_usd_rate) || Number(settings?.default_yuan_to_usd_rate) || 7.2
 
+  const exchangeRate = Number(newQuote.exchange_rate) || Number(settings?.default_exchange_rate) || 155
+  const costRatio = Number(newQuote.cost_ratio) || Number(settings?.default_cost_ratio) || 0.55
   const calc = calculateFullQuote({
     orderQty: Number(newQuote.quantity) || 0,
     factoryUnitPriceUsd: Number(newQuote.factory_unit_price_usd) || 0,
     physics,
     chinaFreightRateYuanPerKg: chinaFreightRate,
     yuanToUsdRate: yuanRate,
-    exchangeRate: Number(newQuote.exchange_rate) || 155,
-    costRatio: Number(newQuote.cost_ratio) || 0.55,
+    exchangeRate,
+    costRatio,
     taxRate,
     plateFeeUsd: Number(newQuote.plate_fee_usd) || 0,
     pantoneColorFeeUsd: Number(newQuote.pantone_color_fee_usd) || 0,
@@ -349,6 +363,8 @@ export async function updateQuoteField(
     .from('deal_quotes')
     .update({
       [field]: cast,
+      exchange_rate: exchangeRate,
+      cost_ratio: costRatio,
       yuan_to_usd_rate: yuanRate,
       china_freight_yuan: calc.chinaFreightYuan,
       china_freight_usd: calc.chinaFreightUsd,

@@ -7,10 +7,11 @@
 //   - 送信で rfq_requests + 各工場 invitation + external_forms トークンを作成
 //   - 送信完了後、各工場用の URL を表示してコピー可能 (§0.5-3 リンクコピーのみ)
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Copy, X, FileText } from 'lucide-react'
 import { useUi } from '@/components/ui/ui-store'
-import { createRfq, listFactoriesForRfq } from '@/lib/actions/rfq'
+import { stableRequestId } from '@/lib/utils/request-key'
+import { createRfq, emailRfqInvitation, listFactoriesForRfq } from '@/lib/actions/rfq'
 import type { ProductRow } from '@/components/deals/deals-nested-table'
 
 interface Props {
@@ -30,6 +31,11 @@ interface FactoryOpt {
 export function RfqCreateModal({ dealId, products, onClose }: Props) {
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
+  const requestRef = useRef<{ signature: string; id: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loadingFactories, setLoadingFactories] = useState(true)
+  const [emailPending, setEmailPending] = useState<string | null>(null)
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set())
   const [factories, setFactories] = useState<FactoryOpt[]>([])
   const [productIds, setProductIds] = useState<Set<string>>(
     new Set(products.map((p) => p.id))
@@ -40,11 +46,11 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
 
   // 完了後の招待 URL
   const [createdInvites, setCreatedInvites] = useState<
-    Array<{ factoryName: string; url: string }>
+    Array<{ invitationId: string; factoryName: string; url: string }>
   >([])
 
   useEffect(() => {
-    listFactoriesForRfq().then(setFactories)
+    listFactoriesForRfq().then(setFactories).catch(() => setError('工場一覧を取得できませんでした')).finally(() => setLoadingFactories(false))
   }, [])
 
   const toggleProduct = (id: string) => {
@@ -68,7 +74,11 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
   const handleSubmit = () => {
     if (pending) return
     startTransition(async () => {
+      setError(null)
+      const requestId = stableRequestId(requestRef, { dealId, products: [...productIds].sort(), factories: [...factoryIds].sort(), deadline, message })
+      try {
       const r = await createRfq({
+        requestId,
         dealId,
         productIds: Array.from(productIds),
         factoryIds: Array.from(factoryIds),
@@ -76,16 +86,18 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         requestMessage: message,
       })
       if (!r.data || r.error) {
-        toast(r.error || 'RFQ 作成に失敗しました', 'warn')
+        setError(r.error || 'RFQ 作成に失敗しました。同じ内容で再試行してください')
         return
       }
       toast(`${r.data.rfqNumber} を作成しました`)
       setCreatedInvites(
         r.data.invitations.map((i) => ({
+          invitationId: i.invitationId,
           factoryName: i.factoryName,
-          url: i.formUrl,
+          url: new URL(i.formUrl, window.location.origin).href,
         }))
       )
+      } catch { setError('通信に失敗しました。同じ内容で再試行しても依頼は重複しません') }
     })
   }
 
@@ -98,13 +110,26 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
     }
   }
 
+  const sendEmail = async (invitationId: string) => {
+    if (emailPending || sentIds.has(invitationId)) return
+    setEmailPending(invitationId)
+    setError(null)
+    try {
+      const result = await emailRfqInvitation(invitationId)
+      if (result.error) setError(result.error)
+      else { setSentIds(previous => new Set([...previous, invitationId])); toast('メールを送信しました') }
+    } catch { setError('送信状況を確認できませんでした。再送前に履歴を確認してください') }
+    finally { setEmailPending(null) }
+  }
+
   // ----- 完了後画面 -----
   if (createdInvites.length > 0) {
     return (
       <Modal onClose={onClose} title="見積依頼を作成しました">
         <p className="text-[12px] text-[#351E28] mb-3">
-          各工場用の依頼 URL です。WeChat / メール等で送信してください。**有効期限は 7 日**。
+          各工場の回答リンクを作成しました。有効期限は7日です。メールはまだ送信していません。リンクをコピーして共有するか、送信ボタンで工場にメールを送れます。
         </p>
+        {error && <p role="alert" className="text-[12px] text-[#B03616] mb-3">{error}</p>}
         <div className="space-y-2">
           {createdInvites.map((inv, i) => (
             <div
@@ -130,6 +155,9 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
                   <span className="text-[10px] text-[#84787D]">手動紐付け要</span>
                 )}
               </div>
+              <button type="button" onClick={() => sendEmail(inv.invitationId)} disabled={!!emailPending || sentIds.has(inv.invitationId)} className="rounded-full border border-[#E2E1DA] px-3 py-2 mt-2 text-[12px] disabled:opacity-50">
+                {sentIds.has(inv.invitationId) ? 'メール送信済み' : emailPending === inv.invitationId ? '送信中…' : '工場にメールを送信する'}
+              </button>
             </div>
           ))}
         </div>
@@ -149,6 +177,9 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
   return (
     <Modal onClose={onClose} title="見積依頼を作成">
       <div className="space-y-4">
+        <p className="text-[12px] text-[#84787D]">作成すると回答リンクを保存します。メール送信は作成後に選べます。</p>
+        {error && <p role="alert" className="text-[12px] text-[#B03616]">{error}</p>}
+        <fieldset disabled={pending} className="space-y-4">
         {/* 商品選択 */}
         <Section title="対象商品">
           {products.length === 0 ? (
@@ -176,7 +207,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
 
         {/* 工場選択 */}
         <Section title={`依頼先工場 (${factoryIds.size} 選択中)`}>
-          {factories.length === 0 ? (
+          {loadingFactories ? <p className="text-[12px] text-[#84787D]">工場を読込中…</p> : factories.length === 0 ? (
             <div className="text-[11px] text-[#84787D] bg-[#FFD8C2] border border-[#FFD8C2] rounded-[8px] p-2.5">
               工場マスターが空です。先に「工場招待リンク」で工場を登録してもらうか、自社で手動登録してください。
             </div>
@@ -235,6 +266,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
           </label>
         </Section>
 
+        </fieldset>
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
@@ -244,7 +276,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={pending || productIds.size === 0 || factoryIds.size === 0}
+            disabled={pending || loadingFactories || productIds.size === 0 || factoryIds.size === 0}
             className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] disabled:opacity-50 inline-flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />
@@ -267,6 +299,9 @@ function Modal({
 }) {
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
       className="fixed inset-0 z-[1100] bg-black/40 flex items-center justify-center p-4"
       onClick={onClose}
     >

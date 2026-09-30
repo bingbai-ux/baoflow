@@ -43,13 +43,8 @@ async function nextDocumentNumber(supabase: Awaited<ReturnType<typeof createClie
   return `${startsWith}${String(next).padStart(3, '0')}`
 }
 
-async function reserveDocumentNumber(supabase: Awaited<ReturnType<typeof createClient>>, type: DocumentType) {
-  const { data, error } = await supabase.rpc('reserve_document_number', { p_type: type })
-  if (error || typeof data !== 'string') return { number: null, error: '帳票番号を確保できませんでした。採番migrationの適用状態を確認してください' }
-  return { number: data, error: null }
-}
-
 export async function issueDocument(input: {
+  request_id: string
   deal_id: string
   document_type: DocumentType
   metadata?: Record<string, unknown>
@@ -71,26 +66,15 @@ export async function issueDocument(input: {
   if (input.document_type === 'rfq' && !(bundle.data.variants as unknown[]).length)
     return { data: null, error: '商品仕様を登録してからRFQを発行してください' }
   const { deal, specs, products, variants, fees, company, banks } = bundle.data
-  const snapshot = { deal, specs, products, variants, quotes, fees, company, banks }
-  const reservation = await reserveDocumentNumber(supabase, input.document_type)
-  if (reservation.error || !reservation.number) return { data: null, error: reservation.error }
-  const number = reservation.number
-
-  const { data, error } = await supabase
-    .from('documents')
-    .insert({
-      deal_id: input.deal_id,
-      document_type: input.document_type,
-      document_number: number,
-      version: 1,
-      metadata: { ...input.metadata, snapshot_version: 1, snapshot },
-      issued_at: new Date().toISOString(),
-      issued_by_user_id: user.id,
-    })
-    .select()
-    .single()
-
-  if (error) return { data: null, error: error.message }
+  const byId = (rows: unknown) => (rows as Array<Record<string, unknown>>).slice().sort((a,b) => String(a.id).localeCompare(String(b.id)))
+  const snapshot = { deal, specs: byId(specs), products: byId(products), variants: byId(variants), quotes: byId(quotes), fees: byId(fees), company, banks }
+  const { data, error } = await supabase.rpc('issue_document_atomic', {
+    p_request_id: input.request_id, p_deal_id: input.deal_id, p_type: input.document_type,
+    p_metadata: input.metadata || {}, p_snapshot: snapshot,
+  })
+  if (error || !data) return { data: null, error: error?.message.includes('different input')
+    ? 'この依頼IDは既に発行済みです。内容が変わっているため、発行履歴を確認してください'
+    : '帳票を発行できませんでした。同じ内容で再試行してください' }
 
   revalidatePath(`/deals/${input.deal_id}`)
   revalidatePath(`/deals/${input.deal_id}/documents`)
@@ -102,6 +86,7 @@ export async function issueDocument(input: {
  * 番号は既存の nextDocumentNumber 方式を共有する。
  */
 export async function issueStandaloneDocument(input: {
+  request_id: string
   document_type: DocumentType
   metadata?: Record<string, unknown>
 }): Promise<{ number: string | null; error: string | null }> {
@@ -113,20 +98,12 @@ export async function issueStandaloneDocument(input: {
 
   const accessError = await requireSalesAccess(supabase)
   if (accessError) return { number: null, error: accessError }
-  const reservation = await reserveDocumentNumber(supabase, input.document_type)
-  if (reservation.error || !reservation.number) return { number: null, error: reservation.error }
-  const number = reservation.number
-  const { error } = await supabase.from('documents').insert({
-    deal_id: null,
-    document_type: input.document_type,
-    document_number: number,
-    version: 1,
-    metadata: input.metadata || null,
-    issued_at: new Date().toISOString(),
-    issued_by_user_id: user.id,
+  const { data, error } = await supabase.rpc('issue_document_atomic', {
+    p_request_id: input.request_id, p_deal_id: null, p_type: input.document_type,
+    p_metadata: input.metadata || {}, p_snapshot: {},
   })
-  if (error) return { number: null, error: error.message }
-  return { number, error: null }
+  if (error || !data) return { number: null, error: '帳票を発行できませんでした。同じ内容で再試行してください' }
+  return { number: (data as DocumentRow).document_number, error: null }
 }
 
 export async function listDocumentsForDeal(dealId: string): Promise<DocumentRow[]> {

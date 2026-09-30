@@ -302,6 +302,7 @@ export interface RfqContext {
       material: string | null
       print_color_count: string | null
       pcs_per_carton: number | null
+      requested_quantities?: number[]
     }>
   }>
 }

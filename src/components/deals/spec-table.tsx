@@ -5,8 +5,9 @@
 // 各セルはその場でプルダウン(プリセット+自由入力)や数値入力で編集でき、
 // 数量は丸い + でどんどん追加できる。
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { stableRequestId } from '@/lib/utils/request-key'
 import { updateVariantField } from '@/lib/actions/inline-edit'
 import { addQuantityToVariant } from '@/lib/actions/deal-wizard'
 import {
@@ -268,6 +269,7 @@ function QtyCell({
   variantId: string
   quotes: BuilderQuote[]
 }) {
+  const request = useRef<{ signature: string; id: string } | null>(null)
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -278,13 +280,15 @@ function QtyCell({
     const n = Number(qty)
     if (!(n > 0)) return
     startTransition(async () => {
-      const r = await addQuantityToVariant(dealId, variantId, n)
+      try {
+      const r = await addQuantityToVariant(dealId, variantId, n, stableRequestId(request, { dealId, variantId, quantity: n }))
       if (r.success) {
         toast('数量パターンを追加しました')
         setQty('')
         setAdding(false)
         router.refresh()
       } else toast(r.error || '追加に失敗しました', 'warn')
+      } catch { toast('保存結果を確認できませんでした。同じ数量で再試行してください', 'warn') }
     })
   }
 
@@ -344,6 +348,7 @@ function QtyCell({
           type="button"
           onClick={() => setAdding(true)}
           title="枚数違いを追加"
+          aria-label="数量を追加"
           className="w-6 h-6 rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[13px] font-bold leading-none hover:bg-[#FBFAF6] inline-flex items-center justify-center"
         >
           +

@@ -7,27 +7,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { requireSalesAccess, validateVariantDeal } from './deal-access'
-import { nextQuoteVersion, validateQuantities } from '@/lib/validation/deal-input'
-
-async function nextDealCode(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
-  const now = new Date()
-  const prefix = `PF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-`
-  const { data } = await supabase
-    .from('deals')
-    .select('deal_code')
-    .like('deal_code', `${prefix}%`)
-    .order('deal_code', { ascending: false })
-    .limit(1)
-  let next = 1
-  if (data && data.length > 0) {
-    const tail = Number(data[0].deal_code.split('-').pop())
-    if (Number.isFinite(tail)) next = tail + 1
-  }
-  return `${prefix}${String(next).padStart(3, '0')}`
-}
+import { requireSalesAccess } from './deal-access'
+import { validateQuantities } from '@/lib/validation/deal-input'
 
 export interface CreateDealWizardInput {
+  request_id?: string
   client_id: string | null
   client_name_text: string // クライアント未登録でも作れるように名前は必須
   brand_text?: string | null
@@ -39,69 +23,11 @@ export interface CreateDealWizardInput {
 export async function createDealFromWizard(
   input: CreateDealWizardInput
 ): Promise<{ dealId: string | null; dealCode?: string; error: string | null }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { dealId: null, error: 'ログインしてください' }
-  const accessError = await requireSalesAccess(supabase)
-  if (accessError) return { dealId: null, error: accessError }
-
-  const clientName = input.client_name_text?.trim()
-  if (!clientName) return { dealId: null, error: 'クライアントを選んでください' }
-  const items = (input.items || []).map((x) => x.trim()).filter(Boolean)
-  if (items.length === 0) return { dealId: null, error: '「何を作るか」を1つ以上選んでください' }
-
-  // 案件名の自動生成: クライアント 作るもの M/D
-  const now = new Date()
-  const dealName = `${clientName} ${items.join('・')} ${now.getMonth() + 1}/${now.getDate()}`
-
-  const dealCode = await nextDealCode(supabase)
-  const { data: deal, error } = await supabase
-    .from('deals')
-    .insert({
-      deal_code: dealCode,
-      deal_name: dealName,
-      client_id: input.client_id || null,
-      client_name_text: clientName,
-      brand_text: input.brand_text?.trim() || null,
-      desired_delivery_date: input.desired_delivery_date || null,
-      sales_user_id: input.sales_user_id || user.id,
-      simple_status: 'quoting',
-      visibility: 'internal',
-      waiting_on: 'us',
-    })
-    .select('id')
-    .single()
-  if (error || !deal) return { dealId: null, error: error?.message || '作成に失敗しました' }
-
-  // 作るもの1つ = 商品1行 (仕様は次のステップの仕様ウィザードで固める)
-  const { error: prodErr } = await supabase.from('deal_products').insert(
-    items.map((name, i) => ({
-      deal_id: deal.id,
-      product_no: i + 1,
-      description: name,
-      category_l1: name,
-      is_selected: false,
-    }))
-  )
-  if (prodErr) {
-    // Report the actual partial result instead of encouraging duplicate creation.
-    revalidatePath('/deals')
-    return { dealId: deal.id, dealCode, error: `案件は作成されましたが商品を追加できませんでした: ${prodErr.message}` }
-  }
-
-  await supabase.from('deal_status_history').insert({
-    deal_id: deal.id,
-    to_status: 'M01',
-    to_simple_status: 'quoting',
-    changed_by: user.id,
-    kind: 'status',
-    note: `案件作成 (${items.join('・')})`,
-  })
-
+  const { request_id, ...payload } = input
+  const result = await runWizard(request_id, 'deal', payload)
+  if (result.error) return { dealId: null, error: result.error }
   revalidatePath('/deals')
-  return { dealId: deal.id, dealCode, error: null }
+  return { dealId: result.data.dealId, dealCode: result.data.dealCode, error: null }
 }
 
 // ----------------------------------------------------------------------------
@@ -109,6 +35,7 @@ export async function createDealFromWizard(
 // ----------------------------------------------------------------------------
 
 export interface SpecWizardInput {
+  request_id?: string
   product_id?: string | null // 既存商品(新規案件で作った枠)に仕様を入れる場合
   category_l1: string
   category_l2?: string | null
@@ -129,153 +56,41 @@ export async function createProductFromWizard(
   dealId: string,
   input: SpecWizardInput
 ): Promise<{ success: boolean; error?: string; productId?: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'ログインしてください' }
-  const accessError = await requireSalesAccess(supabase)
-  if (accessError) return { success: false, error: accessError }
-
-  const quantities = input.quantities || []
-  if (!input.category_l1?.trim()) return { success: false, error: '分類を選んでください' }
-  const quantityError = validateQuantities(quantities)
+  const quantityError = validateQuantities(input.quantities || [])
   if (quantityError) return { success: false, error: quantityError }
-  for (const size of [input.width_mm, input.height_mm, input.depth_mm]) {
-    if (size != null && (!Number.isFinite(size) || size <= 0)) return { success: false, error: 'サイズは0より大きい値で入力してください' }
-  }
-  const { data: deal, error: dealError } = await supabase.from('deals').select('id').eq('id', dealId).single()
-  if (dealError || !deal) return { success: false, error: '案件が見つかりません' }
-
-  const description = [input.category_l1, input.category_l2, input.category_l3]
-    .filter(Boolean)
-    .join(' / ')
-
-  let productId = input.product_id || null
-  if (productId) {
-    const { data: product, error: productError } = await supabase.from('deal_products').select('id').eq('id', productId).eq('deal_id', dealId).single()
-    if (productError || !product) return { success: false, error: '商品がこの案件に属していません' }
-    // 既存枠に分類を反映
-    const { error } = await supabase
-      .from('deal_products')
-      .update({
-        description,
-        category_l1: input.category_l1,
-        category_l2: input.category_l2 || null,
-        category_l3: input.category_l3 || null,
-      })
-      .eq('id', productId)
-      .eq('deal_id', dealId)
-    if (error) return { success: false, error: error.message }
-  } else {
-    const { data: existing } = await supabase
-      .from('deal_products')
-      .select('product_no')
-      .eq('deal_id', dealId)
-      .order('product_no', { ascending: false })
-      .limit(1)
-    const productNo = existing && existing.length > 0 ? existing[0].product_no + 1 : 1
-    const { data: prod, error } = await supabase
-      .from('deal_products')
-      .insert({
-        deal_id: dealId,
-        product_no: productNo,
-        description,
-        category_l1: input.category_l1,
-        category_l2: input.category_l2 || null,
-        category_l3: input.category_l3 || null,
-        is_selected: false,
-      })
-      .select('id')
-      .single()
-    if (error || !prod) return { success: false, error: error?.message || '商品作成に失敗' }
-    productId = prod.id
-  }
-
-  // バリエーション (サイズ・素材・印刷)
-  const { data: vOrder } = await supabase
-    .from('deal_product_variants')
-    .select('variant_order')
-    .eq('product_id', productId)
-    .order('variant_order', { ascending: false })
-    .limit(1)
-  const nextOrder = vOrder && vOrder.length > 0 ? (vOrder[0].variant_order || 0) + 1 : 0
-  const label = String.fromCharCode(65 + Math.min(nextOrder, 25)) // A, B, C...
-
-  const { data: variant, error: vErr } = await supabase
-    .from('deal_product_variants')
-    .insert({
-      product_id: productId,
-      variant_label: label,
-      variant_order: nextOrder,
-      width_mm: input.width_mm ?? null,
-      height_mm: input.height_mm ?? null,
-      depth_mm: input.depth_mm ?? null,
-      material: input.material?.trim() || null,
-      print_color_count: input.print_color_count?.trim() || null,
-      print_method: input.print_method?.trim() || null,
-      processing: input.processing?.trim() || null,
-      color_description: input.color_description?.trim() || null,
-      other_notes: input.other_notes?.trim() || null,
-      is_selected: false,
-    })
-    .select('id')
-    .single()
-  if (vErr || !variant) return { success: false, error: vErr?.message || 'バリエ作成に失敗' }
-
-  // 数量ごとの見積枠 (単価は工場回答ステップで入れる)
-  const { error: qErr } = await supabase.from('deal_quotes').insert(
-    quantities.map((q, i) => ({
-      deal_id: dealId,
-      variant_id: variant.id,
-      quantity: q,
-      version: i + 1,
-      status: 'drafting',
-    }))
-  )
-  if (qErr) {
-    // This variant was created by this call; remove its empty shell so retry is safe.
-    const { error: cleanupError } = await supabase.from('deal_product_variants').delete().eq('id', variant.id)
-    return { success: false, error: cleanupError ? `数量を保存できませんでした。未完成の仕様が残っています: ${qErr.message}` : qErr.message }
-  }
-
-  await supabase
-    .from('deals')
-    .update({ last_activity_at: new Date().toISOString() })
-    .eq('id', dealId)
-
+  const { request_id, ...payload } = input
+  const result = await runWizard(request_id, 'spec', { ...payload, deal_id: dealId })
+  if (result.error) return { success: false, error: result.error }
   revalidatePath('/deals')
   revalidatePath(`/deals/${dealId}`)
-  return { success: true, productId: productId || undefined }
+  return { success: true, productId: result.data.productId }
 }
 
 /** 同じバリエーションに数量違いの見積枠を追加 */
 export async function addQuantityToVariant(
   dealId: string,
   variantId: string,
-  quantity: number
+  quantity: number,
+  requestId?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
-  const accessError = await requireSalesAccess(supabase)
-  if (accessError) return { success: false, error: accessError }
   const quantityError = validateQuantities([quantity])
   if (quantityError) return { success: false, error: quantityError }
-  const membershipError = await validateVariantDeal(supabase, variantId, dealId)
-  if (membershipError) return { success: false, error: membershipError }
-  const { data: existing, error: existingError } = await supabase.from('deal_quotes').select('version, quantity').eq('variant_id', variantId)
-  if (existingError) return { success: false, error: existingError.message }
-  if (existing?.some((row) => row.quantity === quantity)) return { success: false, error: 'この数量の見積はすでにあります' }
-  const nextVersion = nextQuoteVersion(existing || [])
-
-  const { error } = await supabase.from('deal_quotes').insert({
-    deal_id: dealId,
-    variant_id: variantId,
-    quantity,
-    version: nextVersion,
-    status: 'drafting',
-  })
-  if (error) return { success: false, error: error.message }
+  const result = await runWizard(requestId, 'quantity', { deal_id: dealId, variant_id: variantId, quantity })
+  if (result.error) return { success: false, error: result.error }
   revalidatePath(`/deals/${dealId}`)
   revalidatePath('/deals')
   return { success: true }
+}
+
+async function runWizard(requestId: string | undefined, operation: string, payload: object) {
+  if (!requestId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) return { data: null, error: '保存要求を作成できませんでした。画面を読み直してください' }
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  const { data, error } = await supabase.rpc('wizard_atomic', { p_request_id: requestId, p_operation: operation, p_payload: payload })
+  if (error) return { data: null, error: error.code === 'PGRST202'
+    ? '案件・仕様保存のDB準備が必要です。管理者に連絡してください (042)。変更は保存されていません。'
+    : error.message }
+  if (!data?.success) return { data: null, error: '保存を確認できませんでした。同じ内容で再試行してください' }
+  return { data, error: null }
 }

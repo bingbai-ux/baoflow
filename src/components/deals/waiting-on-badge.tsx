@@ -35,11 +35,10 @@ export function WaitingOnBadge({ dealId, value, readonly = false, size = 'md' }:
   const current = normalizeWaitingOn(value)
   const cfg = WAITING_ON_CONFIG[current]
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (readonly) return
-    e.preventDefault()
-    e.stopPropagation()
-    const next = CYCLE[(CYCLE.indexOf(current) + 1) % CYCLE.length]
+    const next = e.target.value as WaitingOn
+    if (next === current) return
     startTransition(async () => {
       const r = await updateDealField(dealId, 'waiting_on', next)
       if (r.success) {
@@ -72,17 +71,19 @@ export function WaitingOnBadge({ dealId, value, readonly = false, size = 'md' }:
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
+    <select
+      aria-label="案件の待ち先"
+      aria-busy={pending}
+      value={current}
+      onChange={handleChange}
+      onClick={(e) => e.stopPropagation()}
       disabled={pending}
-      title="クリックで切替: 自分の番 → クライアント待ち → 工場待ち → 待ちなし"
-      className={`inline-block whitespace-nowrap rounded-full font-bold leading-none cursor-pointer transition-[filter] duration-150 hover:brightness-95 ${
-        size === 'sm' ? 'text-[10px] px-2 py-[3px]' : 'text-[11px] px-2.5 py-1'
+      className={`min-h-[44px] max-w-full whitespace-nowrap rounded-full font-bold cursor-pointer border transition-[filter] duration-150 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#351E28] ${
+        size === 'sm' ? 'text-[10px] px-2' : 'text-[11px] px-3'
       }`}
       style={base}
     >
-      {cfg.label}
-    </button>
+      {CYCLE.map((option) => <option key={option} value={option}>{WAITING_ON_CONFIG[option].label}</option>)}
+    </select>
   )
 }

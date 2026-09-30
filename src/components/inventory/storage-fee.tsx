@@ -4,7 +4,8 @@
 // 現在庫カートン数 × クライアント別の月額単価で概算する (簡易版)。
 // 単価は clients.storage_rate_config.monthly_per_carton に保存され、次回も使われる。
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition, useRef } from 'react'
+import { stableRequestId } from '@/lib/utils/request-key'
 import { useRouter } from 'next/navigation'
 import type { InventoryItemRow } from '@/lib/actions/inventory'
 import { updateClientStorageRate } from '@/lib/actions/inventory'
@@ -26,6 +27,7 @@ export function StorageFeeSection({
   items: InventoryItemRow[]
   clients: ClientOpt[]
 }) {
+  const certRequest = useRef<{ signature: string; id: string } | null>(null)
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -76,11 +78,15 @@ export function StorageFeeSection({
 
   const issueCert = (clientId: string | null, name: string) => {
     startTransition(async () => {
+      const metadata = { client_id: clientId, client_name: name }
+      const request_id = stableRequestId(certRequest, metadata)
       const r = await issueStandaloneDocument({
+        request_id,
         document_type: 'inventory_cert',
-        metadata: { client_id: clientId, client_name: name },
+        metadata,
       })
       if (r.number && clientId) {
+        certRequest.current = null
         toast(`在庫証明書 ${r.number} を発行しました`)
         window.open(`/print/stock/${clientId}?no=${encodeURIComponent(r.number)}`, '_blank')
       } else {

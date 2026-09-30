@@ -64,6 +64,8 @@ export async function listInboundShipments(): Promise<{
 }
 
 export interface CreateInboundInput {
+  request_key?: string | null
+  purchase_order_id?: string | null
   client_id?: string | null
   deal_id?: string | null
   carrier_name?: string | null
@@ -81,7 +83,7 @@ export interface CreateInboundInput {
 
 export async function createInboundShipment(
   input: CreateInboundInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; shipmentId?: string }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -91,14 +93,14 @@ export async function createInboundShipment(
   if (!input.lines?.length || input.lines.some((l) => !l.item_name?.trim() || !isInventoryInteger(l.expected_quantity, 1) || (l.expected_cartons != null && !isInventoryInteger(l.expected_cartons, 0)))) {
     return { success: false, error: '商品名と1以上の整数数量を入力してください。カートン数は0以上の整数です' }
   }
-  const { error } = await supabase.rpc('create_inbound_shipment_atomic', {
+  const { data, error } = await supabase.rpc('create_inbound_shipment_atomic', {
     p_input: input, p_shipment_no: genShipmentNo(),
   })
   if (error) return { success: false, error: inventoryRpcError(error) }
 
   revalidatePath('/inventory')
   revalidatePath('/logistics')
-  return { success: true }
+  return { success: true, shipmentId: data?.shipmentId }
 }
 
 /**

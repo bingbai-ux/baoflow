@@ -8,7 +8,7 @@
 // ステップの実行者: ● 自分 / ▲ 工場 / ◯ クライアント
 // 完了判定は実データ(商品数・RFQ数・単価・カートン・採用・帳票・ステータス)から。
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { hasFactoryPrice, hasCarton, hasFactoryReplies } from '@/lib/deals/readiness'
 import { useRouter } from 'next/navigation'
@@ -33,6 +33,7 @@ import {
 } from '@/lib/actions/inline-edit'
 import { updateDealStatus } from '@/lib/actions/deal-status'
 import { createQuote } from '@/lib/actions/quotes'
+import { createFactoryOrder, createInboundForFactoryOrder, type FactoryOrderRow } from '@/lib/actions/factory-orders'
 import { ProductWizard } from '@/components/deals/product-wizard'
 import { SpecTable } from '@/components/deals/spec-table'
 import type { CatalogNode } from '@/lib/actions/catalog'
@@ -96,6 +97,8 @@ interface DealFlowProps {
   designFiles: DesignFileRow[]
   documents: FlowDocument[]
   rfqCount: number
+  factoryOrders: FactoryOrderRow[]
+  factories: Array<{ id: string; factory_name: string }>
   statusHistory: FlowHistoryRow[]
   communications: DealCommunication[]
 }
@@ -121,6 +124,8 @@ export function DealFlow({
   designFiles,
   documents,
   rfqCount,
+  factoryOrders,
+  factories,
   statusHistory,
   communications,
 }: DealFlowProps) {
@@ -271,13 +276,13 @@ export function DealFlow({
       actor: 'factory',
       summary:
         statusIdx >= 4 ? '製作中(工場待ち)' : statusIdx === 3 ? '指示待ち' : 'データ確認後',
-      body: <StepProduction deal={deal} statusIdx={statusIdx} />,
+      body: <StepProduction deal={deal} statusIdx={statusIdx} quotes={quotes} orders={factoryOrders} factories={factories} />,
     },
     {
       title: '完成・出荷 → 輸送・通関',
       actor: 'factory',
       summary: statusIdx >= 5 ? '発送済み・輸送中' : '工場の発送待ち',
-      body: <StepShipping deal={deal} statusIdx={statusIdx} />,
+      body: <StepShipping deal={deal} statusIdx={statusIdx} orders={factoryOrders} />,
     },
     {
       title: '到着検品 → 直接納品 or 在庫入庫',
@@ -299,6 +304,8 @@ export function DealFlow({
   ]
   const sel = Math.min(selected ?? currentIdx, steps.length - 1)
   const step = steps[sel]
+  const stepStrip = useRef<HTMLDivElement>(null)
+  useEffect(() => { stepStrip.current?.querySelector(`[data-step="${sel}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [sel])
   const selDone = doneList[sel]
   const selCurrent = sel === currentIdx
 
@@ -310,7 +317,7 @@ export function DealFlow({
       </div>
       {/* 横パイプライン (過去=Cool Blue / 現在=Wasabi / 未来=Line) */}
       <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3 mb-3 overflow-x-auto">
-        <div className="flex items-start min-w-[900px]">
+        <div ref={stepStrip} className="flex items-start min-w-[900px]">
           {steps.map((st, i) => {
             const done = doneList[i]
             const isCurrent = i === currentIdx
@@ -328,6 +335,7 @@ export function DealFlow({
                 <button
                   type="button"
                   onClick={() => setSelected(i)}
+                  data-step={i}
                   aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
                   aria-current={isCurrent ? "step" : undefined}
                   aria-pressed={isSelected}
@@ -344,6 +352,7 @@ export function DealFlow({
                 <button
                   type="button"
                   onClick={() => setSelected(i)}
+                  data-step={i}
                   aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
                   aria-current={isCurrent ? "step" : undefined}
                   aria-pressed={isSelected}
@@ -1213,23 +1222,37 @@ function StepDataCheck({
 // ⑩〜⑫ 製作・輸送・到着
 // ---------------------------------------------------------------------------
 
-function StepProduction({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }) {
-  return (
-    <div className="flex items-center gap-2.5 flex-wrap">
-      {statusIdx === 3 && (
-        <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="in_production" label="製作開始を指示した → 製作中へ" primary />
-      )}
+function StepProduction({ deal, statusIdx, quotes, orders, factories }: { deal: FlowDeal; statusIdx: number; quotes: BuilderQuote[]; orders: FactoryOrderRow[]; factories: Array<{ id: string; factory_name: string }> }) {
+  const approved = quotes.filter(q => q.status === 'approved')
+  const allOrdered = approved.length > 0 && approved.every(q => orders.some(o => o.source_quote_id === q.id && o.status === 'ordered'))
+  return <div className="space-y-3">
+    <p className="text-[12px] text-[#351E28]">採用見積の数量・工場単価・仕様を保存して発注します。発注内容は選択した工場のポータルへ表示されます。メールは送信しません。</p>
+    {approved.length === 0 && <Link href={`/deals/${deal.id}/quote-builder`} className="text-[13px] underline">先に見積を採用する →</Link>}
+    {approved.map(q => <FactoryOrderLine key={q.id} quote={q} order={orders.find(o => o.source_quote_id === q.id && o.status === 'ordered')} factories={factories} />)}
+    <div className="flex gap-2 flex-wrap">
+      {statusIdx === 3 && <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="in_production" label="発注内容を確認した → 製作中へ" disabled={!allOrdered} primary />}
       <BallButton dealId={deal.id} to="factory" label="ボールを工場待ちに" />
-      <span className="text-[11px] text-[#84787D] font-body">
-        進捗のやりとりは下の「通信の記録」に残します
-      </span>
     </div>
-  )
+    {!allOrdered && <p className="text-[11px] text-[#84787D]">採用した各見積の発注を保存すると製作へ進めます。</p>}
+  </div>
 }
 
-function StepShipping({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }) {
+function FactoryOrderLine({ quote, order, factories }: { quote: BuilderQuote; order?: FactoryOrderRow; factories: Array<{ id: string; factory_name: string }> }) {
+  const [factoryId, setFactoryId] = useState(quote.factory_id || '')
+  const [pending, start] = useTransition()
+  const router = useRouter(); const { toast } = useUi()
+  if (order) return <div className="rounded-[12px] border border-[#AEB8A0] bg-[#FBFAF6] p-3 text-[12px]" role="status">発注済み {order.order_no} · {order.factory?.factory_name || factories.find(f => f.id === order.factory_id)?.factory_name} · {order.quantity.toLocaleString()} 個 · 工場単価 ${Number(order.unit_price_usd).toFixed(4)}</div>
+  return <div className="rounded-[12px] border border-[#E2E1DA] p-3 flex gap-2 flex-wrap items-center">
+    <span className="text-[12px]">見積 v{quote.version} · {quote.quantity?.toLocaleString()} 個 · 工場単価 ${Number(quote.factory_unit_price_usd).toFixed(4)}</span>
+    <select aria-label={`見積v${quote.version}の発注先工場`} value={factoryId} disabled={pending || !!quote.factory_id} onChange={e => setFactoryId(e.target.value)} className="min-h-11 rounded-[10px] border border-[#E2E1DA] px-3 text-[12px]"><option value="">発注先工場を選ぶ</option>{factories.map(f => <option key={f.id} value={f.id}>{f.factory_name}</option>)}</select>
+    <button type="button" disabled={pending || !factoryId} className="min-h-11 rounded-full bg-[#351E28] text-[#C9A2B8] px-4 text-[12px] font-bold disabled:opacity-50" onClick={() => start(async () => { const r = await createFactoryOrder(quote.id, factoryId); if (r.success) { toast('工場発注を保存しました'); router.refresh() } else toast(r.error || '発注を保存できませんでした', 'warn') })}>{pending ? '保存中…' : 'この内容で工場に発注する'}</button>
+  </div>
+}
+
+function StepShipping({ deal, statusIdx, orders }: { deal: FlowDeal; statusIdx: number; orders: FactoryOrderRow[] }) {
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
+      {orders.filter(o => o.status === 'ordered').map(o => <OrderInboundButton key={o.id} order={o} />)}
       {statusIdx === 4 && (
         <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="shipped" label="工場が発送した → 工場発送完了へ" primary />
       )}
@@ -1244,6 +1267,12 @@ function StepShipping({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }
       </span>
     </div>
   )
+}
+
+function OrderInboundButton({ order }: { order: FactoryOrderRow }) {
+  const [pending, start] = useTransition(); const [saved, setSaved] = useState(false)
+  const { toast } = useUi(); const router = useRouter()
+  return <button type="button" disabled={pending || saved} className="min-h-11 rounded-full border border-[#351E28] px-4 text-[12px] disabled:opacity-50" onClick={() => start(async () => {const r = await createInboundForFactoryOrder(order.id);if(r.success){setSaved(true);toast('発注の数量・仕様で入庫予定を保存しました');router.refresh()}else toast(r.error || '入庫予定を保存できませんでした','warn')})}>{pending ? '保存中…' : saved ? '入庫予定を保存済み' : `${order.order_no} を入庫予定にする`}</button>
 }
 
 function StepArrival({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }) {

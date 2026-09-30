@@ -1,6 +1,6 @@
 # BAO Flow 実務フロー修正とリリース判断
 
-2026年9月30日 06時39分 UTC 時点。案件から帳票・在庫までの重要な保存不整合をローカルで修正した。まだ本番へ反映していない。すべてが実サービスで完走したという判断はできず、下記の隔離検証と残課題を区別する。
+2026年9月30日。代表案件を実ローカルSupabaseの認証・RLS・PostgRESTとブラウザから納品まで完走した。ローカル実装は完了、本番反映は未実行。代表経路の成功と全機能の保証は区別する。
 
 ## 作業場所と接続先
 
@@ -10,7 +10,7 @@
 
 [Vercel本番](https://baoflow.vercel.app) は基点SHAの READY deployment `dpl_8kv6JeHGQB9kVWtArojx8QAmxHpk`。公開JSのURLから新DB `uocpewtmhmdfhdvnrljl` を確認。認証済みメタデータ読み取りで新DBはTokyoのbaoflow-v2、037までのmigrationを確認した。プレビュー `dpl_3UMpfANMPEezoZy6wqZVksHGcfhG` も同じSHAだが接続DBは確認できなかった。旧ローカルは `dbnjrvpzmxzrkrzrynio`。旧DBにはローカルにない履歴もあり、現在の安全な開発基点には使わない。
 
-環境ファイル・秘密値・実顧客データをコピーしていない。ブラウザ検証は localhost の架空データとダミー認証だけを利用。
+環境ファイル・秘密値・実顧客データをコピーしていない。ブラウザ検証は localhost の架空データのみ。fixtureのダミー認証に加え、専用Supabaseで使い捨て実Authユーザーを利用した。
 
 ## 優先順位と受入条件
 
@@ -29,28 +29,50 @@
 - パスワード復旧callbackの認証遮断と外部next転送を修正。未知プロフィールを営業権限へ昇格させない。
 - 請求書作成ボタンを請求書モーダルへ接続。モーダルをbodyへ配置し、印刷時は操作バー/背景アプリを除去。
 
+## 追加修正と具体的なUX
+
+- 042：案件・仕様・数量・履歴を一括transaction化。画面が保持するrequest UUIDで再試行を同一結果へ戻し、異なるpayload/他actorの再利用を拒否。
+- 043/045：RFQ・招待・外部フォーム・台帳を一括保存。依頼当時の仕様/数量を固定し、工場回答を数量別見積へ接続。全仕様の回答を要求し、一部失敗は全rollback。工場ごとの梱包条件を独立保存。回答単価から原価/売価を計算できる。
+- 044：採用見積から工場発注の不変snapshotを作成し、その数量・仕様から入庫予定を作成。工場には自工場の原価だけを公開。分割入庫上限とretryを検査し、物流による営業承認・キャンセルを拒否。
+- 046/047：旧重複番号は保持し、新たな番号重複を拒否。採番・発行snapshot・台帳を同transactionにし、途中失敗で番号もrollback。同じ発行のretryは同一書類を返す。
+- 案件上部：工程、返事待ち、希望納期、担当をまとめ、原価/売価/数量は既存Cool Blue面で表示。従来は個別欄を探す必要があった。
+- 待ち先：クリックの循環変更を明示選択へ変更。工程帯は選択中の工程へ自動スクロールし、幅390pxでも次の操作を確認できる。
+- 工場発注/入庫：別画面で仕様を転記する操作を、案件内の採用見積→工場発注→同仕様入庫予定ボタンへ接続。
+- 読込失敗を空データとして表示する箇所を修正。工場回答入力はhydration完了前・送信中を無効化し、読込中の入力消失を防ぐ。
+
+F&Cの色・字体・面/角丸の原則を保持。比較画像は `artifacts/ux/deal-summary-{before,after}-{390,1280}.png`。
+
 ## 検証根拠と限界
 
-`npm run test`：22件成功。加えて数量/金額回帰と見積採用SQLスクリプト成功。PGliteで実migration SQLとRLS、強制途中失敗、rollback、再試行、旧番号を確認した。単一接続PGliteのため実Postgresの複数接続同時実行は未確認。
+- 単体/PGlite SQL：50件成功。加えて数量/金額、採用transaction、wizard transactionの3スクリプト成功。途中失敗、rollback、同一/異なるretry、所有権、数値境界を検証。
+- fixtureブラウザ：22件。案件登録→仕様→RFQ→工場回答→計算/採用→見積書/請求書→発注→工場発送→検収→顧客出荷依頼→営業承認→物流出荷/納品→案件納品完了を代表1件で確認。ロール/障害/印刷/モバイルと複数保存retryも対象。fixtureは実DB権限の証明ではない。
+- 実ローカルSupabaseブラウザ：1代表業務をsales/factory/logistics/clientの別実Authユーザーで完走。最終在庫0、発注1000、見積書/請求書各1、出荷依頼と案件がdeliveredを確認。
+- 実Postgres：独立接続8競合を実際のLock wait観測付きでPASS。二重出荷/検収、異なる依頼の超過、見積採用、発注重複、入庫予定同一key・異なるkey超過を対象。admin/sales/client/logistics/factory/別工場/匿名のRLS、発注UPDATE/DELETE禁止、自己admin昇格拒否もPASS。
+- 実DBでSupabase既定権限とSELECT FOR UPDATEのUPDATE権限依存を発見し、044で明示revokeとUUID正規化advisory lockに修正。専用ローカルDBも同期。
+- lint/typecheck/buildと差分チェックを実施。最終実行結果とcommitは完了報告参照。
 
-`npm run typecheck`、`npm run lint`、`git diff --check` 成功。`npm run build` 成功。ブラウザ用Chromeは既存インストールを使用。
+メール送信、Storageアップロード、外部決済、実顧客・本番DBは試していない。メールはRFQ作成時の自動送信を除き、明示操作とprovider idempotency keyに分離。代表1件は全組合せ・全画面・負荷試験の保証ではない。
 
-`npm run test:e2e`：8件成功。主要画面8経路、実Nextサーバーアクション経由の案件作成と見積採用、幅390pxのナビ、帳票発行/金額変更後の過去再印刷、障害復帰、未ログイン復旧画面、請求書モーダルと印刷を確認。見積書/請求書の印刷画像を視認。E2EのDB/Authは簡易PostgREST fixtureであり、実Supabaseやメール・Storage・RFQ送信・全ロール・発注から配送までの実接続E2Eの証明ではない。
+## 専用ローカルSupabaseの再現と隔離
 
-## 残課題
+既存Colima defaultを `--activate=false` で開始し、他contextを変えていない。専用project `baoflow-codex-20260930` と bridge `baoflow-codex-local-only` のみ使用。bridge作成は `docker --context colima network create --driver bridge --opt com.docker.network.bridge.host_binding_ipv4=127.0.0.1 baoflow-codex-local-only`。API55321/DB55322。通常のCLI初期設定は全interface待受になるため、そのまま開始しない。
 
-- 案件作成/RFQの複数insertは完全なDB transaction化が残る。一部保存は明示するが自動rollbackではない。案件/見積版番号の同時作成を実DBで検証する必要がある。
-- 工場発注・外部送信・Storage・ロール別全画面・実Postgres同時入出庫は隔離Supabase検証が必要。productionで試験しない。
-- 検品費を見積原価と別途deal_feesの両方へ登録する運用では二重請求の判断が必要。倉庫単位の物流権限と入庫CTN入力は別途設計が残る。
-- 発行当時のsnapshotがない既存帳票は完全再現できず、現在情報参照であることを表示する。
-- プレビューDB接続とClaude停止の確認がリリース前に必要。
+`supabase init --workdir local-supabase` 後、configのproject_id、api.port=55321、db.port=55322を設定。migration001/002/003と010以降047までを専用migrationディレクトリにコピーし、実データseed011/015は除外する。026のdesign_files依存で初回起動が失敗したため001/002/003を追加したのは**ローカルbootstrap専用**。本番で001/010を再適用してはならない。カタログは実テスト自身が架空の最小分類を投入する。
 
-## migrationとリリース案
+起動時は `--network-id baoflow-codex-local-only --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor` を指定。CLIが返す鍵を表示/ファイル保存しない。Docker inspectの実公開port HostIpとMac lsofを照合し、127.0.0.1だけと確認してから試験する。OS firewall・全体Docker設定を変更していない。
 
-038〜041はローカル準備のみ。適用しないまま新アプリを公開すると対象操作は安全に停止してDB準備不足を表示するため、コードだけの先行リリースは不可。
+`node scripts/run-local-supabase-e2e.mjs` は専用コンテナのHostIpとAPI URLを検査してremoteを拒否し、鍵はprocess memory内のみ。実接続Playwrightはtrace/video/screenshot無効。`scripts/verify-local-postgres-races.mjs` は専用DBで合成dataを作成し、finallyで自身のdataを削除する。作業環境・架空ブラウザdataは専用local-supabaseで隔離、他コンテナ/本番は対象外。
 
-承認後、隔離した新DB相当のステージングでバックアップと既存schema/RLS/関数を保存し、実migration履歴のtimestamp versionとファイル番号を照合する。038、039、040、041の順で適用し、複数接続で競合・再試行・権限・全業務フローを検証。その後DB先行→アプリの順で本番反映する。旧DB031を混ぜない。メール/招待/実データ変更は別途許可を得る。
+## 残課題とリリース判断
 
-主な影響は新RPC、在庫残数制約、台帳UPDATE/DELETE権限制限、採番counterテーブル、帳票metadata snapshot。既存データ削除はしない。038では旧アプリの複数リクエスト方式が十分安全とは限らないため、無条件の旧版アプリrollbackを安全策としない。
+- プレビューDBの接続先確認と、実本番相当の既存dataを持つ隔離ステージングでのmigration適合確認が必要。本番migration・push・PR・deployは別承認。
+- RFQの未登録工場pending API回答を登録後に見積へ取り込む機能は対象主UIに未接続。代表経路は登録済み工場を使用。snapshotのない旧RFQは再作成を要求し、現在値へ黙って置換しない。
+- request UUIDは画面内retryを保護するが、ブラウザ再読込後の新UUIDでの同一案件/RFQ再登録を自動同定しない。画面を閉じた後は作成済み一覧を確認する必要がある。
+- 検品費を原価とdeal_feesへ重ねる業務判断、倉庫別物流権限、旧snapshotなし帳票の完全再現、分割入庫予定の詳細入力UXは今回の代表受入範囲外。業務判断を推測して新機能化していない。
+- 配送と案件完了は担当の明示確認で進める。実顧客への配送成功をテストデータで保証していない。
 
-rollbackは、障害操作を停止して権限・関数の保存した定義を見て判断する。041 counterや発行snapshot、履歴は保持する。業務台帳の訂正は補償取引とし、migrationを丸ごと逆適用して履歴/台帳を削除しない。DB定義を戻す場合も停止期間と整合性検査が必要。本番適用・push・PR・merge・deployは今回未実行。
+## migration038〜047とrollback
+
+コードだけを先行公開せず、既存schema/RLS/関数の保存、履歴version照合、バックアップ後に新DB相当の隔離ステージングへ038→047を順番に適用し確認する。038の在庫/台帳権限、044の発注UPDATE/DELETE撤回と物流状態trigger、045の旧RFQ snapshot不足拒否が旧アプリにも影響する。旧DB031を混ぜない。
+
+既存dataを削除しない。046は歴史的duplicateを保持し新duplicateだけ拒否する。047のcounter/docs/ledger同transaction、request保存表や044発注snapshotは監査/再試行の根拠なので、rollback時も保存する。古いアプリへ戻すだけでは安全性が戻らない。障害操作を停止し、保存した関数/権限定義との比較、帳票番号/在庫/発注/履歴整合性確認の後に必要部分のみ変更する。台帳訂正は補償取引とし、migrationの丸ごと逆適用や発行履歴削除をrollbackにしない。
