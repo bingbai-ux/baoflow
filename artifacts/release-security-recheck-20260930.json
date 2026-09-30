@@ -1,0 +1,388 @@
+{
+  "checked_at_utc": "2026-09-30",
+  "project": "uocpewtmhmdfhdvnrljl",
+  "mode": "authenticated READ ONLY; no identifiers or payload exported",
+  "global_and_public_default_truncate_recheck": {
+    "global_external_grants": 0,
+    "public_external_grants": 4,
+    "creators": ["postgres", "supabase_admin"],
+    "grantees": ["anon", "authenticated"]
+  },
+  "release_metadata": {
+    "rfq_rows": 0,
+    "legacy_deals": 6,
+    "history_count": 30,
+    "latest_history": {
+      "name": "037_deal_wizard_catalog",
+      "version": "20260926064840"
+    },
+    "truncate_grants": [
+      {
+        "anon": true,
+        "table": "profiles",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_status_history",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_fees",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "documents",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_product_variants",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_quotes",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_products",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "clients",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "factories",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_communications",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "factory_rfq_responses",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "logistics_partners",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "inbound_shipments",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "inbound_shipment_items",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "design_files",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "shipment_requests",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "shipment_request_items",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "user_preferences",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "client_addresses",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "external_forms",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "rfq_requests",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "rfq_factory_invitations",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "product_catalog",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deals",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_groups",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_specifications",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_factory_assignments",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_shipping_options",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_schedule",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_samples",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_sample_summary",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_factory_payments",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_shipping",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_packing_lists",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_actuals",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "transactions",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "chat_rooms",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "chat_messages",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "message_templates",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "notifications",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "stale_alerts",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "ai_action_logs",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "shipment_orders",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "storage_billing",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "deal_design_files",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "product_registry",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "test_reports",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "catalog_items",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "logistics_agents",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "price_records",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "system_settings",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "inventory_transactions",
+        "authenticated": true
+      },
+      {
+        "anon": true,
+        "table": "inventory_items",
+        "authenticated": true
+      }
+    ],
+    "new_ledgers_present": 0
+  },
+  "security_metadata": {
+    "default_acl": [
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "anon=arwdDxtm/postgres",
+          "authenticated=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "kind": "r",
+        "owner": "postgres",
+        "schema": "public"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "kind": "f",
+        "owner": "postgres",
+        "schema": "public"
+      },
+      {
+        "acl": [
+          "postgres=rwU/postgres",
+          "anon=rwU/postgres",
+          "authenticated=rwU/postgres",
+          "service_role=rwU/postgres"
+        ],
+        "kind": "S",
+        "owner": "postgres",
+        "schema": "public"
+      },
+      {
+        "acl": [
+          "postgres=rwU/supabase_admin",
+          "anon=rwU/supabase_admin",
+          "authenticated=rwU/supabase_admin",
+          "service_role=rwU/supabase_admin"
+        ],
+        "kind": "S",
+        "owner": "supabase_admin",
+        "schema": "public"
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/supabase_admin",
+          "anon=arwdDxtm/supabase_admin",
+          "authenticated=arwdDxtm/supabase_admin",
+          "service_role=arwdDxtm/supabase_admin"
+        ],
+        "kind": "r",
+        "owner": "supabase_admin",
+        "schema": "public"
+      },
+      {
+        "acl": [
+          "postgres=X/supabase_admin",
+          "anon=X/supabase_admin",
+          "authenticated=X/supabase_admin",
+          "service_role=X/supabase_admin"
+        ],
+        "kind": "f",
+        "owner": "supabase_admin",
+        "schema": "public"
+      }
+    ],
+    "storage_policies": [
+      {
+        "cmd": "DELETE",
+        "name": "Authenticated delete deal-images",
+        "check": null,
+        "roles": [
+          "authenticated"
+        ],
+        "using": "(bucket_id = 'deal-images'::text)"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Authenticated upload deal-images",
+        "check": "(bucket_id = 'deal-images'::text)",
+        "roles": [
+          "authenticated"
+        ],
+        "using": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Public read deal-images",
+        "check": null,
+        "roles": [
+          "public"
+        ],
+        "using": "(bucket_id = 'deal-images'::text)"
+      }
+    ],
+    "public_table_count": 53
+  }
+}

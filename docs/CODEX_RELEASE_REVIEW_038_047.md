@@ -51,7 +51,9 @@ public bucketはURLを知る利用者が取得可能であり、public SELECT po
 
 権限の追加審査事項：既存主要10表それぞれにanon/authenticatedのTRUNCATE grantがある。通常のREST CRUDでTRUNCATEできることは確認していないが、TRUNCATEはRLS対象外なのでgrantの不要性を審査し、不要なら明示revoke候補とする。[PostgreSQL公式](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)。038のUPDATE/DELETE撤回だけではこのgrantは残る。新表もSupabase既定grantを継承し得るので、適用後の全grant検査が必要。042のowner書込可能な要求台帳は直接API経由で本人が結果を変更できる設計であり、監査不変性が必要ならprivilegeとRPC方式を別途見直す（invokerの書込grantだけを撤回するとRPC自体も壊れる）。
 
-## backup・rollforward・rollbackの具体策（未実行）
+## backup・rollforward・rollbackの具体策（当初審査時点）
+
+2026-09-30追記：公開/push/必要merge/deploy/通常schema migrationは承認済み。専用localhostで合成dataの実Auth/Storage/Mailpitおよびbackup復元PASS。全53表と両creator ACLを再読取済み。以下は当初の未承認状況を含む履歴であり、現在の承認範囲・個別権限変更・本番backup gateは[最新追補](CODEX_RELEASE_FOLLOWUP_048_050.md)を参照。本番反映はまだ行っていない。
 
 1. 業務担当が6案件の移行方法と費用/公開file方針を決める。別DBの既存隔離ステージングの識別子、データ保管先・権限・削除期限を承認する。新有料project/branchは作らない。
 2. 本番書込停止時間を定め、切替直前のtransaction一貫backupを許可された暗号化保管先へ作成する。public schema・enum・constraint/index/trigger・関数定義/owner/search_path/execute grant・表grant/RLS/policy・migration全履歴とSQL・sequence、業務dataを含める。Auth/Storage設定とStorage objectsのmetadata/実体も必要範囲を保全する。backup世代時刻・checksum・restore手順を記録する。今回取得した集計/hashはbackupではない。

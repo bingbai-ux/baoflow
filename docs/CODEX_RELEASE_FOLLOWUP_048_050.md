@@ -38,16 +38,42 @@
 
 ブラウザはlocalhost fixtureの合成データのみ。未登録依頼→外部回答→明示取込→再読込、既存RFQのretry/リンク共有、失われた応答後のRFQ復帰、旧見積閲覧/発注制限/旧帳票参考表示/新発行をfocused確認する。フォーム秘密値の永続保存を追加していない。
 
-PGliteは実Supabase Auth/Storage/providerや本番の全role/default ACL/拡張/migration履歴を再現しない。既知の実Supabase代表経路や全面suiteを再実行する代わりに、今回の差分を検証した。Dockerは起動していない。メモリDBは各試験のfinallyでclose、fixtureサーバーはPlaywright終了時に停止。実顧客dataの保管先・保持期間・削除対象は発生しない。backupの復元可能性は合成試験では証明できない。
+PGliteは実Supabase Auth/Storage/providerや本番の全role/default ACL/拡張/migration履歴を再現しない。下記の追加受入では、既承認の専用localhost Supabaseで実サービスを検証した。実顧客dataコピーは不要で、発生していない。
 
-## 次の承認と安全な適用順序
+## 追加の実接続受入と本番への確認事項
 
-1. **既存の隔離ステージングへの038〜050適用と実ロール/Storage連携試験**：対象DB/既存資源を明示し、まず合成fixtureのみ投入。既存policy/所有者/default ACL/履歴とSQL hashを照合し、変更対象は新2ledger・新3RPC・既存Storage2write policy・public TRUNCATE/default ACL。外部通知停止、Storageは専用合成file/path/actorだけ。private化や本番file変更・実顧客dataコピーを含めない。schema差やrollback失敗時は停止する。実データが必要になった場合はコピー対象/理由/マスク/保管・削除を先に別提示する。
-2. **専用テスト宛先へのメール1通と設定存在確認**：RESEND_API_KEYの値を出さず、送信元domain/設定名・配置を管理者が確認する。受理ID/予約/送信印/応答消失を照合。実顧客送信・本番再送・新課金/アクセス作成は含めない。現在env確認手段と実送信は未検証。
-3. **本番backup・migration・公開**：上記合格後だけ、対象SQL/hash/履歴対応と候補commit、書込停止時間、暗号化backup/復元手順を具体化して別承認。001/010/031等を再適用せず、038→047→048→049→050の順を明示。本番ではseedを使わない。Storage実体はDB backupだけで保全されない。切替直前にRFQ0件/旧仕様6件/料金重複/在庫整合性/未知write policy/全creator grantを再確認。
+「既存の隔離ステージング」はクラウド環境を指すものではなかった。今回使用した環境は `local-supabase` / project `baoflow-codex-20260930`、API `http://127.0.0.1:55321`、DB `127.0.0.1:55322`、Mailpit `http://127.0.0.1:55324`。全公開portはloopbackだけ、メールrelayなし。既承認内で起動し、001〜050を顧客seed抜きで適用した。
+
+- `verify-local-release-integrations.mjs` PASS：実Authで営業/管理者/顧客/工場/物流とanon、実PostgRESTの未登録回答→明示取込/replay/同時メールclaim、実Storageの正当upload/public読取/delete・不正role/path/update拒否。実アプリactionのデザインupload/deleteとthumbnail upload/clearも確認。
+- メールはアプリのprovider POSTだけをlocalhost Mailpit APIへ差し替え、合成 `sender@example.test` → `factory@example.test` のRFQ本文を3通捕捉。正常受理・receipt保存失敗・受理応答消失を再現し、30日後retryでもPOST追加なし。外部Resend、DNS、実配信到達は検証していない。外部メール送信は行っておらず、ローカル受入に実外部1通は不要。
+- `verify-local-backup-restore.mjs` PASS：合成ローカルDBのcustom pg_dumpを同じ専用containerの一時DBへstream復元。件数・履歴・RLS・関数・grant一致、一時DB削除、backupファイルなし。既存ローカルowner `supabase_admin` でrestoreし、新権限は作成していない。これは本番backupの存在/復元可否の証明ではない。
+- 両creator `postgres` / `supabase_admin` のdefault TRUNCATE撤回案をローカルtransactionで検証し、両owner作成の将来表をanon/authenticatedがTRUNCATE不可。全rollback・probe表消失を確認。050単体は実行者のdefault ACLだけを変更するため、この追加案は別の確認対象。
+
+本番再読取：[集計/権限metadata](../artifacts/release-security-recheck-20260930.json)。project `uocpewtmhmdfhdvnrljl`、履歴30件/最新037、RFQ0、旧6件、新ledgerなし。既存public通常表53すべてでanon/authenticatedのTRUNCATEが有効。両creatorのdefault table ACLもTRUNCATEを含む。Storage INSERT/DELETEはbucket一致だけの旧policyのまま。データ/権限変更なし。
+
+globalとpublicの全creator default table ACLを追加読取し、外部roleへのTRUNCATEはpublicのpostgres/supabase_adminの4grantだけだった。global grantや第3creatorは取得時点でなし。切替時は同じ範囲を再審査する。
+
+GitHub `bingbai-ux/baoflow` はmainが既定branch、既存接続にpush権限あり。Vercel project `prj_WQKoHTwzGTimDhfRFvhP4yBDbKPx` / team `team_3Mcle4NLyt1bmB1cHRvlOBWA`、production domain `baoflow.vercel.app`、既存production deployment `dpl_8kv6JeHGQB9kVWtArojx8QAmxHpk` READYを再確認。今回の候補はまだpush/merge/deployしていない。
+
+公開/push/必要merge/deploy/通常schema migrationはユーザー承認済み。次の**権限変更だけは親から個別確認**する。本番backupの復元点/方法も確定させる。
+
+| 対象 | 現状→候補 | 影響/限界 |
+|---|---|---|
+| Storage objects既存2write policy（050） | authenticated+bucketだけ→営業/管理者+存在する案件UUID path。uploadは非archive案件、deleteは既存案件 | 顧客/工場/物流による直接upload/deleteを拒否。public読取・既存file・bucket設定は維持。旧pathでの直接削除は不可 |
+| public既存53表とmigration新7表（050） | PUBLIC/anon/authenticatedのTRUNCATE撤回 | 全表消去を拒否。service_roleや通常CRUDはこの撤回で変更しない |
+| postgres / supabase_admin のpublic default table ACL | 将来表の同3grantee TRUNCATE撤回 | 050は実行者だけ。[両owner追加案](../scripts/review-default-truncate-privileges.sql)は常にrollback。既存の権限あるoperator実行が必要で、postgresのmembership付与等で迂回しない |
+| 038/041〜049のRLS/grant/RPC | 既存出荷明細client INSERTを所有pending requestへ制限、inventory_transactions authenticated UPDATE/DELETE撤回。新7表RLS・所有者/staff読取、発注factory自社読取、発注UPDATE/DELETE撤回。token RFQ context/submit、staff/所有者guard付き原子RPC | 各SQLで定義する認可範囲。新台帳のdirect外部書込を拒否（wizardは既存設計のowner/staff CRUD policy）。匿名RFQは有効tokenが必要。新role/access/credentialは作らない |
+
+本番backup/PITRの利用可能な復元点とprovider内復元手順は未確認。認証済みMCPのproject metadataにはbackup情報がない。provider管理の既存backupを優先し、秘密を第三者へexportしない。Storage実体はDB backup対象外なので既存objectを保持し、新旧app双方から必要なfileを読み取れることを確認する。ローカル機密backup先/暗号鍵/保管期間は承認対象が未特定で、勝手にファイルを作らない。
+
+## 安全な適用順序
+
+1. 上表の権限変更を個別確認し、既存provider backupの復元点と復元operator/方法を確認。RFQ送信元domain、RESEND_API_KEY・RFQ_MAIL_FROM・NEXT_PUBLIC_APP_URLの設定存在だけを確認し値をログへ出さない。設定不足なら送信は予約前に拒否しリンク共有へ案内する。
+2. 対象writerを停止した切替時間にRFQ0件/旧仕様6件/料金重複/在庫整合性/未知write policy/全creator grant/履歴とSQL hashを再確認。001/010/031等を再適用せず、038〜047→048→049→050を順次transaction適用し履歴を照合。seedなし。両owner ACL案は権限ある既存operatorが承認された範囲で実行する。途中失敗は後続を止める。
+3. tested app commit `8b63e1dde0e8089b60979c6c19901128fb5e9a79` と最終候補のsrc/依存差分ゼロを確認してpush/必要merge/deploy。build/deploymentの正本SHA一致とREADY、production readonly主要画面/認可/snapshot/Storage読取を確認。外部メールをsmokeとして送らない。
 4. 障害時は対象writerを停止し、commit済み段階を特定して限定rollforwardを優先。新要求/取込/送信receipt・帳票番号・発注snapshot・在庫台帳を保持。048/049は機能とRPC実行を停止しても保存ledgerを削除しない。050のwrite制限を広い旧policy/grantへ戻すことを復旧策にしない。適用transaction内の失敗は全rollbackできることを試験済みだが、commit後の全DB restoreは適用後取引を失う別承認事項。
 
-6件の本番修正・private bucket/URL移行・費用区分/契約額の変更・push/PR/deployは今回のローカル修正とは別承認。public fileの機密区分と料金の原価込み/別途請求方針は未決。公開保留を継続する。
+6件の推測紐付け・private bucket/URL移行・費用区分/契約額の変更・外部メールは実行しない。public fileの機密区分と料金の原価込み/別途請求方針は未決。公開承認を取り消したものではなく、上記の個別権限確認/backup gateの完了待ち。
 
 ## 最終検証
 
@@ -55,7 +81,8 @@ PGliteは実Supabase Auth/Storage/providerや本番の全role/default ACL/拡張
 - 対象ブラウザ4ケースPASS（登録RFQ retry、未登録回答取込、旧見積/帳票互換、RFQ応答消失後復帰）。最後の入力検証追加後は該当取込ケースだけ再実行しPASS。無効メールではRFQを作らず、入力訂正後に保存可能。
 - 変更した案件・帳票ページのHTTP 200もブラウザで確認。F&C色/形状、明示label、button disabled中の重複防止、effect cleanupを確認。工場選択肢は必要な場合だけ同じ認可済みserver actionで取得し、UIへはID/名前だけ返す。
 - lint（警告なし）/typecheck/build/差分チェックPASS。buildのBrowserslistデータ更新案内は既存の依存メタデータで、今回依存更新はしていない。
-- 全suite・Docker・実Supabase代表業務を重複実行していない。localhost3100/55440の検証サーバー停止を確認。
+- 全suite・実Supabase代表業務の重複実行なし。今回だけ専用Dockerで追加範囲の実接続受入を直列実施。localhost3100/55440の旧検証サーバー停止を確認。
+- 最終lint/typecheck再PASS、追加2検証scriptのnode構文確認PASS、tested app SHAからsrc/package/package-lock差分ゼロ。専用Supabaseは `stop --no-backup` で停止し、対象container/volume残存0を確認。初回試験の合成残骸もvolumeごと破棄。外部通知・機密backupファイル・実顧客copyなし。
 
 ## 新migration候補のSHA-256
 
