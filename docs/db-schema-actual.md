@@ -754,3 +754,5 @@
 ### document_email_receipts（051ローカル候補・本番未適用）
 
 `document_id` uuid PK/FK documents、`actor_id` uuid not null FK profiles、`attempt_id` uuid not null unique、`status` text not null（attempting/accepted/unknown/rejected）、`provider_message_id` text nullable、`started_at` timestamptz not null、`finished_at` timestamptz nullable。staff SELECTのみ、直接書込撤回。staff限定 `issue_storage_invoice` / `claim_storage_invoice_email` / `finish_storage_invoice_email` は原子的発行・永久送信予約・同actor結果確定を担う。051 SQLを正典とし、既存取引の推測補完はしない。
+
+本番反映：2026-09-30、038〜051 sourceをworkflow_release_038_051/version20260930150639で一括適用。052は内部8RPCのanon個別EXECUTE撤回のみ。受入記録/本番migration履歴を照合する。将来internal owner table default ACLは変更していない。

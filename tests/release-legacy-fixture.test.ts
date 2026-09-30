@@ -4,7 +4,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFile, readdir } from 'node:fs/promises'
 const root=new URL('../supabase/migrations/',import.meta.url)
 const id=(n:number)=>`${String(n).padStart(8,'0')}-2222-4222-8222-222222222222`
-test('real source migrations 038–051 preserve six unbound adopted quotes and their single specification candidates; legacy invoice can be reissued without guessing',async()=>{
+test('real source migrations 038–052 preserve six unbound adopted quotes and deny inherited anonymous internal RPC grants',async()=>{
  const db=new PGlite();try{
  await db.exec(`create role anon;create role authenticated;create role service_role;
  create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
@@ -20,7 +20,7 @@ test('real source migrations 038–051 preserve six unbound adopted quotes and t
  for(let n=1;n<=6;n++)await db.query(`insert into deal_quotes(id,deal_id,factory_id,status,quantity,factory_unit_price_usd,selling_price_jpy,total_billing_jpy,total_billing_tax_jpy) values($1,$2,$3,'approved',1000,0.1,10,10000,11000)`,[id(n+10),id(n),id(98)])
  // Read-only production audit found one filled candidate per deal, but no quote binding or source file.
  for(let n=1;n<=6;n++)await db.query('insert into deal_specifications(id,deal_id,product_category,product_name) values($1,$2,$3,$4)',[id(n+50),id(n),'pouch',`Synthetic candidate ${n}`])
- const month=(await db.query<{ym:string}>("select to_char(now(),'YYYYMM') as ym")).rows[0].ym
+ const month=(await db.query<{ym:string}>("select to_char(now() at time zone 'UTC','YYYYMM') as ym")).rows[0].ym
  await db.exec(`insert into documents(id,deal_id,document_type,document_number,metadata) values('${id(30)}','${id(1)}','invoice','INV-${month}-001','{"notes":"Synthetic original document without snapshot"}');
  insert into inbound_shipments(id,shipment_no,deal_id) values('${id(31)}','SYNTHETIC-IN','${id(1)}');
  insert into shipment_requests(id,client_id,request_no,destination_name,status) values('${id(32)}','${id(97)}','SYNTHETIC-OUT','Synthetic location','requested');
@@ -28,7 +28,12 @@ test('real source migrations 038–051 preserve six unbound adopted quotes and t
  const tables=['deal_quotes','deal_specifications','documents','inbound_shipments','shipment_requests','deals']
  const before=new Map<string,unknown>()
  for(const table of tables)before.set(table,(await db.query(`select to_jsonb(t) row from ${table} t order by id`)).rows)
+ await db.exec('alter default privileges in schema public grant execute on functions to anon,authenticated;')
  for(const file of files.filter(f=>f>='038'))await db.exec(await readFile(new URL(file,root),'utf8'))
+ assert.equal((await db.query<{n:number}>(`select count(*)::int n from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('create_inbound_shipment_atomic','create_inventory_item_atomic','create_shipment_request_atomic','receive_inbound_shipment_atomic','record_inventory_transaction_atomic','select_quote_atomic','ship_shipment_request_atomic','wizard_atomic') and has_function_privilege('anon',p.oid,'EXECUTE')`)).rows[0].n,0)
+ await db.exec('set role anon')
+ await assert.rejects(db.query('select wizard_atomic($1,$2,$3)',[id(80),'create',{}]),/permission denied/)
+ await db.exec('reset role')
  for(const table of tables){
   const after=(await db.query<{row:Record<string,unknown>}>(`select to_jsonb(t) row from ${table} t order by id`)).rows
   const original=before.get(table) as {row:Record<string,unknown>}[]

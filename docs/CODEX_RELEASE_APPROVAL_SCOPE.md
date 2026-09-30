@@ -48,3 +48,5 @@
 ## 最終追加差分
 
 051顧客自社請求SELECT/PDFだけ追加アクセス拡大を確認待ち。staff発行/送信/履歴読取は既承認範囲。旧storage_billing direct writerはコードにないため既存画面停止なし。Storage policyは既存supautils policy_grantsで管理可能。supabase_admin将来表default ACLだけ変更不能で扱いを確認待ち。Vercel ProjectはSupabase2変数だけ、Shared linkedなし。RESEND_API_KEY/RFQ_MAIL_FROM未設定。既存検証済みsenderと既存keyのProduction設定が必要。秘密取得/新key/外部送信なし。最新対象39テスト・全取引実DB/browser・RFQ復帰browser・build合格。専用localhost環境停止/volume削除済み。
+
+14:50 UTCに051顧客自社請求PDFと内部将来table ACL残置での公開を承認。038〜051一括適用成功、052は既承認の内部RPC匿名拒否を本番の個別default grantにも合わせる最小撤回。supabase_admin将来table default TRUNCATEは了承済み残課題として未変更。メール設定/実送信は未合格。詳細は受入記録。

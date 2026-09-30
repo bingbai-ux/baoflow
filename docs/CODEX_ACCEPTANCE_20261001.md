@@ -1,4 +1,4 @@
-# 10月1日朝の受入記録（ローカル合格・本番保留）
+# 10月1日朝の受入記録（公開版確認）
 
 公開URL候補 `https://baoflow.vercel.app`。本番公開は未実行。最終ローカル検証は完了。SHAはこの記録を含むcommit履歴を参照。以前の代表実Auth/PostgREST/Postgresの案件→仕様→RFQ→回答→採用→帳票→発注→入庫→出荷→納品PASSは、現在の追加差分全体の合格と混同しない。
 
@@ -60,3 +60,13 @@ staffログイン→案件作成→仕様/数量→RFQ→登録工場回答/未�
 ユーザーは051顧客自社請求PDFと、supabase_admin将来表default TRUNCATE未変更の残課題を明示した公開を承認。Vercel連携でproject/team/旧production SHAを再確認。全scope一覧はbaoflowにSupabase2変数のみ、Project共有連携なし、チーム共有変数なし。他project retailhub-v2には9/26更新のRESEND_API_KEY/EMAIL_FROM（Production/Preview）があるが、別projectの秘密を取得・移植していない。削除された過去設定の履歴は連携で取得不可。NEXT_PUBLIC_APP_URL=https://baoflow.vercel.app を非秘密Config/Productionに保存確認。RFQ_MAIL_FROMは根拠のある送信元が未確定のため推測設定しない。メールは引き続き未設定・未合格。
 
 6de025fのremote branch push後、Vercel preview EaxKGXpSLu6zyUCzgQwaXZZYaKKnはnext/font/googleが配信URL拡張子を解釈できず失敗。本番DB/mainを変更せず停止して修正。F&C指定Manrope/M PLUS 2をGoogle公式google/fontsから取得し、OFLを同梱、WOFF2圧縮・next/font/local化してbuild時外部font依存をなくす。書体/可変weight範囲を保持。共通layout変更後のRFQ復帰画面テスト1PASS。
+
+## 本番反映結果
+
+14:50 UTC承認後、最新backup画面とtimestamp付き全表のbackup後更新0件、Auth新規0/Storage更新0、migration037、在庫不整合0、未知Storage writer0を再確認。038〜051の正本14 SQLを一括 `workflow_release_038_051`（履歴version20260930150639）で適用成功。transaction中の既存public表ACCESS EXCLUSIVE lock・backup後書込guard・baseline guardを含む。実顧客export/新credential/課金/実メール送信なし。
+
+適用後RLS未設定の新表0、台帳UPDATE/DELETE・発注UPDATE・保管請求directINSERTのauthenticated grantなし、app TRUNCATE表0、Storage staff2policy、再読込本人2policy、旧未紐付け6件維持、在庫台帳差0。本番の関数default ACLにanonの個別grantがあり、PUBLICだけの撤回では内部8RPCにanon EXECUTEが残ったため、承認済み匿名実行禁止scopeの052を追加。既存ACLを再現した合成6件migration試験PASS、052本番適用成功、内部anon EXECUTE0を確認。関数内認証/RLSは維持、postgres/internal creator default function ACL自体は変更しない。
+
+mainへ通常fast-forward pushし、da23ad3のproduction deployment BpYfcuYJLZuJh2UhYqCtMT3FE3EmがREADY、東京hnd1。最終052/受入記録commit後の本番正本SHAとdeploymentは作業完了報告を参照。最後のアプリ変更はfont同梱のみで、local build/lint/typeと対象画面PASS、同SHAのcloud preview/production buildもPASS。
+
+補助の全53表before/after件数比較はjsonb_build_objectの100引数上限で取得失敗し、全表件数比較済みとは扱わない。既存dataの変更/削除を行うSQLを追加せず、旧6件・在庫・履歴等の対象集計を確認した。バックアップ後timestamp0も無timestamp更新/削除の証明ではない。ユーザー取引再開後は全DB復元よりrollforwardを優先する。
