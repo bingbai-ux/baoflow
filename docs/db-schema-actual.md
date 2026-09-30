@@ -750,3 +750,7 @@
 ### rfq_requests (候補source schema)
 
 `id` (uuid, not null), `deal_id` (uuid, not null), `product_ids` (ARRAY, not null), `rfq_number` (text, not null), `request_message` (text, nullable), `status` (text, not null), `response_deadline` (date, nullable), `created_by` (uuid, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null)。
+
+### document_email_receipts（051ローカル候補・本番未適用）
+
+`document_id` uuid PK/FK documents、`actor_id` uuid not null FK profiles、`attempt_id` uuid not null unique、`status` text not null（attempting/accepted/unknown/rejected）、`provider_message_id` text nullable、`started_at` timestamptz not null、`finished_at` timestamptz nullable。staff SELECTのみ、直接書込撤回。staff限定 `issue_storage_invoice` / `claim_storage_invoice_email` / `finish_storage_invoice_email` は原子的発行・永久送信予約・同actor結果確定を担う。051 SQLを正典とし、既存取引の推測補完はしない。

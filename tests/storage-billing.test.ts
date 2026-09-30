@@ -56,7 +56,7 @@ test('real SQL invoice snapshot, client isolation, immutable direct billing, exa
  }finally{await db.close()}
 })
 test('Japanese PDF renders saved quantity, exact amount, month and payment dates',async()=>{
- const snapshot={version:1,input,client:{id:id(4),name:'合成クライアント',address:'東京都 合成住所'},issuer:{name:'合成発行会社',address:'東京都 合成発行元',registration_number:'T0000000000000'},subtotal:4100,tax:410,total:4510,currency:'JPY',created_at:'2026-09-01T00:00:00Z'}
+ const snapshot={version:1,input:{...input,payment_details:'Synthetic bank account 1234567'},client:{id:id(4),name:'合成クライアント',address:'東京都 合成住所'},issuer:{name:'合成発行会社',address:'東京都 合成発行元',registration_number:'T0000000000000'},subtotal:4100,tax:410,total:4510,currency:'JPY',created_at:'2026-09-01T00:00:00Z'}
  const bytes=await storageInvoicePDF('STI-202609-001',snapshot)
  assert.match(Buffer.from(bytes).toString('ascii',0,8),/^%PDF-/);assert.ok(bytes.length>1000)
  await mkdir('tmp/pdfs',{recursive:true});await writeFile('tmp/pdfs/storage-invoice-synthetic.pdf',bytes)

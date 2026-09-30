@@ -6,12 +6,12 @@ const url=process.env.LOCAL_SUPABASE_URL!
 if(url!=='http://127.0.0.1:55321')throw Error('This test refuses non-local databases')
 const admin=createClient(url,process.env.LOCAL_SUPABASE_SERVICE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}})
 const publicClient=createClient(url,process.env.LOCAL_SUPABASE_ANON_KEY!,{auth:{persistSession:false,autoRefreshToken:false}})
-const clientId=randomUUID(),factoryId=randomUUID(),factoryName=`代表検証工場 ${factoryId}`
+const clientId=randomUUID(),clientName=`Synthetic browser client ${clientId}`,factoryId=randomUUID(),factoryName=`代表検証工場 ${factoryId}`
 test('actual local Supabase representative workflow with distinct authenticated business roles',async({page,context})=>{
  const createdUsers:string[]=[];let currentDealId:string|undefined
  const sessions=new Map<string,unknown>()
  try{
-  const c=await admin.from('clients').insert({id:clientId,company_name:'Synthetic browser client',email:'client@example.test'});if(c.error)throw Error(c.error.message)
+  const c=await admin.from('clients').insert({id:clientId,company_name:clientName,email:'client@example.test'});if(c.error)throw Error(c.error.message)
   const config=await admin.from('system_settings').select('id').limit(1).maybeSingle();if(config.error)throw Error(config.error.message)
   const issuer={name:'Synthetic invoice issuer',address:'Synthetic local address',registration_number:'T0000000000000'}
   const configured=config.data?await admin.from('system_settings').update({company_info_phase1:issuer}).eq('id',config.data.id):await admin.from('system_settings').insert({company_info_phase1:issuer})
@@ -44,6 +44,10 @@ test('actual local Supabase representative workflow with distinct authenticated 
  const dealPath=new URL(page.url()).pathname, dealId=dealPath.split('/').pop()
  await page.getByRole('button',{name:'仕様を選ぶ →',exact:true}).click();await page.getByRole('button',{name:'中分類をスキップ',exact:false}).click();await page.getByRole('button',{name:'次へ: 数量 →',exact:true}).click();await page.getByPlaceholder('例: 1000',{exact:true}).first().fill('1000');await page.getByRole('button',{name:'この内容で登録する',exact:true}).click();await expect(page.getByText('商品仕様を登録しました',{exact:true})).toBeVisible()
  await page.goto(dealPath+'?step=3');await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click();const rfq=page.getByRole('dialog',{name:'見積依頼を作成',exact:true});await rfq.getByLabel(factoryName,{exact:false}).check();await rfq.getByRole('button',{name:'RFQ を作成',exact:true}).click();await expect(page.getByRole('dialog',{name:'見積依頼を作成しました',exact:true})).toBeVisible()
+ const resultDialog=page.getByRole('dialog',{name:'見積依頼を作成しました',exact:true}),savedLink=await resultDialog.locator('input[readonly]').inputValue()
+ await page.reload();await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click();await expect(resultDialog).toBeVisible();await expect(resultDialog.locator('input[readonly]')).toHaveValue(savedLink)
+ expect((await admin.from('rfq_requests').select('id').eq('deal_id',dealId)).data).toHaveLength(1)
+ await resultDialog.getByRole('button',{name:'閉じる',exact:true}).click();await expect(resultDialog).not.toBeVisible()
  await role('factory');await page.goto('/factory');await page.getByRole('link',{name:'Submit quotation / 提交报价 →',exact:true}).click();await expect(page.getByText('Quantity / 数量: 1,000 pcs',{exact:false})).toBeVisible()
  await expect(page.getByLabel('Unit USD / 单价',{exact:true})).toBeEnabled();
  for(const [label,value] of [['Unit USD / 单价','0.1'],['MOQ','1000'],['PCS/CTN','100'],['Lead days / 交期','15'],['Carton W cm','30'],['Carton H cm','40'],['Carton D cm','30'],['G.W kg','10']])await page.getByLabel(label,{exact:true}).fill(value)
@@ -60,26 +64,32 @@ test('actual local Supabase representative workflow with distinct authenticated 
  await role('sales');await page.goto(dealPath+'?step=11');await page.getByRole('button',{name:'工場が発送した → 工場発送完了へ',exact:true}).click();await expect.poll(async()=>(await state()).deals.find((d:{id:string})=>d.id===dealId).simple_status).toBe('shipped');await page.getByRole('button',{name:/を入庫予定にする$/}).click();await expect(page.getByText('発注の数量・仕様で入庫予定を保存しました',{exact:true})).toBeVisible()
  await role('logistics');await page.goto('/logistics');await page.getByRole('button',{name:'届いた → 検収して入庫',exact:true}).click();await page.getByRole('button',{name:'この数で入庫を確定する',exact:true}).click();await expect.poll(async()=>(await state()).inventory_items[0]?.quantity_on_hand).toBe(1000)
  // Extend the actual journey through storage billing and a captured PDF email before shipment.
- await role('sales');await page.goto('/inventory?tab=fees');await expect(page.getByRole('heading',{name:'保管料請求書',exact:true})).toBeVisible()
+ await role('sales');await page.goto('/inventory');await page.getByText(clientName,{exact:true}).click()
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhJkAAAAASUVORK5CYII=','base64')
+ await page.locator('input[type=file]').setInputFiles({name:'synthetic-photo.png',mimeType:'image/png',buffer:png});await expect(page.getByText('商品写真を設定しました',{exact:true})).toBeVisible()
+ const photo=(await state()).inventory_items[0];expect(new URL(photo.thumbnail_url).pathname).toContain(`/${dealId}/inventory/${photo.id}/`)
+ const storedImage=await fetch(photo.thumbnail_url);expect(storedImage.status).toBe(200);expect(Buffer.from(await storedImage.arrayBuffer()).equals(png)).toBe(true)
+ await page.goto('/inventory?tab=fees');await expect(page.getByRole('heading',{name:'保管料請求書',exact:true})).toBeVisible()
  const cartons=(await state()).inventory_items[0].cartons_on_hand;expect(cartons).toBe(10)
- await page.getByLabel('クライアント',{exact:true}).selectOption(clientId)
+ await page.getByRole('combobox',{name:'クライアント',exact:true}).selectOption(clientId)
  for(const [label,value]of [['請求対象月','2026-09'],['発行日','2026-09-30'],['支払期限','2026-10-31'],['請求対象カートン数','10'],['保管単価（円/CTN・月）','250'],['入庫回数','2'],['入庫単価（円/回）','300'],['出庫回数','1'],['出庫単価（円/回）','500'],['消費税率（%）','10'],['算定根拠（倉庫台帳・契約の確認内容）','Synthetic warehouse statement confirmed 10 cartons and contracted handling charges'],['振込先','Synthetic bank account 1234567']])await page.getByLabel(label,{exact:true}).fill(value)
  await expect(page.getByLabel('送付先メール',{exact:true})).toHaveValue('client@example.test')
  await page.getByLabel('対象量・料金・期間・宛先・振込先を確認しました',{exact:true}).check()
  await page.getByRole('button',{name:'確認した内容で請求書を発行',exact:true}).click();await expect(page.getByText('保管請求書を発行しました',{exact:true})).toBeVisible()
  const billing=await admin.from('storage_billing').select('*').eq('client_id',clientId).single();if(billing.error)throw Error(billing.error.message)
  expect(Number(billing.data.total_amount)).toBe(3960);expect(billing.data.snapshot.input.cartons).toBe(10);expect(billing.data.snapshot.input.due_date).toBe('2026-10-31')
- await page.reload();await expect(page.getByRole('link',{name:'PDFを確認',exact:true})).toHaveCount(1)
+ await page.reload();const invoiceRow=page.getByRole('listitem',{name:billing.data.snapshot.document_number,exact:true});await expect(invoiceRow.getByRole('link',{name:'PDFを確認',exact:true})).toHaveCount(1)
  const pdf=await context.request.get(`/api/storage-invoices/${billing.data.id}/pdf`);expect(pdf.status()).toBe(200);expect(pdf.headers()['content-type']).toBe('application/pdf')
  const pdfBytes=await pdf.body();expect(pdfBytes.subarray(0,5).toString()).toBe('%PDF-')
- await page.getByRole('button',{name:'送付先を確認',exact:true}).click();await page.getByRole('button',{name:'この宛先へPDFを送信',exact:true}).click();await expect(page.getByText('メールサービスで受理されました。到達は履歴で確認してください',{exact:true})).toBeVisible()
+ await invoiceRow.getByRole('button',{name:'送付先を確認',exact:true}).click();await page.getByRole('button',{name:'この宛先へPDFを送信',exact:true}).click();await expect(page.getByText('メールサービスで受理されました。到達は履歴で確認してください',{exact:true})).toBeVisible()
  const receipt=await admin.from('document_email_receipts').select('status,provider_message_id').eq('document_id',billing.data.invoice_document_id).single();if(receipt.error)throw Error(receipt.error.message);expect(receipt.data.status).toBe('accepted')
  const captured=await(await fetch(`http://127.0.0.1:55324/api/v1/message/${receipt.data.provider_message_id}`)).json();expect(captured.To[0].Address).toBe('client@example.test');expect(captured.Text).toContain('3960');expect(captured.Text).toContain('2026-10-31');expect(captured.Attachments).toHaveLength(1)
  const attachment=await fetch(`http://127.0.0.1:55324/api/v1/message/${receipt.data.provider_message_id}/part/${captured.Attachments[0].PartID}`);expect(attachment.status).toBe(200)
  const receivedPDF=Buffer.from(await attachment.arrayBuffer());expect(receivedPDF.subarray(0,5).toString()).toBe('%PDF-');expect(receivedPDF.equals(pdfBytes)).toBe(true)
  await mkdir('tmp/pdfs',{recursive:true});await writeFile('tmp/pdfs/storage-invoice-mailpit.pdf',receivedPDF)
- await page.getByRole('button',{name:'送付先を確認',exact:true}).click();await page.getByRole('button',{name:'この宛先へPDFを送信',exact:true}).click();await expect(page.getByRole('dialog',{name:'請求書メールの確認',exact:true})).not.toBeVisible()
+ await invoiceRow.getByRole('button',{name:'送付先を確認',exact:true}).click();await page.getByRole('button',{name:'この宛先へPDFを送信',exact:true}).click();await expect(page.getByRole('dialog',{name:'請求書メールの確認',exact:true})).not.toBeVisible()
  const receiptAgain=await admin.from('document_email_receipts').select('provider_message_id').eq('document_id',billing.data.invoice_document_id).single();expect(receiptAgain.data?.provider_message_id).toBe(receipt.data.provider_message_id)
+ const mailbox=await(await fetch('http://127.0.0.1:55324/api/v1/messages')).json();expect(mailbox.messages.filter((m:{Subject:string})=>m.Subject===captured.Subject)).toHaveLength(1)
  await role('client');await page.goto('/portal/invoices');await expect(page.getByText('2026-09 / ¥3,960',{exact:false})).toBeVisible();expect((await context.request.get(`/api/storage-invoices/${billing.data.id}/pdf`)).status()).toBe(200)
  await role('factory');expect((await context.request.get(`/api/storage-invoices/${billing.data.id}/pdf`)).status()).toBe(404)
  await role('logistics');expect((await context.request.get(`/api/storage-invoices/${billing.data.id}/pdf`)).status()).toBe(404)
@@ -89,7 +99,7 @@ test('actual local Supabase representative workflow with distinct authenticated 
  await role('sales');await page.goto(dealPath+'?step=12');await page.getByRole('button',{name:'納品できた → 納品完了へ',exact:true}).click();await expect.poll(async()=>(await state()).deals.find((d:{id:string})=>d.id===dealId).simple_status).toBe('delivered');
  const final=await state();expect(final.documents.filter((d:{deal_id:string})=>d.deal_id===dealId).map((d:{document_type:string})=>d.document_type).sort()).toEqual(['invoice','quotation']);expect(final.factory_purchase_orders[0].quantity).toBe(1000)
 
- console.log('PASS actual local Auth/PostgREST/Postgres/browser: case/spec/RFQ/response/adoption/quotation/invoice/order/receipt, confirmed storage charges and immutable invoice, Mailpit PDF attachment/content/retry, client invoice access and role isolation, client request/staff confirmation/warehouse shipment/delivery')
+ console.log('PASS actual local Auth/PostgREST/Postgres/browser: case/spec/RFQ/response/adoption/quotation/invoice/order/receipt, confirmed storage charges and immutable invoice, Mailpit PDF attachment/content/retry, real Storage photo, client invoice access and role isolation, client request/staff confirmation/warehouse shipment/delivery')
  }finally{
   // Synthetic records stay in the isolated DB for inspection; no local credentials are saved.
   for(const id of createdUsers)await admin.auth.admin.deleteUser(id)

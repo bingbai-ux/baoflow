@@ -8,6 +8,7 @@
 //   - 送信完了後、各工場用の URL を表示してコピー可能 (§0.5-3 リンクコピーのみ)
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Copy, X, FileText } from 'lucide-react'
 import { useUi } from '@/components/ui/ui-store'
 import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
@@ -29,6 +30,7 @@ interface FactoryOpt {
 }
 
 export function RfqCreateModal({ dealId, products, onClose }: Props) {
+  const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
   const recovery = useWorkflowRequest(`rfq/${dealId}`, 'rfq', dealId)
@@ -60,10 +62,16 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
     const invitations = recovered?.invitations
     if (Array.isArray(invitations)) {
       setCreatedInvites(invitations.map(i => ({ invitationId: i.invitationId, factoryName: i.factoryName, url: new URL(`/external/${i.formToken}`, window.location.origin).href })))
-      completeRecovery()
       toast('前回保存した見積依頼と回答リンクを復帰しました')
     }
   }, [recovered, completeRecovery, toast])
+
+  const close = () => {
+    if (pending) return
+    if (createdInvites.length) completeRecovery()
+    onClose()
+    router.refresh()
+  }
 
   const toggleProduct = (id: string) => {
     setProductIds((s) => {
@@ -111,7 +119,6 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         setError(r.error || 'RFQ 作成に失敗しました。同じ内容で再試行してください')
         return
       }
-      recovery.complete()
       toast(`${r.data.rfqNumber} を作成しました`)
       setCreatedInvites(
         r.data.invitations.map((i) => ({
@@ -148,7 +155,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
   // ----- 完了後画面 -----
   if (createdInvites.length > 0) {
     return (
-      <Modal onClose={onClose} title="見積依頼を作成しました">
+      <Modal onClose={close} title="見積依頼を作成しました">
         <p className="text-[12px] text-[#351E28] mb-3">
           各工場の回答リンクを作成しました。有効期限は7日です。メールはまだ送信していません。リンクをコピーして共有するか、送信ボタンで工場にメールを送れます。
         </p>
@@ -186,7 +193,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         </div>
         <div className="flex justify-end mt-4">
           <button
-            onClick={onClose}
+            onClick={close}
             className="text-[12px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px]"
           >
             閉じる
@@ -198,7 +205,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
 
   // ----- 入力画面 -----
   return (
-    <Modal onClose={onClose} title="見積依頼を作成">
+    <Modal onClose={close} title="見積依頼を作成">
       <div className="space-y-4">
         <p className="text-[12px] text-[#84787D]">作成すると回答リンクを保存します。メール送信は作成後に選べます。</p>
         {error && <p role="alert" className="text-[12px] text-[#B03616]">{error}</p>}
@@ -299,7 +306,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
         </fieldset>
         <div className="flex justify-end gap-2 pt-2">
           <button
-            onClick={onClose}
+            onClick={close}
             className="text-[12px] px-3 py-1.5 border border-[#E2E1DA] rounded-[8px]"
           >
             キャンセル

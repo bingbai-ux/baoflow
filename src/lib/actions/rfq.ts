@@ -97,8 +97,8 @@ export async function createRfq(input: CreateRfqInput): Promise<{ data: CreatedR
   }
   const result = data as CreatedRfq
   const origin = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
-  revalidatePath('/deals')
-  revalidatePath(`/deals/${input.dealId}`)
+  // The modal refreshes after its result is acknowledged. Revalidating here can
+  // unmount the result/link UI before the user can share the saved invitation.
   return { data: { ...result, invitations: result.invitations.map(i => ({ ...i, formUrl: `${origin}/external/${i.formToken}`, emailed: false })) }, error: null }
 }
 

@@ -9,13 +9,13 @@ export async function storageInvoicePDF(number: string, s: StorageInvoiceSnapsho
  const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit)
  fontBytes ??= readFile(join(process.cwd(),'public/fonts/NotoSansJP-Regular.ttf'))
  // Full static font avoids fontkit subset glyph corruption in Japanese PDF readers.
- const font=await pdf.embedFont(await fontBytes,{subset:false})
+ const font=await pdf.embedFont(await fontBytes,{subset:false,features:{locl:false,liga:false,clig:false,calt:false,kern:false,frac:false,numr:false,dnom:false}})
  pdf.setTitle(`保管料請求書 ${number}`);pdf.setCreationDate(new Date(s.created_at));pdf.setModificationDate(new Date(s.created_at))
  let page=pdf.addPage([595.28,841.89]),y=787
  const ink=rgb(0.208,0.118,0.157), muted=rgb(0.52,0.47,0.49)
  const ensureSpace=(height:number)=>{if(y-height<60){page=pdf.addPage([595.28,841.89]);y=787}}
  function line(raw: string,size=11,color=ink){
-  const text=raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g,' ')
+  const text=raw.normalize('NFC').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g,' ')
   for(const paragraph of text.split('\n')){
    let part=''
    const draw=()=>{ensureSpace(size);page.drawText(part,{x:48,y,size,font,color});y-=size+9;part=''}

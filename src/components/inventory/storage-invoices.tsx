@@ -41,7 +41,7 @@ export function StorageInvoices({clients}:{clients:{id:string;company_name:strin
    <label className="flex gap-2 text-[12px] items-center min-h-[44px]"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={pending}/>対象量・料金・期間・宛先・振込先を確認しました</label>
    <button type="button" className={`${button} bg-[#E9F056]`} onClick={issue} disabled={!recovery.ready||!!recovery.recovered||pending||!confirmed}>確認した内容で請求書を発行</button>
   </div>
-  <div className="space-y-2">{bills.map(b=><div key={b.id} className="rounded-[16px] border border-[#E2E1DA] bg-white p-3 flex flex-wrap items-center gap-3 text-[12px]">
+  <div role="list" aria-label="保管請求履歴" className="space-y-2">{bills.map(b=><div role="listitem" aria-label={b.snapshot?.document_number||`${b.billing_month}の旧請求`} key={b.id} className="rounded-[16px] border border-[#E2E1DA] bg-white p-3 flex flex-wrap items-center gap-3 text-[12px]">
    <span>{b.snapshot?.client.name||clients.find(c=>c.id===b.client_id)?.company_name||'旧請求'} / {b.billing_month} / ¥{Number(b.total_amount).toLocaleString('ja-JP')}</span>
    <span>{b.email_status?({accepted:'メールサービス受理済み',attempting:'送信処理中または結果未確認・再送停止',unknown:'送信結果不明・再送停止',rejected:'送信拒否・再送停止'}[b.email_status]):'未送信'}</span>
    {b.snapshot?<><a className={`${button} inline-flex items-center`} target="_blank" rel="noreferrer" href={`/api/storage-invoices/${b.id}/pdf`}>PDFを確認</a><button className={button} disabled={pending} onClick={()=>setSendBill(b)}>送付先を確認</button></>:<span>旧請求のsnapshotなし・元資料を確認</span>}

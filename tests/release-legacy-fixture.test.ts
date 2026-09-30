@@ -4,7 +4,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFile, readdir } from 'node:fs/promises'
 const root=new URL('../supabase/migrations/',import.meta.url)
 const id=(n:number)=>`${String(n).padStart(8,'0')}-2222-4222-8222-222222222222`
-test('real source migrations 038–050 preserve six legacy adopted quotes, old document and open logistics; legacy invoice can be reissued without guessed specifications',async()=>{
+test('real source migrations 038–051 preserve six unbound adopted quotes and their single specification candidates; legacy invoice can be reissued without guessing',async()=>{
  const db=new PGlite();try{
  await db.exec(`create role anon;create role authenticated;create role service_role;
  create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
@@ -18,12 +18,14 @@ test('real source migrations 038–050 preserve six legacy adopted quotes, old d
  insert into factories(id,factory_name,basic_info_completed) values('${id(98)}','Synthetic legacy factory',true);`)
  for(let n=1;n<=6;n++)await db.query(`insert into deals(id,deal_code,deal_name,simple_status) values($1,$2,$3,'quote_confirmed')`,[id(n),`SYNTHETIC-${n}`,`Legacy case ${n}`])
  for(let n=1;n<=6;n++)await db.query(`insert into deal_quotes(id,deal_id,factory_id,status,quantity,factory_unit_price_usd,selling_price_jpy,total_billing_jpy,total_billing_tax_jpy) values($1,$2,$3,'approved',1000,0.1,10,10000,11000)`,[id(n+10),id(n),id(98)])
+ // Read-only production audit found one filled candidate per deal, but no quote binding or source file.
+ for(let n=1;n<=6;n++)await db.query('insert into deal_specifications(id,deal_id,product_category,product_name) values($1,$2,$3,$4)',[id(n+50),id(n),'pouch',`Synthetic candidate ${n}`])
  const month=(await db.query<{ym:string}>("select to_char(now(),'YYYYMM') as ym")).rows[0].ym
  await db.exec(`insert into documents(id,deal_id,document_type,document_number,metadata) values('${id(30)}','${id(1)}','invoice','INV-${month}-001','{"notes":"Synthetic original document without snapshot"}');
  insert into inbound_shipments(id,shipment_no,deal_id) values('${id(31)}','SYNTHETIC-IN','${id(1)}');
  insert into shipment_requests(id,client_id,request_no,destination_name,status) values('${id(32)}','${id(97)}','SYNTHETIC-OUT','Synthetic location','requested');
  grant truncate on all tables in schema public to anon,authenticated;`)
- const tables=['deal_quotes','documents','inbound_shipments','shipment_requests','deals']
+ const tables=['deal_quotes','deal_specifications','documents','inbound_shipments','shipment_requests','deals']
  const before=new Map<string,unknown>()
  for(const table of tables)before.set(table,(await db.query(`select to_jsonb(t) row from ${table} t order by id`)).rows)
  for(const file of files.filter(f=>f>='038'))await db.exec(await readFile(new URL(file,root),'utf8'))
