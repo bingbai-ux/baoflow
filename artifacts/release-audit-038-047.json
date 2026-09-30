@@ -1,0 +1,991 @@
+{
+  "checkedAt": "2026-09-30T09:38:02Z",
+  "projectRef": "uocpewtmhmdfhdvnrljl",
+  "projectName": "baoflow-v2",
+  "dbVersion": "17.6.1.166",
+  "auditRole": "postgres",
+  "auditRoleBypassRls": true,
+  "access": "authenticated read-only transactions with rollback",
+  "baselineLastMigration": {
+    "version": "20260926064840",
+    "name": "037_deal_wizard_catalog"
+  },
+  "migrationHistoryRows": 30,
+  "sourceCommit": "05e61f9a451233b0046ae8db8656be1849d83c06",
+  "preflightExecution": "Reviewed SELECT bodies of all 34 checks; executed 29 applicable SELECT checks together; missing 5 reported separately. DO NOTICE wrapper was not used because connector returns result rows.",
+  "preflight": [
+    {
+      "check_name": "baseline_037_required_schema",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "migration_history_rows",
+      "severity": "inventory",
+      "count": 30
+    },
+    {
+      "check_name": "candidate_new_migration_history_rows",
+      "severity": "inventory",
+      "count": 0
+    },
+    {
+      "check_name": "base_tables_without_rls",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "broad_authenticated_policies",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "current_policy_rows",
+      "severity": "inventory",
+      "count": 26
+    },
+    {
+      "check_name": "negative_stock",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "negative_cartons",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "stock_ledger_balance_mismatch",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "history_to_status_null",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "historical_document_duplicate_groups",
+      "severity": "warning",
+      "count": 0
+    },
+    {
+      "check_name": "legacy_documents_without_snapshot",
+      "severity": "warning",
+      "count": 1
+    },
+    {
+      "check_name": "pending_rfq_without_request_snapshot",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "rfq_invitation_form_link_mismatch",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "approved_quotes_without_variant",
+      "severity": "blocker",
+      "count": 6
+    },
+    {
+      "check_name": "approved_quotes_wrong_deal_variant",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "approved_quotes_invalid_quantity_price_rate",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "multiple_approved_quotes_same_scope",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "inbound_deal_client_mismatch",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "inbound_existing_item_client_mismatch",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "received_shipments_with_unprocessed_lines",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "requests_with_wrong_client_item",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "pending_request_over_available_stock",
+      "severity": "warning",
+      "count": 0
+    },
+    {
+      "check_name": "new_tables_without_rls",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "post_038_ledger_mutation_grants",
+      "severity": "post_migration_blocker",
+      "count": 2
+    },
+    {
+      "check_name": "reload_recovery_owner_policies",
+      "severity": "post_migration_blocker",
+      "count": 2
+    },
+    {
+      "check_name": "new_rpc_missing_after_release",
+      "severity": "post_migration_blocker",
+      "count": 14
+    },
+    {
+      "check_name": "new_internal_rpc_anon_execute_grants",
+      "severity": "blocker",
+      "count": 0
+    },
+    {
+      "check_name": "immutable_order_rpc_uses_update_lock",
+      "severity": "blocker",
+      "count": 0
+    }
+  ],
+  "notApplied": [
+    {
+      "name": "new_044_factory_orders_mutation_grants",
+      "severity": "blocker",
+      "missingColumns": [
+        "public.factory_purchase_orders.id"
+      ]
+    },
+    {
+      "name": "ordered_factory_snapshot_invalid",
+      "severity": "blocker",
+      "missingColumns": [
+        "public.factory_purchase_orders.status",
+        "public.factory_purchase_orders.quantity",
+        "public.factory_purchase_orders.unit_price_usd",
+        "public.factory_purchase_orders.snapshot"
+      ]
+    },
+    {
+      "name": "factory_order_planned_quantity_overflow",
+      "severity": "blocker",
+      "missingColumns": [
+        "public.factory_purchase_orders.id",
+        "public.factory_purchase_orders.quantity",
+        "public.inbound_shipments.purchase_order_id"
+      ]
+    },
+    {
+      "name": "factory_order_received_over_plan",
+      "severity": "blocker",
+      "missingColumns": [
+        "public.inbound_shipments.purchase_order_id"
+      ]
+    },
+    {
+      "name": "saved_new_request_ledger_rows",
+      "severity": "inventory",
+      "missingColumns": [
+        "public.wizard_requests.request_id",
+        "public.rfq_creation_requests.request_id",
+        "public.document_issue_requests.request_id"
+      ]
+    }
+  ],
+  "legacy": [
+    {
+      "check_name": "legacy_approved_quotes",
+      "count": 6
+    },
+    {
+      "check_name": "legacy_approved_with_valid_spec",
+      "count": 0
+    },
+    {
+      "check_name": "legacy_approved_deals",
+      "count": 6
+    },
+    {
+      "check_name": "all_rfq_forms",
+      "count": 0
+    },
+    {
+      "check_name": "all_rfq_without_requested_snapshot",
+      "count": 0
+    },
+    {
+      "check_name": "pending_factory_invitations",
+      "count": 0
+    },
+    {
+      "check_name": "pending_factory_submitted_forms",
+      "count": 0
+    },
+    {
+      "check_name": "old_quote_spec_wrong_deal",
+      "count": 0
+    },
+    {
+      "check_name": "quote_variant_missing_or_wrong_deal_all",
+      "count": 0
+    },
+    {
+      "check_name": "fees_variant_missing_or_wrong_deal",
+      "count": 0
+    },
+    {
+      "check_name": "fees_exact_amount_duplicate_groups",
+      "count": 0
+    },
+    {
+      "check_name": "fees_non_jpy_amount_without_jpy",
+      "count": 0
+    }
+  ],
+  "fees": [
+    {
+      "check_name": "legacy_approved_without_spec_id",
+      "count": 6
+    },
+    {
+      "check_name": "legacy_approved_without_factory",
+      "count": 0
+    },
+    {
+      "check_name": "legacy_approved_without_any_product",
+      "count": 6
+    },
+    {
+      "check_name": "legacy_approved_deals_in_production_or_later",
+      "count": 0
+    },
+    {
+      "check_name": "positive_quote_inspection_cost",
+      "count": 0
+    },
+    {
+      "check_name": "approved_inspection_cost_with_same_scope_fee",
+      "count": 0
+    },
+    {
+      "check_name": "inspection_fee_rows",
+      "count": 0
+    },
+    {
+      "check_name": "fee_rows",
+      "count": 0
+    },
+    {
+      "check_name": "rfq_rows",
+      "count": 0
+    },
+    {
+      "check_name": "open_inbound_rows",
+      "count": 1
+    },
+    {
+      "check_name": "uncompleted_shipment_rows",
+      "count": 1
+    }
+  ],
+  "collisionsAndGrants": [
+    {
+      "check_name": "target_migration_trigger_name_collisions",
+      "count": 0
+    },
+    {
+      "check_name": "target_new_table_name_collisions",
+      "count": 0
+    },
+    {
+      "check_name": "target_new_column_name_collisions",
+      "count": 0
+    },
+    {
+      "check_name": "anonymous_truncate_grants_on_core_tables",
+      "count": 10
+    },
+    {
+      "check_name": "authenticated_truncate_grants_on_core_tables",
+      "count": 10
+    }
+  ],
+  "storageBucket": [
+    {
+      "id": "deal-images",
+      "public": true,
+      "file_size_limit": 52428800,
+      "allowed_mime_types": null
+    }
+  ],
+  "storagePolicies": [
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "Authenticated delete deal-images",
+      "roles": "{authenticated}",
+      "cmd": "DELETE",
+      "qual": "(bucket_id = 'deal-images'::text)",
+      "with_check": null
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "Authenticated upload deal-images",
+      "roles": "{authenticated}",
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(bucket_id = 'deal-images'::text)"
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "Public read deal-images",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "(bucket_id = 'deal-images'::text)",
+      "with_check": null
+    }
+  ],
+  "functionMetadata": [
+    {
+      "proname": "apply_inventory_delta",
+      "args": "",
+      "result": "trigger",
+      "security_definer": false,
+      "proconfig": null,
+      "definition_hash": "3f871c79d4f3d1bd0751f35ded963b45"
+    },
+    {
+      "proname": "current_app_role",
+      "args": "",
+      "result": "text",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "6a45d6a76674a9709fe099921328f166"
+    },
+    {
+      "proname": "ext_rfq_context",
+      "args": "p_token text",
+      "result": "jsonb",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "7117430c62c00894f7fb5e705b432f41"
+    },
+    {
+      "proname": "ext_submit_rfq",
+      "args": "p_token text, p_payload jsonb, p_ip text, p_ua text",
+      "result": "jsonb",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "7091c7774de47ce8bc7acc8223038c65"
+    },
+    {
+      "proname": "is_logistics",
+      "args": "",
+      "result": "boolean",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "1599f2c7e472e1bc0b75c0343412432e"
+    },
+    {
+      "proname": "is_staff",
+      "args": "",
+      "result": "boolean",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "75653bfb00b86a6e5dec56ae2735df47"
+    },
+    {
+      "proname": "my_client_id",
+      "args": "",
+      "result": "uuid",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "8410c975caf5a6786c219e2e02e2246b"
+    },
+    {
+      "proname": "my_factory_id",
+      "args": "",
+      "result": "uuid",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "definition_hash": "0772c778305fc4339252009bd14f94d5"
+    }
+  ],
+  "triggerMetadata": [
+    {
+      "event_object_table": "deal_quotes",
+      "trigger_name": "update_deal_quotes_updated_at",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    },
+    {
+      "event_object_table": "deals",
+      "trigger_name": "update_deals_updated_at",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    },
+    {
+      "event_object_table": "documents",
+      "trigger_name": "update_documents_updated_at",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    },
+    {
+      "event_object_table": "inbound_shipments",
+      "trigger_name": "trg_inbound_shipments_updated",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    },
+    {
+      "event_object_table": "inventory_transactions",
+      "trigger_name": "trg_inventory_tx_apply",
+      "action_timing": "AFTER",
+      "event_manipulation": "INSERT",
+      "action_statement": "EXECUTE FUNCTION apply_inventory_delta()"
+    },
+    {
+      "event_object_table": "profiles",
+      "trigger_name": "update_profiles_updated_at",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    },
+    {
+      "event_object_table": "shipment_requests",
+      "trigger_name": "trg_shipment_requests_updated",
+      "action_timing": "BEFORE",
+      "event_manipulation": "UPDATE",
+      "action_statement": "EXECUTE FUNCTION update_updated_at_column()"
+    }
+  ],
+  "publicPolicies": [
+    {
+      "tablename": "deal_design_files",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deal_fees",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deal_product_variants",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deal_products",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deal_quotes",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deal_status_history",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "deals",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "documents",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "external_forms",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "factory_rfq_responses",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "inbound_shipment_items",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM inbound_shipments s\n  WHERE ((s.id = inbound_shipment_items.shipment_id) AND (s.client_id = my_client_id()))))",
+      "with_check": null
+    },
+    {
+      "tablename": "inbound_shipment_items",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "inbound_shipment_items",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "inbound_shipments",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(client_id = my_client_id())",
+      "with_check": null
+    },
+    {
+      "tablename": "inbound_shipments",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "inbound_shipments",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "inventory_items",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((client_id IS NOT NULL) AND (client_id = my_client_id()))",
+      "with_check": null
+    },
+    {
+      "tablename": "inventory_items",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "inventory_items",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "inventory_transactions",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM inventory_items i\n  WHERE ((i.id = inventory_transactions.item_id) AND (i.client_id = my_client_id()))))",
+      "with_check": null
+    },
+    {
+      "tablename": "inventory_transactions",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "inventory_transactions",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "profiles",
+      "policyname": "read_own_profile",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "tablename": "profiles",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "rfq_factory_invitations",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "rfq_requests",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "shipment_request_items",
+      "policyname": "client_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(EXISTS ( SELECT 1\n   FROM shipment_requests r\n  WHERE ((r.id = shipment_request_items.request_id) AND (r.client_id = my_client_id()) AND (r.status = 'requested'::text))))"
+    },
+    {
+      "tablename": "shipment_request_items",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM shipment_requests r\n  WHERE ((r.id = shipment_request_items.request_id) AND (r.client_id = my_client_id()))))",
+      "with_check": null
+    },
+    {
+      "tablename": "shipment_request_items",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "shipment_request_items",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    },
+    {
+      "tablename": "shipment_requests",
+      "policyname": "client_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((client_id = my_client_id()) AND (status = 'requested'::text) AND (requested_by = auth.uid()))"
+    },
+    {
+      "tablename": "shipment_requests",
+      "policyname": "client_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(client_id = my_client_id())",
+      "with_check": null
+    },
+    {
+      "tablename": "shipment_requests",
+      "policyname": "logistics_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_logistics()",
+      "with_check": "is_logistics()"
+    },
+    {
+      "tablename": "shipment_requests",
+      "policyname": "staff_full_access",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "is_staff()",
+      "with_check": "is_staff()"
+    }
+  ],
+  "tableRls": [
+    {
+      "table_name": "deal_fees",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "deal_quotes",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "deals",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "documents",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "external_forms",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "factory_rfq_responses",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "inbound_shipment_items",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "inbound_shipments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "inventory_items",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "inventory_transactions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "profiles",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "rfq_factory_invitations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "rfq_requests",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "shipment_request_items",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "shipment_requests",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    }
+  ],
+  "enums": [
+    {
+      "typname": "document_type",
+      "enumlabel": "quotation"
+    },
+    {
+      "typname": "document_type",
+      "enumlabel": "invoice"
+    },
+    {
+      "typname": "document_type",
+      "enumlabel": "delivery_note"
+    },
+    {
+      "typname": "document_type",
+      "enumlabel": "inventory_cert"
+    },
+    {
+      "typname": "document_type",
+      "enumlabel": "storage_invoice"
+    },
+    {
+      "typname": "document_type",
+      "enumlabel": "rfq"
+    },
+    {
+      "typname": "quote_status",
+      "enumlabel": "drafting"
+    },
+    {
+      "typname": "quote_status",
+      "enumlabel": "presented"
+    },
+    {
+      "typname": "quote_status",
+      "enumlabel": "approved"
+    },
+    {
+      "typname": "quote_status",
+      "enumlabel": "rejected"
+    },
+    {
+      "typname": "quote_status",
+      "enumlabel": "revising"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "quoting"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "quote_confirmed"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "paid"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "data_confirmed"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "in_production"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "shipped"
+    },
+    {
+      "typname": "simple_status",
+      "enumlabel": "delivered"
+    },
+    {
+      "typname": "user_role",
+      "enumlabel": "admin"
+    },
+    {
+      "typname": "user_role",
+      "enumlabel": "sales"
+    },
+    {
+      "typname": "user_role",
+      "enumlabel": "client"
+    },
+    {
+      "typname": "user_role",
+      "enumlabel": "factory"
+    },
+    {
+      "typname": "user_role",
+      "enumlabel": "logistics"
+    }
+  ],
+  "vercel": {
+    "id": "prj_WQKoHTwzGTimDhfRFvhP4yBDbKPx",
+    "name": "baoflow",
+    "nodeVersion": "24.x",
+    "live": false,
+    "latestDeployment": {
+      "id": "dpl_8kv6JeHGQB9kVWtArojx8QAmxHpk",
+      "target": "production",
+      "status": "READY",
+      "sha": "363229a45fe5b56966563306deda2919a66809c3"
+    },
+    "envMetadataAvailable": false
+  },
+  "limitations": [
+    "No personal data, IDs of business records, tokens, mail addresses, stored form payloads, secret values or blob contents fetched.",
+    "No migration, write test, data backup, staging restore, push or deploy performed.",
+    "Vercel connector project/deployment reads omit environment variable metadata; RESEND_API_KEY / RFQ_MAIL_FROM / NEXT_PUBLIC_APP_URL configuration and sender verification remain unverified.",
+    "Metadata and aggregate counts are not a backup or an end-to-end role test."
+  ]
+}
