@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
-import { Manrope, M_PLUS_2 } from 'next/font/google'
+import localFont from 'next/font/local'
 import '@/styles/globals.css'
 
 // F&C Design System: 英数 = Manrope / かなカナ漢字 = M PLUS 2(指定順で自動振り分け)
-const manrope = Manrope({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+const manrope = localFont({
+  src: '../../public/fonts/Manrope-Variable.woff2',
+  weight: '200 800',
   variable: '--font-manrope',
   display: 'swap',
 })
 
-const mplus2 = M_PLUS_2({
-  subsets: ['latin'],
-  weight: ['400', '500', '700', '800'],
+const mplus2 = localFont({
+  src: '../../public/fonts/MPLUS2-Variable.woff2',
+  weight: '100 900',
   variable: '--font-mplus',
   display: 'swap',
 })

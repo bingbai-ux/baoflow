@@ -54,3 +54,9 @@ staffログイン→案件作成→仕様/数量→RFQ→登録工場回答/未�
 朝の確認で実取引先へのメール送信は、宛先と内容をユーザー自身が確定するまで行わない。旧6件は各案件に内容入り仕様候補1件ずつがあるが、見積spec_id/variant_id・商品階層・見積source_file・仕様existing_quote_file・RFQ回答・帳票snapshotはいずれもない。仕様が採用時の正本かを確認できず、推測補完せず未解決を維持。手動確認の最小scopeは6件それぞれの採用元見積と当時の仕様/数量/工場の一致、採用時の変更履歴、今後の発注に使う商品/variantの根拠。ID/名前/価格/原文は本記録へコピーしていない。
 
 検証後、専用localhost Supabaseを stop --no-backup で停止。project名によるDocker container/volume一覧がともに0件であることを確認し、合成dataを専用volumeごと削除した。重い検証プロセスも残存なし。
+
+## 14:50 UTC以降の公開準備
+
+ユーザーは051顧客自社請求PDFと、supabase_admin将来表default TRUNCATE未変更の残課題を明示した公開を承認。Vercel連携でproject/team/旧production SHAを再確認。全scope一覧はbaoflowにSupabase2変数のみ、Project共有連携なし、チーム共有変数なし。他project retailhub-v2には9/26更新のRESEND_API_KEY/EMAIL_FROM（Production/Preview）があるが、別projectの秘密を取得・移植していない。削除された過去設定の履歴は連携で取得不可。NEXT_PUBLIC_APP_URL=https://baoflow.vercel.app を非秘密Config/Productionに保存確認。RFQ_MAIL_FROMは根拠のある送信元が未確定のため推測設定しない。メールは引き続き未設定・未合格。
+
+6de025fのremote branch push後、Vercel preview EaxKGXpSLu6zyUCzgQwaXZZYaKKnはnext/font/googleが配信URL拡張子を解釈できず失敗。本番DB/mainを変更せず停止して修正。F&C指定Manrope/M PLUS 2をGoogle公式google/fontsから取得し、OFLを同梱、WOFF2圧縮・next/font/local化してbuild時外部font依存をなくす。書体/可変weight範囲を保持。共通layout変更後のRFQ復帰画面テスト1PASS。
