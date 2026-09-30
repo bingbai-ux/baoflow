@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
 import { revalidatePath } from 'next/cache'
 import type { DealProduct, FoodGradeStatus } from '@/lib/types'
 
@@ -65,6 +66,8 @@ export async function addBlankProduct(
   dealId: string
 ): Promise<{ data: DealProduct | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
   const product_no = await nextProductNo(supabase, dealId)
   const { data: row, error } = await supabase
     .from('deal_products')
@@ -87,6 +90,8 @@ export async function createProduct(
   input: ProductInput | FormData
 ): Promise<{ data: DealProduct | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
   const data = parseFormData(input)
   if (!data.description?.trim()) return { data: null, error: 'Description は必須です' }
 
@@ -117,6 +122,8 @@ export async function updateProduct(
   input: ProductInput | FormData
 ): Promise<{ data: DealProduct | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
   const data = parseFormData(input)
   if (!data.description?.trim()) return { data: null, error: 'Description は必須です' }
 
@@ -147,6 +154,8 @@ export async function deleteProduct(
   productId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_products')
     .select('deal_id')
@@ -163,6 +172,8 @@ export async function markProductSelected(
   selected: boolean
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_products')
     .select('deal_id')

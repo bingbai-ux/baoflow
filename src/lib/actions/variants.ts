@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
 import { revalidatePath } from 'next/cache'
 import type { DealProductVariant } from '@/lib/types'
 
@@ -90,6 +91,8 @@ export async function addBlankVariant(
   productId: string
 ): Promise<{ data: DealProductVariant | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
 
   // Compute next variant_order
   const { data: existing } = await supabase
@@ -124,6 +127,8 @@ export async function createVariant(
   input: VariantInput | FormData
 ): Promise<{ data: DealProductVariant | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
   const data = parseFormData(input)
   if (!data.variant_label?.trim()) return { data: null, error: 'バリエーションラベルは必須です' }
 
@@ -157,6 +162,8 @@ export async function updateVariant(
   input: VariantInput | FormData
 ): Promise<{ data: DealProductVariant | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
   const data = parseFormData(input)
   if (!data.variant_label?.trim()) return { data: null, error: 'バリエーションラベルは必須です' }
 
@@ -180,6 +187,8 @@ export async function deleteVariant(
   variantId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_product_variants')
     .select('product_id')
@@ -199,6 +208,8 @@ export async function markVariantSelected(
   selected: boolean
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_product_variants')
     .select('product_id')
@@ -228,6 +239,8 @@ export async function duplicateVariant(
   variantId: string
 ): Promise<{ data: DealProductVariant | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
 
   const { data: source } = await supabase
     .from('deal_product_variants')

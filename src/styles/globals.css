@@ -97,3 +97,11 @@
     page-break-after: always;
   }
 }
+
+@media print {
+  /* The issuer modal is portalled to body so hidden application ancestors cannot hide it. */
+  body:has(.document-modal) > :not(.document-modal) { display: none !important; }
+  .document-modal { position: static !important; display: block !important; background: white !important; padding: 0 !important; }
+  .document-modal > div { height: auto !important; max-width: none !important; overflow: visible !important; }
+  .document-modal > div > div:last-child { overflow: visible !important; padding: 0 !important; }
+}

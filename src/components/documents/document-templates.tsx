@@ -1,5 +1,6 @@
 'use client'
 
+import { documentTotals } from '@/lib/calc/document-totals'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 import {
   type CompanyInfoPhase1,
@@ -89,13 +90,14 @@ interface DealLite {
 
 export interface DocumentMeta {
   documentNumber: string
+  issuedAt?: string
   paymentDueDate?: string | null
   notes?: string | null
   shippingDate?: string | null
   shippingAddress?: string | null
 }
 
-interface TemplateProps {
+export interface TemplateProps {
   type: DocumentType
   deal: DealLite
   specs: SpecLite[]
@@ -128,19 +130,12 @@ export function DocumentTemplate(props: TemplateProps) {
 }
 
 function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, company, banks, meta }: TemplateProps) {
-  const today = formatDate(new Date().toISOString())
-  const approved = quotes.filter((q) => q.status === 'approved')
-  const lineItems = approved.length > 0 ? approved : quotes
+  const today = formatDate(meta.issuedAt || new Date().toISOString())
+  const { lineItems, includedFees, subtotal, feesTotal, taxableSubtotal, tax, grandTotal } = documentTotals(quotes, fees)
 
   const specMap = new Map(specs.map((s) => [s.id, s]))
   const productMap = new Map(products.map((p) => [p.id, p]))
   const variantMap = new Map(variants.map((v) => [v.id, v]))
-
-  const subtotal = lineItems.reduce((sum, q) => sum + (Number(q.total_billing_jpy) || 0), 0)
-  const feesTotal = fees.reduce((sum, f) => sum + (Number(f.amount_jpy) || 0), 0)
-  const taxableSubtotal = subtotal + feesTotal
-  const tax = Math.ceil(taxableSubtotal * 0.10)
-  const grandTotal = taxableSubtotal + tax
 
   // 同じ fee_type は1行にまとめる (型代・食品検査などが variant ごとに重複表示されないように)
   // is_initial_only も同じ key で集約 (どれか1つでも初回限定なら表示)
@@ -153,7 +148,7 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
   }
   const feeGroups = (() => {
     const map = new Map<FeeType, FeeGroup>()
-    for (const f of fees) {
+    for (const f of includedFees) {
       const key = f.fee_type
       if (!map.has(key)) {
         map.set(key, {
@@ -368,7 +363,7 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
 }
 
 function RfqTemplate({ deal, products, variants, meta, company }: TemplateProps) {
-  const today = formatDate(new Date().toISOString())
+  const today = formatDate(meta.issuedAt || new Date().toISOString())
   // Group variants by product
   const byProduct = new Map<string, VariantLite[]>()
   for (const v of variants) {

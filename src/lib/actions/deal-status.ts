@@ -1,50 +1,23 @@
 'use server'
 
-import { createClient as createSupabase } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { SimpleStatus } from '@/lib/types'
+import { SIMPLE_STATUS_ORDER, type SimpleStatus } from '@/lib/types'
+import { requireSalesAccess } from './deal-access'
 
-export async function updateDealStatus(
-  dealId: string,
-  to: SimpleStatus,
-  note?: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createSupabase()
-
-  const { data: current } = await supabase
-    .from('deals')
-    .select('simple_status')
-    .eq('id', dealId)
-    .single()
-
-  if (!current) return { success: false, error: 'deal not found' }
-
-  const fromStatus = current.simple_status as SimpleStatus
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Update the deal
-  const { error: updateError } = await supabase
-    .from('deals')
-    .update({
-      simple_status: to,
-      last_activity_at: new Date().toISOString(),
-    })
-    .eq('id', dealId)
-
-  if (updateError) return { success: false, error: updateError.message }
-
-  // Append history
-  await supabase.from('deal_status_history').insert({
-    deal_id: dealId,
-    from_simple_status: fromStatus,
-    to_simple_status: to,
-    changed_by: user?.id || null,
-    note: note || null,
-    kind: 'status',
+export async function updateDealStatus(dealId: string, to: SimpleStatus, note?: string, expected?: SimpleStatus): Promise<{ success: boolean; error?: string }> {
+  if (!SIMPLE_STATUS_ORDER.includes(to)) return { success: false, error: 'ステータスを選んでください' }
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
+  const { error } = await supabase.rpc('set_deal_simple_status', {
+    p_deal_id: dealId, p_to: to, p_note: note || null, p_expected: expected || null,
   })
-
+  if (error) return { success: false, error: error.code === 'PGRST202'
+    ? 'ステータス更新のDB準備が必要です。管理者に連絡してください (039)。変更は保存されていません。'
+    : error.message }
   revalidatePath('/deals')
   revalidatePath(`/deals/${dealId}`)
+  revalidatePath('/')
   return { success: true }
 }

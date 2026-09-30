@@ -7,6 +7,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess, validateVariantDeal } from './deal-access'
+import { nextQuoteVersion, validateQuantities } from '@/lib/validation/deal-input'
 
 async function nextDealCode(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
   const now = new Date()
@@ -42,6 +44,8 @@ export async function createDealFromWizard(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { dealId: null, error: 'ログインしてください' }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { dealId: null, error: accessError }
 
   const clientName = input.client_name_text?.trim()
   if (!clientName) return { dealId: null, error: 'クライアントを選んでください' }
@@ -81,10 +85,15 @@ export async function createDealFromWizard(
       is_selected: false,
     }))
   )
-  if (prodErr) return { dealId: null, error: prodErr.message }
+  if (prodErr) {
+    // Report the actual partial result instead of encouraging duplicate creation.
+    revalidatePath('/deals')
+    return { dealId: deal.id, dealCode, error: `案件は作成されましたが商品を追加できませんでした: ${prodErr.message}` }
+  }
 
   await supabase.from('deal_status_history').insert({
     deal_id: deal.id,
+    to_status: 'M01',
     to_simple_status: 'quoting',
     changed_by: user.id,
     kind: 'status',
@@ -125,12 +134,18 @@ export async function createProductFromWizard(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'ログインしてください' }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
 
-  const quantities = (input.quantities || [])
-    .map((q) => Math.floor(Number(q)))
-    .filter((q) => Number.isFinite(q) && q > 0)
+  const quantities = input.quantities || []
   if (!input.category_l1?.trim()) return { success: false, error: '分類を選んでください' }
-  if (quantities.length === 0) return { success: false, error: '数量を1つ以上入力してください' }
+  const quantityError = validateQuantities(quantities)
+  if (quantityError) return { success: false, error: quantityError }
+  for (const size of [input.width_mm, input.height_mm, input.depth_mm]) {
+    if (size != null && (!Number.isFinite(size) || size <= 0)) return { success: false, error: 'サイズは0より大きい値で入力してください' }
+  }
+  const { data: deal, error: dealError } = await supabase.from('deals').select('id').eq('id', dealId).single()
+  if (dealError || !deal) return { success: false, error: '案件が見つかりません' }
 
   const description = [input.category_l1, input.category_l2, input.category_l3]
     .filter(Boolean)
@@ -138,6 +153,8 @@ export async function createProductFromWizard(
 
   let productId = input.product_id || null
   if (productId) {
+    const { data: product, error: productError } = await supabase.from('deal_products').select('id').eq('id', productId).eq('deal_id', dealId).single()
+    if (productError || !product) return { success: false, error: '商品がこの案件に属していません' }
     // 既存枠に分類を反映
     const { error } = await supabase
       .from('deal_products')
@@ -148,6 +165,7 @@ export async function createProductFromWizard(
         category_l3: input.category_l3 || null,
       })
       .eq('id', productId)
+      .eq('deal_id', dealId)
     if (error) return { success: false, error: error.message }
   } else {
     const { data: existing } = await supabase
@@ -215,7 +233,11 @@ export async function createProductFromWizard(
       status: 'drafting',
     }))
   )
-  if (qErr) return { success: false, error: qErr.message }
+  if (qErr) {
+    // This variant was created by this call; remove its empty shell so retry is safe.
+    const { error: cleanupError } = await supabase.from('deal_product_variants').delete().eq('id', variant.id)
+    return { success: false, error: cleanupError ? `数量を保存できませんでした。未完成の仕様が残っています: ${qErr.message}` : qErr.message }
+  }
 
   await supabase
     .from('deals')
@@ -234,20 +256,22 @@ export async function addQuantityToVariant(
   quantity: number
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const q = Math.floor(Number(quantity))
-  if (!Number.isFinite(q) || q <= 0)
-    return { success: false, error: '数量は1以上で入力してください' }
-
-  const { count } = await supabase
-    .from('deal_quotes')
-    .select('id', { count: 'exact', head: true })
-    .eq('variant_id', variantId)
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
+  const quantityError = validateQuantities([quantity])
+  if (quantityError) return { success: false, error: quantityError }
+  const membershipError = await validateVariantDeal(supabase, variantId, dealId)
+  if (membershipError) return { success: false, error: membershipError }
+  const { data: existing, error: existingError } = await supabase.from('deal_quotes').select('version, quantity').eq('variant_id', variantId)
+  if (existingError) return { success: false, error: existingError.message }
+  if (existing?.some((row) => row.quantity === quantity)) return { success: false, error: 'この数量の見積はすでにあります' }
+  const nextVersion = nextQuoteVersion(existing || [])
 
   const { error } = await supabase.from('deal_quotes').insert({
     deal_id: dealId,
     variant_id: variantId,
-    quantity: q,
-    version: (count || 0) + 1,
+    quantity,
+    version: nextVersion,
     status: 'drafting',
   })
   if (error) return { success: false, error: error.message }

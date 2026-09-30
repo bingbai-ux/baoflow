@@ -7,6 +7,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { inventoryRpcError, isInventoryInteger } from '@/lib/utils/inventory-validation'
 
 export interface InventoryItemRow {
   id: string
@@ -126,43 +127,15 @@ export async function createInventoryItem(
   if (!user) return { success: false, error: 'ログインしてください' }
 
   if (!input.item_name?.trim()) return { success: false, error: '商品名を入力してください' }
-  const qty = Math.floor(Number(input.first_quantity))
-  if (!Number.isFinite(qty) || qty <= 0)
-    return { success: false, error: '入庫数量は1以上の整数で入力してください' }
-
-  const { data: item, error } = await supabase
-    .from('inventory_items')
-    .insert({
-      client_id: input.client_id || null,
-      deal_id: input.deal_id || null,
-      item_name: input.item_name.trim(),
-      item_code: input.item_code?.trim() || null,
-      spec_note: input.spec_note?.trim() || null,
-      unit: input.unit?.trim() || '個',
-      cartons_on_hand: input.first_cartons ?? null,
-      warehouse_name: input.warehouse_name?.trim() || null,
-      location_note: input.location_note?.trim() || null,
-      first_arrived_at: input.first_arrived_at || null,
-      note: input.note?.trim() || null,
-      created_by: user.id,
-    })
-    .select('id')
-    .single()
-  if (error || !item) return { success: false, error: error?.message || '登録に失敗しました' }
-
-  // 初回入庫を台帳に記録(quantity_on_hand はトリガーが加算)
-  const { error: txError } = await supabase.from('inventory_transactions').insert({
-    item_id: item.id,
-    tx_type: 'inbound',
-    quantity_delta: qty,
-    occurred_on: input.first_arrived_at || new Date().toISOString().slice(0, 10),
-    note: '初回入庫',
-    created_by: user.id,
-  })
-  if (txError) return { success: false, error: `入庫記録に失敗: ${txError.message}` }
+  if (!isInventoryInteger(input.first_quantity, 1) || (input.first_cartons != null && !isInventoryInteger(input.first_cartons, 0))) {
+    return { success: false, error: '入庫数量は1以上、カートン数は0以上の整数で入力してください' }
+  }
+  const { data, error } = await supabase.rpc('create_inventory_item_atomic', { p_input: input })
+  if (error) return { success: false, error: inventoryRpcError(error) }
+  const item = data as { itemId: string }
 
   revalidatePath('/inventory')
-  return { success: true, itemId: item.id }
+  return { success: true, itemId: item.itemId }
 }
 
 export async function recordInventoryTransaction(input: {
@@ -180,49 +153,11 @@ export async function recordInventoryTransaction(input: {
   } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'ログインしてください' }
 
-  const q = Math.floor(Number(input.quantity))
-  if (!Number.isFinite(q) || q === 0)
-    return { success: false, error: '数量は0以外の整数で入力してください' }
-
-  // inbound は正、outbound は負に正規化。adjust は入力の符号どおり。
-  const delta =
-    input.tx_type === 'inbound' ? Math.abs(q) : input.tx_type === 'outbound' ? -Math.abs(q) : q
-
-  if (input.tx_type === 'outbound') {
-    const { data: item } = await supabase
-      .from('inventory_items')
-      .select('quantity_on_hand, item_name')
-      .eq('id', input.item_id)
-      .single()
-    if (item && item.quantity_on_hand + delta < 0) {
-      return {
-        success: false,
-        error: `在庫が足りません(現在 ${item.quantity_on_hand})。数量を確認してください`,
-      }
-    }
+  if (!Number.isInteger(input.quantity) || input.quantity === 0 || Math.abs(input.quantity) > 2147483647 || (input.cartons_delta != null && (!Number.isInteger(input.cartons_delta) || Math.abs(input.cartons_delta) > 2147483647))) {
+    return { success: false, error: '数量は0以外の整数、カートン数は整数で入力してください' }
   }
-
-  const { error } = await supabase.from('inventory_transactions').insert({
-    item_id: input.item_id,
-    tx_type: input.tx_type,
-    quantity_delta: delta,
-    occurred_on: input.occurred_on || new Date().toISOString().slice(0, 10),
-    destination: input.destination?.trim() || null,
-    note: input.note?.trim() || null,
-    created_by: user.id,
-  })
-  if (error) return { success: false, error: error.message }
-
-  // カートン数はアイテム側の目安値として上書き更新(任意)
-  if (input.cartons_delta != null && Number.isFinite(Number(input.cartons_delta))) {
-    const { data: item } = await supabase
-      .from('inventory_items')
-      .select('cartons_on_hand')
-      .eq('id', input.item_id)
-      .single()
-    const next = Math.max(0, (item?.cartons_on_hand || 0) + Math.floor(Number(input.cartons_delta)))
-    await supabase.from('inventory_items').update({ cartons_on_hand: next }).eq('id', input.item_id)
-  }
+  const { error } = await supabase.rpc('record_inventory_transaction_atomic', { p_input: input })
+  if (error) return { success: false, error: inventoryRpcError(error) }
 
   revalidatePath('/inventory')
   return { success: true }
@@ -262,6 +197,8 @@ export async function uploadInventoryItemPhoto(
     .from('inventory_items')
     .update({ thumbnail_url: publicUrl })
     .eq('id', itemId)
+    .select('id')
+    .single()
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/inventory')
@@ -289,6 +226,8 @@ export async function updateClientStorageRate(
     .from('clients')
     .update({ storage_rate_config: cfg })
     .eq('id', clientId)
+    .select('id')
+    .single()
   if (error) return { success: false, error: error.message }
   revalidatePath('/inventory')
   return { success: true }
@@ -309,6 +248,8 @@ export async function updateInventoryItemField(
     .from('inventory_items')
     .update({ [field]: value })
     .eq('id', itemId)
+    .select('id')
+    .single()
   if (error) return { success: false, error: error.message }
   revalidatePath('/inventory')
   return { success: true }

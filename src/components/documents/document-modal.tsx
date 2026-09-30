@@ -1,5 +1,6 @@
 'use client'
 
+import { createPortal } from 'react-dom'
 import { useEffect, useState, useTransition } from 'react'
 import { X } from 'lucide-react'
 import { DocumentIssuer } from './document-issuer'
@@ -42,7 +43,7 @@ interface Bundle {
   nextNumbers: Record<DocumentType, string>
 }
 
-export function DocumentModal({ dealId, onClose }: Props) {
+export function DocumentModal({ dealId, initialType = 'quotation', onClose }: Props) {
   const [bundle, setBundle] = useState<Bundle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [, startLoad] = useTransition()
@@ -64,9 +65,12 @@ export function DocumentModal({ dealId, onClose }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 no-print"
+      role="dialog"
+      aria-modal="true"
+      aria-label="帳票発行"
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 document-modal"
       onClick={onClose}
     >
       <div
@@ -99,6 +103,7 @@ export function DocumentModal({ dealId, onClose }: Props) {
             <p className="text-[12px] text-[#84787D] text-center py-8">読込中...</p>
           ) : (
             <DocumentIssuer
+              initialType={initialType}
               deal={bundle.deal}
               specs={bundle.specs}
               products={bundle.products}
@@ -115,6 +120,6 @@ export function DocumentModal({ dealId, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>, document.body
   )
 }

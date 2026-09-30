@@ -59,7 +59,7 @@ export function DealStatusDropdown({ dealId, current }: Props) {
     }
     setOpen(false)
     startTransition(async () => {
-      const r = await updateDealStatus(dealId, next)
+      const r = await updateDealStatus(dealId, next, undefined, current)
       if (r.success) {
         toast(`ステータスを「${SIMPLE_STATUS_CONFIG[next].label}」に変更しました`)
         router.refresh()

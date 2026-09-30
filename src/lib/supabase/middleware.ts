@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { CookieOptions } from '@supabase/ssr'
+import { isPublicAuthPath } from '@/lib/utils/auth-routing'
 
 type CookieToSet = {
   name: string
@@ -44,11 +45,7 @@ export async function updateSession(request: NextRequest) {
 
   // 外部フォーム (トークン制の自己登録/RFQ回答) は認証不要 — トークン検証はページ側で行う
   // /account-invite はログイン前後どちらでも開ける (サインアップ→招待受け取り)
-  if (
-    pathname.startsWith('/external') ||
-    pathname.startsWith('/account-invite') ||
-    pathname === '/forgot-password'
-  ) {
+  if (isPublicAuthPath(pathname)) {
     return supabaseResponse
   }
 
@@ -70,7 +67,7 @@ export async function updateSession(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      const role = profile?.role || 'sales'
+      const role = profile?.role || 'client'
       const home = ROLE_HOME[role] || '/'
       const ownLogin = role in ROLE_HOME ? `${ROLE_HOME[role]}/login` : '/login'
       if (pathname !== ownLogin) {
@@ -101,7 +98,7 @@ export async function updateSession(request: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.role || 'sales'
+  const role = profile?.role || 'client'
   const externalHome = ROLE_HOME[role]
 
   // Portal routes - only for clients

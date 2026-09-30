@@ -46,7 +46,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
   const [useFree, setUseFree] = useState(
     initialClientName ? !initialMatch : clients.length === 0
   )
-  const [brand, setBrand] = useState('')
+  const [brand, setBrand] = useState(initialMatch?.brand || '')
   const [items, setItems] = useState<string[]>([])
   const [customItem, setCustomItem] = useState('')
   const [desired, setDesired] = useState('')
@@ -75,6 +75,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
   const submit = () =>
     startTransition(async () => {
       setError(null)
+      try {
       const r = await createDealFromWizard({
         client_id: useFree ? null : clientId || null,
         client_name_text: clientName,
@@ -84,11 +85,13 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         sales_user_id: salesId,
       })
       if (r.dealId) {
-        toast(`案件を作成しました(${r.dealCode})`)
+        if (r.error) toast(r.error, 'warn')
+        else toast(`案件を作成しました(${r.dealCode})`)
         router.push(`/deals/${r.dealId}`)
       } else {
         setError(r.error || '作成に失敗しました')
       }
+      } catch { setError('案件の保存を確認できませんでした。案件一覧で確認してから再試行してください') }
     })
 
   return (
@@ -102,6 +105,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         {!useFree ? (
           <div className="flex items-center gap-2">
             <select
+              aria-label="クライアント"
               value={clientId}
               onChange={(e) => {
                 setClientId(e.target.value)
@@ -129,6 +133,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         ) : (
           <div className="flex items-center gap-2">
             <input
+              aria-label="未登録のクライアント名"
               value={freeClient}
               onChange={(e) => setFreeClient(e.target.value)}
               className={inputCls}
@@ -151,6 +156,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
       <section>
         <p className="text-[12px] font-bold text-[#351E28] mb-1.5">2. ブランド</p>
         <input
+          aria-label="ブランド"
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
           className={inputCls}
@@ -197,6 +203,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         </div>
         <div className="flex items-center gap-2 mt-2">
           <input
+            aria-label="作る商品の名前"
             value={customItem}
             onChange={(e) => setCustomItem(e.target.value)}
             onKeyDown={(e) => {
@@ -222,11 +229,11 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <section>
           <p className="text-[12px] font-bold text-[#351E28] mb-1.5">4. 希望納期</p>
-          <input type="date" value={desired} onChange={(e) => setDesired(e.target.value)} className={inputCls} />
+          <input aria-label="希望納期" type="date" value={desired} onChange={(e) => setDesired(e.target.value)} className={inputCls} />
         </section>
         <section>
           <p className="text-[12px] font-bold text-[#351E28] mb-1.5">5. 担当スタッフ</p>
-          <select value={salesId} onChange={(e) => setSalesId(e.target.value)} className={inputCls}>
+          <select aria-label="担当スタッフ" value={salesId} onChange={(e) => setSalesId(e.target.value)} className={inputCls}>
             {staff.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -245,7 +252,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
       </div>
 
       {error && (
-        <p className="text-[12px] rounded-[12px] bg-[#FFD8C2] text-[#B03616] px-3 py-2">{error}</p>
+        <p role="alert" className="text-[12px] rounded-[12px] bg-[#FFD8C2] text-[#B03616] px-3 py-2">{error}</p>
       )}
 
       <button

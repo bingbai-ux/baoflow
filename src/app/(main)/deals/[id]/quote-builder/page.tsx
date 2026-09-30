@@ -17,14 +17,15 @@ export default async function QuoteBuilderPage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: deal } = await supabase
+  const { data: deal, error: dealError } = await supabase
     .from('deals')
     .select('id, deal_code, deal_name, client_name_text, simple_status')
     .eq('id', id)
     .single()
+  if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
-  const [{ data: products }, { data: variantsRaw }, { data: quotes }] = await Promise.all([
+  const [{ data: products, error: productsError }, { data: variantsRaw, error: variantsError }, { data: quotes, error: quotesError }] = await Promise.all([
     supabase
       .from('deal_products')
       .select('id, product_no, description')
@@ -42,6 +43,8 @@ export default async function QuoteBuilderPage({
       .eq('deal_id', id)
       .order('quantity'),
   ])
+
+  if ([productsError, variantsError, quotesError].some(Boolean)) throw new Error('Quote data could not be loaded')
 
   const variants = (variantsRaw || []).map((v) => ({
     id: v.id,

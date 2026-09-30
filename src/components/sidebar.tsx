@@ -63,14 +63,15 @@ export function Sidebar() {
   const initial = (user?.display_name || user?.email || 'U').trim().charAt(0)
 
   const itemCls = (active: boolean) =>
-    `block rounded-[12px] px-3 py-[9px] text-[12.5px] no-underline transition-colors duration-150 ${
+    `flex min-h-[44px] items-center rounded-[12px] px-3 py-[9px] text-[12.5px] no-underline transition-colors duration-150 ${
       active
         ? 'bg-[#E9F056] text-[#666C14] font-extrabold'
         : 'text-[#C9A2B8] font-medium hover:bg-white/5'
     }`
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] flex flex-col px-3 pt-5 pb-4 z-50">
+    <>
+    <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] flex-col px-3 pt-5 pb-4 z-50">
       {/* ブランドピル(実ロゴ) */}
       <span className="self-start inline-flex items-center gap-1.5 whitespace-nowrap bg-[#FBFAF6] leading-none px-3.5 py-1.5 rounded-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -86,7 +87,7 @@ export function Sidebar() {
       {/* ナビ(語で示す。選択中だけ Wasabi) */}
       <nav className="mt-2 flex flex-col gap-0.5 overflow-auto min-h-0">
         {NAV.map((item) => (
-          <Link key={item.k} href={item.href} className={itemCls(item.match(pathname, tab))}>
+          <Link key={item.k} href={item.href} aria-current={item.match(pathname, tab) ? "page" : undefined} className={itemCls(item.match(pathname, tab))}>
             {item.label}
           </Link>
         ))}
@@ -110,5 +111,15 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    <details key={pathname} className="lg:hidden flex-shrink-0 bg-[#351E28] px-4 text-[#C9A2B8]">
+      <summary className="min-h-[48px] flex items-center justify-between cursor-pointer font-bold text-[14px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E9F056]">
+        <span>BAO flow</span><span>メニューを開く / 閉じる</span>
+      </summary>
+      <nav aria-label="メインメニュー" className="grid grid-cols-2 gap-1 pb-3">
+        {NAV.map((item) => <Link key={item.k} href={item.href} aria-current={item.match(pathname, tab) ? 'page' : undefined} className={itemCls(item.match(pathname, tab))}>{item.label}</Link>)}
+        <Link href="/settings" aria-current={pathname.startsWith('/settings') ? 'page' : undefined} className={itemCls(pathname.startsWith('/settings'))}>設定</Link>
+      </nav>
+    </details>
+    </>
   )
 }

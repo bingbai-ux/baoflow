@@ -9,6 +9,8 @@ import type {
   SimpleStatus,
 } from '@/lib/types'
 import { SIMPLE_STATUS_ORDER } from '@/lib/types'
+import { updateDealStatus as updateSimpleDealStatus } from './deal-status'
+import { requireSalesAccess } from './deal-access'
 import { sendEmail } from '@/lib/utils/email'
 import {
   quoteReadyEmail,
@@ -659,43 +661,7 @@ export async function updateSimpleStatus(
   dealId: string,
   newStatus: SimpleStatus
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
-
-  const { data: current, error: fetchError } = await supabase
-    .from('deals')
-    .select('simple_status')
-    .eq('id', dealId)
-    .single()
-
-  if (fetchError || !current) {
-    return { success: false, error: '案件が見つかりません' }
-  }
-
-  const fromStatus = current.simple_status as SimpleStatus
-
-  const { error: updateError } = await supabase
-    .from('deals')
-    .update({
-      simple_status: newStatus,
-      last_activity_at: new Date().toISOString(),
-    })
-    .eq('id', dealId)
-
-  if (updateError) {
-    return { success: false, error: updateError.message }
-  }
-
-  await supabase.from('deal_status_history').insert({
-    deal_id: dealId,
-    from_simple_status: fromStatus,
-    to_simple_status: newStatus,
-    changed_at: new Date().toISOString(),
-  })
-
-  revalidatePath(`/deals/${dealId}`)
-  revalidatePath('/deals')
-  revalidatePath('/')
-  return { success: true }
+  return updateSimpleDealStatus(dealId, newStatus)
 }
 
 export async function advanceSimpleStatus(
@@ -719,7 +685,7 @@ export async function advanceSimpleStatus(
   }
 
   const nextStatus = SIMPLE_STATUS_ORDER[currentIndex + 1]
-  return updateSimpleStatus(dealId, nextStatus)
+  return updateSimpleDealStatus(dealId, nextStatus, undefined, current.simple_status as SimpleStatus)
 }
 
 // ============================================================================
@@ -733,60 +699,26 @@ export async function archiveDeal(
   reason: ArchiveReasonInput,
   note: string | null
 ): Promise<{ success: boolean; error?: string }> {
+  return setArchiveState(dealId, true, reason, note)
+}
+
+export async function unarchiveDeal(dealId: string): Promise<{ success: boolean; error?: string }> {
+  return setArchiveState(dealId, false, null, null)
+}
+
+async function setArchiveState(dealId: string, archive: boolean, reason: ArchiveReasonInput | null, note: string | null) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-
-  const { error } = await supabase
-    .from('deals')
-    .update({
-      archived_at: new Date().toISOString(),
-      archived_by: user.id,
-      archive_reason: reason,
-      archive_note: note?.trim() || null,
-    })
-    .eq('id', dealId)
-    .is('archived_at', null)
-
-  if (error) return { success: false, error: error.message }
-
-  await supabase.from('deal_status_history').insert({
-    deal_id: dealId,
-    kind: 'status',
-    note: `案件をアーカイブ (${reason})${note ? `: ${note}` : ''}`,
-    changed_at: new Date().toISOString(),
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
+  const { error } = await supabase.rpc('archive_deal_safely', {
+    p_deal_id: dealId, p_archive: archive, p_reason: reason, p_note: note,
   })
-
+  if (error) return { success: false, error: error.code === 'PGRST202'
+    ? '案件クローズのDB準備が必要です (039)。変更は保存されていません。'
+    : error.message }
   revalidatePath('/deals')
   revalidatePath('/archive')
   revalidatePath(`/deals/${dealId}`)
-  return { success: true }
-}
-
-export async function unarchiveDeal(
-  dealId: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-
-  const { error } = await supabase
-    .from('deals')
-    .update({
-      archived_at: null,
-      archived_by: null,
-      archive_reason: null,
-    })
-    .eq('id', dealId)
-
-  if (error) return { success: false, error: error.message }
-
-  revalidatePath('/deals')
-  revalidatePath('/archive')
   return { success: true }
 }
 

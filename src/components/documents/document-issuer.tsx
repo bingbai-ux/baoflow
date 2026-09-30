@@ -6,6 +6,7 @@ import { Printer, FileText, Copy, Check } from 'lucide-react'
 import {
   DocumentTemplate,
   type DocumentType,
+  type TemplateProps,
   type DocumentMeta,
   type SpecLite,
   type ProductLite,
@@ -15,7 +16,8 @@ import {
 } from './document-templates'
 import { issueDocument, type DocumentRow } from '@/lib/actions/documents'
 import type { CompanyInfoPhase1, BankAccountPhase1 } from '@/lib/types'
-import { formatDate } from '@/lib/utils/format'
+import { documentTotals } from '@/lib/calc/document-totals'
+import { formatJPY, formatDate } from '@/lib/utils/format'
 
 interface DealLite {
   id: string
@@ -26,6 +28,7 @@ interface DealLite {
 }
 
 interface DocumentIssuerProps {
+  initialType?: DocumentType
   deal: DealLite
   specs: SpecLite[]
   products: ProductLite[]
@@ -49,6 +52,7 @@ const TABS: Array<{ id: DocumentType; label: string }> = [
 ]
 
 export function DocumentIssuer({
+  initialType = 'quotation',
   deal,
   specs,
   products,
@@ -63,7 +67,7 @@ export function DocumentIssuer({
   boilerplateTexts,
 }: DocumentIssuerProps) {
   const router = useRouter()
-  const [active, setActive] = useState<DocumentType>('quotation')
+  const [active, setActive] = useState<DocumentType>(initialType)
   const [issuing, startIssue] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [docs, setDocs] = useState<DocumentRow[]>(initialDocs)
@@ -72,6 +76,7 @@ export function DocumentIssuer({
   const [shippingAddress, setShippingAddress] = useState(defaultShippingAddress || '')
   const [notes, setNotes] = useState('')
   const [notesEdited, setNotesEdited] = useState(false)
+  const [selectedDoc, setSelectedDoc] = useState<DocumentRow | null>(null)
   const [copyState, setCopyState] = useState<'code' | 'text' | null>(null)
 
   // タブ切替時に定型文を notes に投入 (ユーザーが手動編集していない場合)
@@ -83,20 +88,26 @@ export function DocumentIssuer({
 
   const docsByType = (t: DocumentType) => docs.filter((d) => d.document_type === t)
   const currentDocs = docsByType(active)
-  const previewNumber = currentDocs[0]?.document_number || nextNumbers[active]
+  const previewNumber = selectedDoc?.document_number || nextNumbers[active]
+  const saved = selectedDoc?.metadata
+  const snapshot = saved?.snapshot as Omit<TemplateProps, 'type' | 'meta'> | undefined
+  const hasApprovedQuote = quotes.some(q => q.status === 'approved')
+  const canIssue = active === 'rfq' ? variants.length > 0 : hasApprovedQuote
 
   const meta: DocumentMeta = {
     documentNumber: previewNumber,
-    paymentDueDate: active === 'invoice' ? paymentDueDate || null : null,
-    shippingDate: active === 'delivery_note' ? shippingDate || null : null,
-    shippingAddress: active === 'delivery_note' ? shippingAddress || null : null,
+    issuedAt: selectedDoc?.issued_at,
+    paymentDueDate: active === 'invoice' ? (selectedDoc ? String(saved?.payment_due_date || '') : paymentDueDate) || null : null,
+    shippingDate: active === 'delivery_note' ? (selectedDoc ? String(saved?.shipping_date || '') : shippingDate) || null : null,
+    shippingAddress: active === 'delivery_note' ? (selectedDoc ? String(saved?.shipping_address || '') : shippingAddress) || null : null,
     // Sprint 9: notes フィールドが空ならテンプレ定型文を補填
-    notes: notes || boilerplateTexts?.[active] || null,
+    notes: selectedDoc ? String(saved?.notes || '') : notes || null,
   }
 
   const handleIssue = () => {
     setError(null)
     startIssue(async () => {
+      try {
       const r = await issueDocument({
         deal_id: deal.id,
         document_type: active,
@@ -104,15 +115,17 @@ export function DocumentIssuer({
           payment_due_date: paymentDueDate || undefined,
           shipping_date: shippingDate || undefined,
           shipping_address: shippingAddress || undefined,
-          notes: notes || undefined,
+          notes: meta.notes || undefined,
         },
       })
       if (r.error || !r.data) {
         setError(r.error || '発行に失敗しました')
         return
       }
-      setDocs([r.data, ...docs])
+      setDocs(previous => [r.data!, ...previous])
+      setSelectedDoc(r.data)
       router.refresh()
+      } catch { setError('帳票の発行に失敗しました。履歴を確認してから再試行してください') }
     })
   }
 
@@ -137,9 +150,19 @@ export function DocumentIssuer({
       `クライアント: ${deal.client_name_text || '-'}`,
       '',
     ]
-    if (notes) lines.push(notes, '')
+    if (active !== 'rfq') {
+      const totals = documentTotals(snapshot?.quotes || quotes, snapshot?.fees || fees)
+      for (const q of totals.lineItems) {
+        const variant = (snapshot?.variants || variants).find(v => v.id === q.variant_id)
+        const product = (snapshot?.products || products).find(p => p.id === variant?.product_id)
+        const spec = (snapshot?.specs || specs).find(s => s.id === q.spec_id)
+        lines.push(`${product?.description || spec?.product_name || '商品'} ${variant?.variant_label || ''} / ${q.quantity?.toLocaleString()}個 × ${formatJPY(q.selling_price_jpy || 0)} = ${formatJPY(q.total_billing_jpy || 0)}`)
+      }
+      lines.push(`別途費用: ${formatJPY(totals.feesTotal)}`, `消費税: ${formatJPY(totals.tax)}`, `合計(税込): ${formatJPY(totals.grandTotal)}`)
+    }
+    if (meta.notes) lines.push(meta.notes, '')
     return lines.join('\n')
-  }, [active, deal.deal_code, deal.deal_name, deal.client_name_text, notes, previewNumber])
+  }, [active, deal.deal_code, deal.deal_name, deal.client_name_text, meta.notes, previewNumber, snapshot, quotes, fees, variants, products, specs])
 
   const handleCopyAll = async () => {
     try {
@@ -158,7 +181,7 @@ export function DocumentIssuer({
           <button
             key={t.id}
             type="button"
-            onClick={() => setActive(t.id)}
+            onClick={() => { setActive(t.id); setSelectedDoc(null); setNotesEdited(false); setError(null) }}
             className={`px-4 py-2 rounded-[12px] text-[13px] font-body transition-colors ${
               active === t.id
                 ? 'bg-[#351E28] text-[#C9A2B8]'
@@ -178,8 +201,9 @@ export function DocumentIssuer({
           {active === 'invoice' && (
             <Field label="お支払期日">
               <input
+                disabled={!!selectedDoc}
                 type="date"
-                value={paymentDueDate}
+                value={selectedDoc ? String(saved?.payment_due_date || '') : paymentDueDate}
                 onChange={(e) => setPaymentDueDate(e.target.value)}
                 className={inputClass}
               />
@@ -189,15 +213,17 @@ export function DocumentIssuer({
             <>
               <Field label="出荷日">
                 <input
-                  type="date"
-                  value={shippingDate}
+                  disabled={!!selectedDoc}
+                type="date"
+                  value={selectedDoc ? String(saved?.shipping_date || '') : shippingDate}
                   onChange={(e) => setShippingDate(e.target.value)}
                   className={inputClass}
                 />
               </Field>
               <Field label="納品先住所" className="md:col-span-2">
                 <textarea
-                  value={shippingAddress}
+                  disabled={!!selectedDoc}
+                  value={selectedDoc ? String(saved?.shipping_address || '') : shippingAddress}
                   onChange={(e) => setShippingAddress(e.target.value)}
                   rows={3}
                   className={`${inputClass} resize-y`}
@@ -207,7 +233,8 @@ export function DocumentIssuer({
           )}
           <Field label="備考 / 定型文 (設定画面で編集可)" className={active === 'delivery_note' || active === 'rfq' ? 'md:col-span-2' : ''}>
             <textarea
-              value={notes}
+              disabled={!!selectedDoc}
+              value={selectedDoc ? String(saved?.notes || '') : notes}
               onChange={(e) => {
                 setNotes(e.target.value)
                 setNotesEdited(true)
@@ -231,20 +258,24 @@ export function DocumentIssuer({
           </Field>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <p className="text-[12px] text-[#84787D]">{selectedDoc ? '発行済み帳票を表示中。印刷で同じ内容を再出力できます。' : active !== 'rfq' && !canIssue ? '先に見積を採用してください。未採用の見積は帳票に含めません。' : '採用見積と別途費用から作成します。発行すると内容を保存します。'}</p>
+        {selectedDoc && <button type="button" className="rounded-full border border-[#E2E1DA] px-4 py-2 text-[12px]" onClick={() => setSelectedDoc(null)}>新しい帳票を作成する</button>}
+        {selectedDoc && !snapshot && <p role="alert" className="text-[12px] text-[#B03616]">この旧帳票には発行時の内容が保存されていません。現在の案件情報を参考表示しています。</p>}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
             onClick={handleIssue}
-            disabled={issuing}
-            className="bg-[#E9F056] text-[#666C14] rounded-[12px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
+            disabled={issuing || !canIssue || !!selectedDoc}
+            className="bg-[#E9F056] text-[#666C14] rounded-full px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
           >
             <FileText className="w-3.5 h-3.5" />
-            {currentDocs.length > 0 ? `この内容で再発行 (No. ${nextNumbers[active]})` : `発行 (No. ${previewNumber})`}
+            {issuing ? '発行中…' : 'この内容で発行する'}
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-[12px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
+            disabled={!selectedDoc && !canIssue}
+            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-full px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
           >
             <Printer className="w-3.5 h-3.5" />
             印刷 / PDF として保存
@@ -279,7 +310,7 @@ export function DocumentIssuer({
             <ul className="text-[11px] text-[#351E28] font-body mt-1 space-y-0.5">
               {currentDocs.slice(0, 5).map((d) => (
                 <li key={d.id} className="tabular-nums">
-                  {d.document_number} · {formatDate(d.issued_at)}
+                  <button type="button" onClick={() => setSelectedDoc(d)} className="rounded-full px-3 py-2 underline" aria-pressed={selectedDoc?.id === d.id}>{d.document_number} · {formatDate(d.issued_at)} を表示</button>
                 </li>
               ))}
             </ul>
@@ -290,14 +321,14 @@ export function DocumentIssuer({
       <div className="document-frame">
         <DocumentTemplate
           type={active}
-          deal={deal}
-          specs={specs}
-          products={products}
-          variants={variants}
-          quotes={quotes}
-          fees={fees}
-          company={company}
-          banks={banks}
+          deal={snapshot?.deal || deal}
+          specs={snapshot?.specs || specs}
+          products={snapshot?.products || products}
+          variants={snapshot?.variants || variants}
+          quotes={snapshot?.quotes || quotes}
+          fees={snapshot?.fees || fees}
+          company={snapshot ? snapshot.company : company}
+          banks={snapshot ? snapshot.banks : banks}
           meta={meta}
         />
       </div>

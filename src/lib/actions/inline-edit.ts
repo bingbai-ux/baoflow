@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { requireSalesAccess } from './deal-access'
 import { calculateFullQuote } from '@/lib/calc/quote-engine'
 
 // Generic inline field update for deals/products/variants/quotes
@@ -90,6 +91,7 @@ const QUOTE_RECALC_FIELDS = new Set([
   'domestic_china_freight_usd',
   'sample_cost_usd',
   'sample_shipping_usd',
+  'food_inspection_fee_yuan',
   'other_fees_usd',
   'exchange_rate',
   'cost_ratio',
@@ -111,6 +113,8 @@ export async function updateDealField(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ALLOWED_DEAL_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
 
   // §0.5-6: アーカイブ済み案件は archive_note / tags のみ編集可
   if (!ARCHIVE_EDITABLE_DEAL_FIELDS.has(field)) {
@@ -118,6 +122,8 @@ export async function updateDealField(
       return { success: false, error: ARCHIVE_LOCKED_ERROR }
     }
   }
+
+  if (field === 'waiting_on' && !['us','client','factory','none'].includes(value || '')) return { success: false, error: 'ボールの所在を選んでください' }
 
   // tags は TEXT[] なのでカンマ区切り文字列をパース
   let dbValue: string | string[] | null = value
@@ -136,6 +142,7 @@ export async function updateDealField(
     .from('deals')
     .update({ [field]: dbValue, last_activity_at: new Date().toISOString() })
     .eq('id', dealId)
+    .select('id').single()
   if (error) return { success: false, error: error.message }
   revalidatePath('/deals')
   revalidatePath('/archive')
@@ -150,18 +157,22 @@ export async function updateProductField(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ALLOWED_PRODUCT_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_products')
     .select('deal_id')
     .eq('id', productId)
     .single()
-  if (existing?.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
+  if (!existing) return { success: false, error: '対象データが見つかりません' }
+  if (existing.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
     return { success: false, error: ARCHIVE_LOCKED_ERROR }
   }
   const { error } = await supabase
     .from('deal_products')
     .update({ [field]: value, updated_at: new Date().toISOString() })
     .eq('id', productId)
+    .select('id').single()
   if (error) return { success: false, error: error.message }
   revalidatePath('/deals')
   if (existing?.deal_id) revalidatePath(`/deals/${existing.deal_id}`)
@@ -175,12 +186,20 @@ export async function updateVariantField(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ALLOWED_VARIANT_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const cast = castValue(value)
+  const numericFields = ['width_mm','height_mm','depth_mm','pcs_per_carton','carton_width_cm','carton_height_cm','carton_depth_cm','gross_weight_kg','production_lead_days','shipping_lead_days','food_inspection_days']
+  if (numericFields.includes(field) && cast != null) {
+    const n = Number(cast)
+    if (!Number.isFinite(n) || n < 0 || (field === 'pcs_per_carton' && (!Number.isSafeInteger(n) || n < 1)) || (field.endsWith('_days') && !Number.isSafeInteger(n))) return { success: false, error: '寸法・重量は0以上、入り数は1以上の整数、日数は0以上の整数で入力してください' }
+  }
   const { data: existing } = await supabase
     .from('deal_product_variants')
     .select('product_id')
     .eq('id', variantId)
     .single()
+  if (!existing) return { success: false, error: '仕様が見つかりません' }
   let dealId: string | null = null
   if (existing?.product_id) {
     const { data: prod } = await supabase
@@ -197,7 +216,16 @@ export async function updateVariantField(
     .from('deal_product_variants')
     .update({ [field]: cast, updated_at: new Date().toISOString() })
     .eq('id', variantId)
+    .select('id').single()
   if (error) return { success: false, error: error.message }
+  if (['pcs_per_carton','carton_width_cm','carton_height_cm','carton_depth_cm','gross_weight_kg'].includes(field)) {
+    const { data: related, error: relatedError } = await supabase.from('deal_quotes').select('id,quantity').eq('variant_id', variantId)
+    if (relatedError) return { success: false, error: '仕様は保存されましたが見積を再計算できませんでした。掛率を確認して再計算してください' }
+    for (const quote of related || []) {
+      const recalculated = await updateQuoteField(quote.id, 'quantity', String(quote.quantity))
+      if (!recalculated.success) return { success: false, error: `仕様は保存されましたが見積の再計算に失敗しました: ${recalculated.error}` }
+    }
+  }
   revalidatePath('/deals')
   if (dealId) revalidatePath(`/deals/${dealId}`)
   return { success: true }
@@ -208,21 +236,26 @@ export async function updateQuoteSimpleField(
   field: string,
   value: string | null
 ): Promise<{ success: boolean; error?: string }> {
+  if (field === 'food_inspection_fee_yuan') return updateQuoteField(quoteId, field, value)
   if (!ALLOWED_QUOTE_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const cast = castValue(value)
   const { data: existing } = await supabase
     .from('deal_quotes')
     .select('deal_id')
     .eq('id', quoteId)
     .single()
-  if (existing?.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
+  if (!existing) return { success: false, error: '対象データが見つかりません' }
+  if (existing.deal_id && (await isDealArchived(supabase, existing.deal_id))) {
     return { success: false, error: ARCHIVE_LOCKED_ERROR }
   }
   const { error } = await supabase
     .from('deal_quotes')
     .update({ [field]: cast, updated_at: new Date().toISOString() })
     .eq('id', quoteId)
+    .select('id').single()
   if (error) return { success: false, error: error.message }
   revalidatePath('/deals')
   if (existing?.deal_id) revalidatePath(`/deals/${existing.deal_id}`)
@@ -236,6 +269,8 @@ export async function updateQuoteField(
 ): Promise<{ success: boolean; error?: string }> {
   if (!QUOTE_RECALC_FIELDS.has(field)) return { success: false, error: 'forbidden field' }
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
 
   // Get current quote + variant physics for recalc
   const { data: quote } = await supabase
@@ -250,6 +285,11 @@ export async function updateQuoteField(
   }
 
   const cast = castValue(value)
+  const numericValue = cast == null ? null : Number(cast)
+  if (numericValue != null && (!Number.isFinite(numericValue) || numericValue < 0)) return { success: false, error: '0以上の数値で入力してください' }
+  if (field === 'quantity' && (numericValue == null || !Number.isSafeInteger(numericValue) || numericValue < 1 || numericValue > 2147483647)) return { success: false, error: '数量は1以上の整数で入力してください' }
+  if (['exchange_rate', 'yuan_to_usd_rate', 'cost_ratio'].includes(field) && numericValue != null && numericValue <= 0) return { success: false, error: 'レートは0より大きい値で入力してください' }
+  if (field === 'cost_ratio' && numericValue != null && numericValue > 1) return { success: false, error: '掛け率は1以下で入力してください' }
   const newQuote = { ...quote, [field]: cast }
 
   // Get variant physics if variant_id present
@@ -302,6 +342,7 @@ export async function updateQuoteField(
     sampleCostUsd: Number(newQuote.sample_cost_usd) || 0,
     sampleShippingUsd: Number(newQuote.sample_shipping_usd) || 0,
     otherFeesUsd: Number(newQuote.other_fees_usd) || 0,
+    foodInspectionFeeYuan: Number(newQuote.food_inspection_fee_yuan) || 0,
   })
 
   const { error } = await supabase

@@ -27,7 +27,7 @@ export function MiniPipeline({ dealId, current, interactive = true }: Props) {
     if (!interactive || pending) return
     if (target === current) return
     startTransition(async () => {
-      const r = await updateDealStatus(dealId, target)
+      const r = await updateDealStatus(dealId, target, undefined, current)
       if (r.success) {
         toast(`ステータスを「${SIMPLE_STATUS_CONFIG[target].label}」に変更しました`)
         router.refresh()

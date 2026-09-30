@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess, validateVariantDeal } from './deal-access'
+import { validateQuoteNumbers } from '@/lib/validation/deal-input'
 import { revalidatePath } from 'next/cache'
 import { calculateFullQuote, type FullQuoteResult } from '@/lib/calc/quote-engine'
 
@@ -134,18 +136,20 @@ export async function createQuote(
 
   if (!data.deal_id) return { data: null, error: 'deal_id が必要です' }
   if (!data.variant_id) return { data: null, error: 'variant_id が必要です' }
-  if (!data.quantity || data.quantity <= 0)
-    return { data: null, error: '数量は 1 以上で指定してください' }
-  if (data.factory_unit_price_usd <= 0)
-    return { data: null, error: '工場単価は 0 より大きい値を指定してください' }
+  const validationError = validateQuoteNumbers(data)
+  if (validationError) return { data: null, error: validationError }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  const membershipError = await validateVariantDeal(supabase, data.variant_id, data.deal_id)
+  if (membershipError) return { data: null, error: membershipError }
 
   const defaults = await loadDefaults()
-  const exchange_rate = data.exchange_rate || defaults.exchange_rate
-  const cost_ratio = data.cost_ratio || defaults.cost_ratio
+  const exchange_rate = data.exchange_rate ?? defaults.exchange_rate
+  const cost_ratio = data.cost_ratio ?? defaults.cost_ratio
   const tax_rate = defaults.tax_rate
-  const yuan_to_usd_rate = data.yuan_to_usd_rate || defaults.yuan_to_usd_rate
+  const yuan_to_usd_rate = data.yuan_to_usd_rate ?? defaults.yuan_to_usd_rate
   const china_freight_rate =
-    data.china_freight_rate_yuan_per_kg || defaults.china_freight_rate_yuan_per_kg
+    data.china_freight_rate_yuan_per_kg ?? defaults.china_freight_rate_yuan_per_kg
 
   if (cost_ratio <= 0 || cost_ratio > 1)
     return { data: null, error: '掛け率は 0 < x ≦ 1 で指定してください' }
@@ -180,6 +184,7 @@ export async function createQuote(
     sampleCostUsd: data.sample_cost_usd || 0,
     sampleShippingUsd: data.sample_shipping_usd || 0,
     otherFeesUsd: data.other_fees_usd || 0,
+    foodInspectionFeeYuan: data.food_inspection_fee_yuan || 0,
   })
 
   const { data: existing } = await supabase
@@ -231,7 +236,7 @@ export async function createQuote(
   if (error) return { data: null, error: error.message }
 
   revalidatePath(`/deals/${data.deal_id}`)
-  revalidatePath(`/deals/${data.deal_id}/quote`)
+  revalidatePath(`/deals/${data.deal_id}/quote-builder`)
   return { data: row as QuoteRow, error: null }
 }
 
@@ -239,6 +244,8 @@ export async function deleteQuote(
   quoteId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_quotes')
     .select('deal_id')
@@ -277,36 +284,16 @@ export async function selectQuote(
   quoteId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const { data: existing } = await supabase
-    .from('deal_quotes')
-    .select('deal_id, variant_id, spec_id')
-    .eq('id', quoteId)
-    .single()
-  if (!existing) return { success: false, error: '見積が見つかりません' }
-
-  if (existing.variant_id) {
-    await supabase
-      .from('deal_quotes')
-      .update({ status: 'rejected' })
-      .eq('variant_id', existing.variant_id)
-      .eq('status', 'approved')
-  } else if (existing.spec_id) {
-    await supabase
-      .from('deal_quotes')
-      .update({ status: 'rejected' })
-      .eq('deal_id', existing.deal_id)
-      .eq('spec_id', existing.spec_id)
-      .eq('status', 'approved')
-  }
-
-  const { error } = await supabase
-    .from('deal_quotes')
-    .update({ status: 'approved' })
-    .eq('id', quoteId)
-  if (error) return { success: false, error: error.message }
-
-  revalidatePath(`/deals/${existing.deal_id}`)
-  revalidatePath(`/deals/${existing.deal_id}/quote`)
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
+  const { data, error } = await supabase.rpc('select_quote_atomic', { p_quote_id: quoteId })
+  if (error) return { success: false, error: error.code === 'PGRST202'
+    ? '見積採用のDB準備が必要です。管理者に連絡してください (040)。変更は保存されていません。'
+    : error.message }
+  if (!data?.success || !data?.deal_id) return { success: false, error: '見積の採用を確認できませんでした' }
+  revalidatePath(`/deals/${data.deal_id}`)
+  revalidatePath(`/deals/${data.deal_id}/quote-builder`)
+  revalidatePath('/deals')
   return { success: true }
 }
 
@@ -314,6 +301,8 @@ export async function unselectQuote(
   quoteId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { success: false, error: accessError }
   const { data: existing } = await supabase
     .from('deal_quotes')
     .select('deal_id')

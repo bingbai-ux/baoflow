@@ -5,6 +5,7 @@
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
 
 interface CreateRfqInput {
   dealId: string
@@ -96,7 +97,13 @@ export async function createRfq(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { data: null, error: 'Unauthorized' }
+  if (!user) return { data: null, error: 'ログインしてください' }
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  input = { ...input, productIds: [...new Set(input.productIds)], factoryIds: [...new Set(input.factoryIds)] }
+  const { data: products, error: productError } = await supabase.from('deal_products').select('id').eq('deal_id', input.dealId).in('id', input.productIds)
+  if (productError || products?.length !== input.productIds.length) return { data: null, error: '選択した商品がこの案件に属していません' }
+  if (input.pendingFactories?.some((factory) => !factory.name.trim())) return { data: null, error: '未登録工場の名前を入力してください' }
 
   if (!input.productIds.length) return { data: null, error: '商品を選択してください' }
   const totalFactories =
@@ -106,10 +113,11 @@ export async function createRfq(
 
   // 工場の basic_info_completed チェック (登録済工場のみ)
   if (input.factoryIds.length > 0) {
-    const { data: factories } = await supabase
+    const { data: factories, error: factoryError } = await supabase
       .from('factories')
       .select('id, factory_name, basic_info_completed')
       .in('id', input.factoryIds)
+    if (factoryError || factories?.length !== input.factoryIds.length) return { data: null, error: '選択した工場を取得できませんでした' }
     const incomplete = (factories || []).filter((f) => !f.basic_info_completed)
     if (incomplete.length > 0) {
       return {
@@ -245,6 +253,7 @@ export async function createRfq(
         .eq('id', inv.id)
     }
 
+    if (!efRow) continue
     invitations.push({
       invitationId: inv.id,
       factoryId: null,
@@ -262,7 +271,9 @@ export async function createRfq(
       rfqNumber,
       invitations,
     },
-    error: null,
+    error: invitations.length !== totalFactories
+      ? `RFQは作成されましたが、${totalFactories - invitations.length}件の回答リンクを作成できませんでした。再作成する前に案件の依頼一覧を確認してください。`
+      : null,
   }
 }
 

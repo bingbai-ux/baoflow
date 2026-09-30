@@ -174,7 +174,7 @@ function HistoryTab({ rows }: { rows: StatusHistoryLite[] }) {
                 )}
               </p>
               {h.note && (
-                <p className="text-[10px] text-[#84787D] mt-0.5 italic">"{h.note}"</p>
+                <p className="text-[10px] text-[#84787D] mt-0.5 italic">&quot;{h.note}&quot;</p>
               )}
             </div>
           </li>

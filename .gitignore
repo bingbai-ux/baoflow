@@ -47,3 +47,7 @@ next-env.d.ts
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+# Local verification artifacts
+playwright-report/
+test-results/

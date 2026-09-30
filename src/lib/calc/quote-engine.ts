@@ -36,6 +36,7 @@ export interface FullQuoteInput {
   domesticChinaFreightUsd?: number  // 中国国内送料
   sampleCostUsd?: number
   sampleShippingUsd?: number
+  foodInspectionFeeYuan?: number    // 食品検査費をUSDに換算して原価に含める
   otherFeesUsd?: number             // その他
 }
 
@@ -60,7 +61,8 @@ export function calculateFullQuote(input: FullQuoteInput): FullQuoteResult {
     (input.pantoneColorFeeUsd ?? 0) +
     (input.sampleCostUsd ?? 0) +
     (input.sampleShippingUsd ?? 0) +
-    (input.otherFeesUsd ?? 0)
+    (input.otherFeesUsd ?? 0) +
+    (input.foodInspectionFeeYuan ?? 0) / input.yuanToUsdRate
 
   const cost = calculateQuote({
     factoryUnitPriceUsd: input.factoryUnitPriceUsd,

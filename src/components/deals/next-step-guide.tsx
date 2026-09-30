@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { hasFactoryPrice, hasCarton } from '@/lib/deals/readiness'
 import type { SimpleStatus } from '@/lib/types'
 import { normalizeWaitingOn } from '@/lib/utils/waiting-on'
 
@@ -34,27 +35,27 @@ function buildSteps(
   const w = normalizeWaitingOn(waitingOn)
   switch (status) {
     case 'quoting': {
-      const cartonOk = c.cartonReadyVariants > 0
+      const cartonOk = c.variants > 0 && c.cartonReadyVariants === c.variants
       return {
         title: 'クライアントに見積を出すまで',
         steps: [
           {
             label: `商品仕様を登録する — サイズ・素材・印刷・数量${c.products > 0 ? `(${c.products}商品)` : ''}`,
             done: c.products > 0 && c.variants > 0,
-            href: `/deals?selected=${dealId}`,
-            actionLabel: '一覧のグリッドで登録',
+            href: `/deals/${dealId}?step=2`,
+            actionLabel: '仕様を登録',
           },
           {
-            label: `工場に見積依頼(RFQ)を送る${c.rfqs > 0 ? `(${c.rfqs}件送付済み)` : ''}`,
+            label: `工場に見積依頼(RFQ)を送る${c.rfqs > 0 ? `(${c.rfqs}件作成済み)` : ''}`,
             done: c.rfqs > 0,
-            href: `/deals?selected=${dealId}`,
-            actionLabel: 'パネルの「見積依頼」から',
+            href: `/deals/${dealId}?step=3`,
+            actionLabel: '見積依頼をつくる',
           },
           {
             label: `工場の回答を記録する — 単価$${c.pricedQuotes > 0 ? '✓' : ''} と カートン情報(PCS/CTN・箱サイズ・G.W)${cartonOk ? '✓' : ''}`,
             done: c.pricedQuotes > 0 && cartonOk,
-            href: `/deals?selected=${dealId}`,
-            actionLabel: 'グリッドの価格・物流ビューへ',
+            href: `/deals/${dealId}?step=4`,
+            actionLabel: '回答を記録',
           },
           {
             label: '掛率を決めて「この価格で採用」する(原価は送料込みで確認)',
@@ -101,7 +102,7 @@ function buildSteps(
           {
             label: '最終入稿データ(デザイン)を添付に集める',
             done: false,
-            href: `/deals/${dealId}`,
+            href: `/deals/${dealId}?step=9`,
             actionLabel: '添付を確認',
           },
           {
@@ -180,7 +181,7 @@ export function NextStepGuide({
         {steps.map((s, i) => {
           const isNext = i === nextIdx
           return (
-            <li key={s.label} className="flex items-baseline gap-2 text-[#666C14]">
+            <li key={s.label} className="flex flex-wrap items-baseline gap-2 text-[#666C14]">
               <span className="fc-num flex-shrink-0 w-[16px] font-bold">
                 {s.done ? '✓' : `${i + 1}.`}
               </span>
@@ -226,17 +227,8 @@ export function buildGuideCounts(args: {
   documents: Array<{ document_type?: string | null }>
   rfqs: number
 }): GuideCounts {
-  const priced = args.quotes.filter(
-    (q) => q.quantity != null && q.factory_unit_price_usd != null
-  ).length
-  const cartonReady = args.variants.filter(
-    (v) =>
-      v.pcs_per_carton != null &&
-      v.carton_width_cm != null &&
-      v.carton_height_cm != null &&
-      v.carton_depth_cm != null &&
-      v.gross_weight_kg != null
-  ).length
+  const priced = args.quotes.filter(hasFactoryPrice).length
+  const cartonReady = args.variants.filter(hasCarton).length
   const approved = args.quotes.filter((q) => q.status === 'approved').length
   const quoteDocs = args.documents.filter((d) => d.document_type === 'quotation').length
   const invoiceDocs = args.documents.filter((d) => d.document_type === 'invoice').length

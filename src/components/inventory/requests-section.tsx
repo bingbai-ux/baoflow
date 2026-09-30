@@ -130,7 +130,7 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
               内容OK → 確認済みにする
             </button>
           )}
-          {(r.status === 'confirmed' || (r.status === 'requested' && mode === 'staff')) && (
+          {r.status === 'confirmed' && (
             <button
               type="button"
               onClick={() => run(shipShipmentRequest, '出荷しました(在庫から引き落とし)')}

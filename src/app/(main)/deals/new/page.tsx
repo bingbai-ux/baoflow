@@ -19,7 +19,7 @@ export default async function NewDealPage({ searchParams }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profiles }, { data: clients }, catalog] = await Promise.all([
+  const [{ data: profiles, error: profilesError }, { data: clients, error: clientsError }, catalog] = await Promise.all([
     supabase.from('profiles').select('id, display_name, role').in('role', ['admin', 'sales']).order('display_name'),
     supabase
       .from('clients')
@@ -27,6 +27,8 @@ export default async function NewDealPage({ searchParams }: Props) {
       .order('company_name'),
     listCatalog(),
   ])
+
+  if (profilesError || clientsError) throw new Error('New deal options could not be loaded')
 
   return (
     <>

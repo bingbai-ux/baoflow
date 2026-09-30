@@ -26,7 +26,7 @@ export default async function DealDetailPage({ params }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: deal } = await supabase
+  const { data: deal, error: dealError } = await supabase
     .from('deals')
     .select(
       `
@@ -47,18 +47,19 @@ export default async function DealDetailPage({ params }: Props) {
     .eq('id', id)
     .single()
 
+  if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
   const [
-    { data: products },
-    { data: variantsRaw },
-    { data: quotes },
+    { data: products, error: productsError },
+    { data: variantsRaw, error: variantsError },
+    { data: quotes, error: quotesError },
     designFiles,
     catalog,
-    { data: statusHistory },
-    { data: communications },
-    { data: documents },
-    { count: rfqCount },
+    { data: statusHistory, error: historyError },
+    { data: communications, error: communicationsError },
+    { data: documents, error: documentsError },
+    { count: rfqCount, error: rfqError },
   ] = await Promise.all([
     supabase
       .from('deal_products')
@@ -99,6 +100,8 @@ export default async function DealDetailPage({ params }: Props) {
       .select('id', { count: 'exact', head: true })
       .eq('deal_id', id),
   ])
+
+  if ([productsError, variantsError, quotesError, historyError, communicationsError, documentsError, rfqError].some(Boolean)) throw new Error('Deal workflow data could not be loaded')
 
   // strip the joined deal_products from variants
   const variants = (variantsRaw || []).map((v) => {

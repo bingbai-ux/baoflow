@@ -6,6 +6,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { quoteAdoptionIssue } from '@/lib/deals/readiness'
 import { useRouter } from 'next/navigation'
 import { updateQuoteField } from '@/lib/actions/inline-edit'
 import { selectQuote, unselectQuote } from '@/lib/actions/quotes'
@@ -120,7 +121,8 @@ export function QuoteBuilder({
 
       {variants.length === 0 && dealLevelQuotes.length === 0 && (
         <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
-          商品・バリエーションがまだありません。まず案件に商品を追加してください。
+          商品・バリエーションがまだありません。
+          <Link href={`/deals/${deal.id}?step=2`} className="ml-2 underline text-[#351E28]">商品仕様を登録する →</Link>
         </div>
       )}
 
@@ -220,7 +222,8 @@ export function VariantQuoteTable({
       </div>
       {quotes.length === 0 ? (
         <p className="text-[11.5px] text-[#84787D] font-body px-4 py-3">
-          数量パターンがまだありません。グリッドの「価格」ビューで数量と工場単価を入力すると、ここに並びます。
+          数量パターンがまだありません。
+          <Link href={`/deals/${deal.id}?step=4`} className="ml-2 underline text-[#351E28]">工場回答で数量と単価を追加する →</Link>
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -258,6 +261,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
   const [pending, startTransition] = useTransition()
   const [ratioDraft, setRatioDraft] = useState<string | null>(null)
 
+  const adoptionIssue = quoteAdoptionIssue(q)
   const approvedRow = q.status === 'approved'
   const freight =
     (Number(q.factory_calculated_freight_usd) || 0) +
@@ -268,6 +272,10 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
   const commitRatio = (val: string) => {
     setRatioDraft(null)
     if (val === '' || Number(val) === Number(q.cost_ratio)) return
+    if (!Number.isFinite(Number(val)) || Number(val) <= 0 || Number(val) > 1) {
+      toast('掛率は0より大きく1以下で入力してください', 'warn')
+      return
+    }
     startTransition(async () => {
       const r = await updateQuoteField(q.id, 'cost_ratio', val)
       if (r.success) {
@@ -306,6 +314,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
       <td className="px-3 py-2 text-right fc-num">{num(q.exchange_rate, 2)}</td>
       <td className="px-3 py-2 text-right">
         <input
+          aria-label={`見積v${q.version ?? index + 1}の掛率（原価÷売値）`}
           type="number"
           step="0.01"
           min="0.01"
@@ -336,15 +345,17 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
         <button
           type="button"
           onClick={toggleApprove}
-          disabled={pending}
+          disabled={pending || (!approvedRow && adoptionIssue !== null)}
+          title={!approvedRow ? adoptionIssue ?? undefined : undefined}
           className={`rounded-full text-[10.5px] font-bold px-3 py-1.5 disabled:opacity-50 transition-[filter] hover:brightness-95 ${
             approvedRow
               ? 'bg-white border border-[#E2E1DA] text-[#84787D]'
               : 'bg-[#351E28] text-[#C9A2B8]'
           }`}
         >
-          {pending ? '…' : approvedRow ? '採用を解除' : 'この価格で採用'}
+          {pending ? '更新中…' : approvedRow ? '採用を解除' : 'この価格で採用'}
         </button>
+        {!approvedRow && adoptionIssue && <p className="mt-1 max-w-[200px] whitespace-normal text-[11px] text-[#84787D]">{adoptionIssue}</p>}
       </td>
     </tr>
   )

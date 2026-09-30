@@ -8,8 +8,9 @@
 // ステップの実行者: ● 自分 / ▲ 工場 / ◯ クライアント
 // 完了判定は実データ(商品数・RFQ数・単価・カートン・採用・帳票・ステータス)から。
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { hasFactoryPrice, hasCarton, hasFactoryReplies } from '@/lib/deals/readiness'
 import { useRouter } from 'next/navigation'
 import { InlineCell } from '@/components/deals/inline-cell'
 import {
@@ -125,17 +126,9 @@ export function DealFlow({
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
-  const pricedQuotes = quotes.filter(
-    (q) => q.quantity != null && q.factory_unit_price_usd != null
-  ).length
-  const cartonReady = variants.filter(
-    (v) =>
-      v.pcs_per_carton != null &&
-      v.carton_width_cm != null &&
-      v.carton_height_cm != null &&
-      v.carton_depth_cm != null &&
-      v.gross_weight_kg != null
-  ).length
+  const pricedQuotes = quotes.filter(hasFactoryPrice).length
+  const cartonReady = variants.filter(hasCarton).length
+  const factoryReady = hasFactoryReplies(variants, quotes)
   const approvedQuotes = quotes.filter((q) => q.status === 'approved')
   const quoteDocs = documents.filter((d) => d.document_type === 'quotation')
   const invoiceDocs = documents.filter((d) => d.document_type === 'invoice')
@@ -152,8 +145,8 @@ export function DealFlow({
     true, // 1 案件作成
     products.length > 0 && variants.length > 0, // 2 仕様
     rfqCount > 0 || statusIdx >= 1, // 3 RFQ
-    (pricedQuotes > 0 && cartonReady > 0) || statusIdx >= 1, // 4 工場回答
-    (pricedQuotes > 0 && cartonReady > 0) || statusIdx >= 1, // 5 原価(自動)
+    factoryReady || statusIdx >= 1, // 4 工場回答
+    factoryReady || statusIdx >= 1, // 5 原価(自動)
     approvedQuotes.length > 0 || statusIdx >= 1, // 6 売値
     statusIdx >= 1, // 7 見積書→承認
     statusIdx >= 2, // 8 請求書→入金
@@ -166,7 +159,11 @@ export function DealFlow({
   const currentIdx = doneList.findIndex((d) => !d)
 
   // Sprint 14: 上=横パイプライン / 下=選んだステップの詳細
-  const [selected, setSelected] = useState<number>(currentIdx)
+  const [selected, setSelected] = useState<number | null>(null)
+  useEffect(() => {
+    const requested = Number(new URLSearchParams(window.location.search).get('step'))
+    if (Number.isInteger(requested) && requested >= 1 && requested <= 13) setSelected(requested - 1)
+  }, [deal.id])
 
   const steps: Array<{
     title: string
@@ -203,7 +200,7 @@ export function DealFlow({
     {
       title: '工場へ見積依頼(RFQ)を送る',
       actor: 'us',
-      summary: rfqCount > 0 ? `${rfqCount}件 送付済み` : 'まだ送っていません',
+      summary: rfqCount > 0 ? `${rfqCount}件 作成済み` : 'まだ作成していません',
       body: <StepRfq deal={deal} products={products} rfqCount={rfqCount} />,
     },
     {
@@ -300,13 +297,17 @@ export function DealFlow({
     '案件', '仕様', 'RFQ', '工場回答', '原価', '売値', '見積書',
     '請求・入金', '入稿データ', '製作', '輸送', '到着・入庫', '完了',
   ]
-  const sel = Math.min(selected, steps.length - 1)
+  const sel = Math.min(selected ?? currentIdx, steps.length - 1)
   const step = steps[sel]
   const selDone = doneList[sel]
   const selCurrent = sel === currentIdx
 
   return (
     <div className="pb-8">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[12.5px] text-[#351E28]">次の作業: {SHORT_LABELS[currentIdx]}。ステップの選択だけではステータスは変わりません。</p>
+        <button type="button" onClick={() => setSelected(null)} className="rounded-full border border-[#E2E1DA] bg-white px-4 py-2 text-[12px] font-bold text-[#351E28]">次の作業を開く</button>
+      </div>
       {/* 横パイプライン (過去=Cool Blue / 現在=Wasabi / 未来=Line) */}
       <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3 mb-3 overflow-x-auto">
         <div className="flex items-start min-w-[900px]">
@@ -327,6 +328,9 @@ export function DealFlow({
                 <button
                   type="button"
                   onClick={() => setSelected(i)}
+                  aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-pressed={isSelected}
                   className={`relative z-10 fc-num w-[28px] h-[28px] rounded-full flex items-center justify-center text-[11.5px] font-extrabold transition-shadow ${
                     done
                       ? 'bg-[#D7EFFF] text-[#33566F]'
@@ -340,6 +344,9 @@ export function DealFlow({
                 <button
                   type="button"
                   onClick={() => setSelected(i)}
+                  aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-pressed={isSelected}
                   className={`mt-1 text-[10px] leading-tight whitespace-nowrap ${
                     isSelected ? 'font-extrabold text-[#351E28]' : done ? 'text-[#84787D]' : isCurrent ? 'font-bold text-[#666C14]' : 'text-[#84787D]'
                   }`}
@@ -381,7 +388,7 @@ export function DealFlow({
         <div className="px-5 py-2.5 border-t border-[#EFEFEA] flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setSelected((i) => Math.max(0, i - 1))}
+            onClick={() => setSelected(Math.max(0, sel - 1))}
             disabled={sel === 0}
             className="rounded-full bg-white border border-[#E2E1DA] text-[#84787D] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30"
           >
@@ -389,7 +396,7 @@ export function DealFlow({
           </button>
           <button
             type="button"
-            onClick={() => setSelected((i) => Math.min(steps.length - 1, i + 1))}
+            onClick={() => setSelected(Math.min(steps.length - 1, sel + 1))}
             disabled={sel === steps.length - 1}
             className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30 hover:brightness-95"
           >
@@ -433,6 +440,7 @@ function UtilitySection({ title, children }: { title: string; children: React.Re
 /** ステータスを進めるボタン(dark ピル。今のステップの主ボタンのみ Wasabi) */
 function AdvanceButton({
   dealId,
+  expected,
   to,
   label,
   primary = false,
@@ -440,6 +448,7 @@ function AdvanceButton({
 }: {
   dealId: string
   to: SimpleStatus
+  expected: SimpleStatus
   label: string
   primary?: boolean
   disabled?: boolean
@@ -449,7 +458,7 @@ function AdvanceButton({
   const [pending, startTransition] = useTransition()
   const run = () =>
     startTransition(async () => {
-      const r = await updateDealStatus(dealId, to)
+      const r = await updateDealStatus(dealId, to, undefined, expected)
       if (r.success) {
         toast(`ステータスを「${SIMPLE_STATUS_CONFIG[to].label}」に進めました`)
         router.refresh()
@@ -722,11 +731,12 @@ function StepRfq({
         </button>
         {rfqCount > 0 && (
           <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[11px] font-bold px-2.5 py-1">
-            {rfqCount}件 送付済み
+            {rfqCount}件 作成済み
           </span>
         )}
         <BallButton dealId={deal.id} to="factory" label="送った → ボールを工場待ちに" />
       </div>
+      <Hint>RFQの作成だけでは工場への送信は完了しません。作成した依頼を工場に共有し、送信後に「工場待ち」に切り替えてください。</Hint>
       {modalOpen && (
         <RfqCreateModal
           dealId={deal.id}
@@ -807,7 +817,11 @@ function VariantReplyCard({
   const saveQuote = (quoteId: string, field: string) => async (val: string) =>
     updateQuoteField(quoteId, field, val || null)
 
-  const addPattern = () =>
+  const addPattern = () => {
+    if (!hasFactoryPrice({ quantity: Number(qty), factory_unit_price_usd: Number(price) })) {
+      toast('数量は正の整数、工場単価は0より大きい数を入力してください', 'warn')
+      return
+    }
     startTransition(async () => {
       const r = await createQuote({
         deal_id: deal.id,
@@ -823,6 +837,7 @@ function VariantReplyCard({
         router.refresh()
       }
     })
+  }
 
   return (
     <div className="rounded-[12px] border border-[#E2E1DA]">
@@ -916,6 +931,9 @@ function VariantReplyCard({
       <div className="px-3 py-2 border-t border-[#EFEFEA] flex items-center gap-2 flex-wrap">
         <input
           type="number"
+          aria-label="追加する見積の数量"
+          min="1"
+          step="1"
           value={qty}
           onChange={(e) => setQty(e.target.value)}
           placeholder="数量"
@@ -924,6 +942,8 @@ function VariantReplyCard({
         <input
           type="number"
           step="0.001"
+          aria-label="追加する見積の工場単価（米ドル）"
+          min="0.001"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           placeholder="工場単価$"
@@ -1112,7 +1132,7 @@ function StepQuoteDoc({
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx < 1 && (
-          <AdvanceButton dealId={deal.id} to="quote_confirmed" label="承認された → 見積確定へ" primary />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="quote_confirmed" label="承認された → 見積確定へ" primary />
         )}
       </div>
       <Hint>
@@ -1146,9 +1166,10 @@ function StepInvoice({
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx === 1 && (
-          <AdvanceButton dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" primary />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" primary />
         )}
       </div>
+      {modalOpen && <DocumentModal dealId={deal.id} initialType="invoice" onClose={() => setModalOpen(false)} />}
     </div>
   )
 }
@@ -1176,6 +1197,7 @@ function StepDataCheck({
         <BallButton dealId={deal.id} to="client" label="データ待ち → クライアント待ちに" />
         {statusIdx === 2 && (
           <AdvanceButton
+            expected={deal.simple_status}
             dealId={deal.id}
             to="data_confirmed"
             label="最終確認できた → 入稿データ確認完了へ"
@@ -1195,7 +1217,7 @@ function StepProduction({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
       {statusIdx === 3 && (
-        <AdvanceButton dealId={deal.id} to="in_production" label="製作開始を指示した → 製作中へ" primary />
+        <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="in_production" label="製作開始を指示した → 製作中へ" primary />
       )}
       <BallButton dealId={deal.id} to="factory" label="ボールを工場待ちに" />
       <span className="text-[11px] text-[#84787D] font-body">
@@ -1209,7 +1231,7 @@ function StepShipping({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number }
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
       {statusIdx === 4 && (
-        <AdvanceButton dealId={deal.id} to="shipped" label="工場が発送した → 工場発送完了へ" primary />
+        <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="shipped" label="工場が発送した → 工場発送完了へ" primary />
       )}
       <Link
         href={`/inventory?tab=inbound&deal=${deal.id}`}
@@ -1238,7 +1260,7 @@ function StepArrival({ deal, statusIdx }: { deal: FlowDeal; statusIdx: number })
           この案件の入庫予定・入庫を記録 →
         </Link>
         {statusIdx === 5 && (
-          <AdvanceButton dealId={deal.id} to="delivered" label="納品できた → 納品完了へ" primary />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="delivered" label="納品できた → 納品完了へ" primary />
         )}
       </div>
     </div>
@@ -1267,6 +1289,9 @@ function StepDone({ deal }: { deal: FlowDeal }) {
       }
     })
 
+  if (deal.simple_status !== 'delivered') {
+    return <Hint>納品を確認して「納品完了」に進めてから、完了としてアーカイブできます。</Hint>
+  }
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
       <RepeatDealButton dealId={deal.id} dealName={deal.deal_name} />

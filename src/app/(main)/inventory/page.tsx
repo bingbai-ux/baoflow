@@ -20,7 +20,7 @@ export default async function InventoryPage({ searchParams }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ items }, { data: clients }, { data: deals }, inb, reqs, out] = await Promise.all([
+  const [stock, { data: clients, error: clientsError }, { data: deals, error: dealsError }, inb, reqs, out] = await Promise.all([
     listInventory(),
     supabase.from('clients').select('id, company_name, short_name, storage_rate_config').order('company_name'),
     supabase
@@ -33,6 +33,9 @@ export default async function InventoryPage({ searchParams }: Props) {
     listShipmentRequests(),
     listOutboundHistory(),
   ])
+
+  if ([stock.error, clientsError, dealsError, inb.error, reqs.error, out.error].some(Boolean)) throw new Error('Inventory data could not be loaded')
+  const { items } = stock
 
   const valid: InventoryTab[] = ['stock', 'inbound', 'requests', 'shipping', 'fees']
   const initialTab = valid.includes(params.tab as InventoryTab)

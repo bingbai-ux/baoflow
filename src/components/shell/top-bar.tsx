@@ -29,32 +29,38 @@ export function TopBar() {
   const meta = getMeta(pathname)
 
   return (
-    <div className="h-[52px] px-5 flex items-center gap-3.5 border-b border-[#E2E1DA] bg-[#EFEFEA] flex-shrink-0">
-      <div className="font-display text-[17px] font-semibold tracking-tight text-[#351E28]">
+    <div className="no-print min-h-[52px] px-3 sm:px-5 py-1 flex flex-wrap items-center gap-2 lg:gap-3.5 border-b border-[#E2E1DA] bg-[#EFEFEA] flex-shrink-0">
+      <div className="w-full sm:w-auto font-display text-[17px] font-semibold tracking-tight text-[#351E28]">
         {meta.title}
       </div>
-      <div className="text-[11px] text-[#84787D] ml-2">{meta.sub}</div>
+      <div className="hidden xl:block text-[11px] text-[#84787D] ml-2">{meta.sub}</div>
 
       <div className="flex-1" />
 
       <button
         onClick={openCmdk}
-        className="flex items-center gap-2 px-3.5 py-1.5 border border-[#E2E1DA] rounded-full bg-white text-[#84787D] text-[12px] hover:border-[#351E28] transition-colors min-w-[280px]"
+        aria-label="案件・取引先・書類を検索"
+        type="button"
+        className="min-h-[44px] flex items-center gap-2 px-3.5 py-1.5 border border-[#E2E1DA] rounded-full bg-white text-[#84787D] text-[12px] hover:border-[#351E28] transition-colors lg:min-w-[240px]"
         title="検索 (⌘K)"
       >
         <Search className="w-3.5 h-3.5" />
-        <span>案件・取引先・書類を検索</span>
-        <span className="ml-auto text-[10px] text-[#84787D] bg-[#FBFAF6] border border-[#E2E1DA] rounded-full px-1.5 py-0.5">
+        <span className="hidden lg:inline">案件・取引先・書類を検索</span>
+        <span className="hidden lg:inline ml-auto text-[10px] text-[#84787D] bg-[#FBFAF6] border border-[#E2E1DA] rounded-full px-1.5 py-0.5">
           ⌘K
         </span>
       </button>
 
-      <div className="flex border border-[#E2E1DA] rounded-full overflow-hidden bg-white">
+      <div role="group" aria-label="金額の表示通貨"
+        className="flex border border-[#E2E1DA] rounded-full overflow-hidden bg-white">
         {(['JPY', 'USD', 'BOTH'] as const).map((c) => (
           <button
             key={c}
+            type="button"
+            aria-pressed={ccy === c}
+            aria-label={c === "BOTH" ? "円と米ドルを表示" : c === "JPY" ? "円で表示" : "米ドルで表示"}
             onClick={() => setCcy(c)}
-            className={`px-3 py-1.5 text-[11px] font-display font-semibold transition-colors ${
+            className={`min-h-[44px] px-2 sm:px-3 py-1.5 text-[11px] font-display font-semibold transition-colors ${
               ccy === c ? 'bg-[#351E28] text-[#C9A2B8]' : 'bg-transparent text-[#84787D] hover:text-[#351E28]'
             }`}
           >
@@ -65,7 +71,9 @@ export function TopBar() {
 
       <button
         onClick={toggleNotif}
-        className="relative w-[34px] h-[34px] rounded-full border border-[#E2E1DA] bg-white flex items-center justify-center hover:border-[#351E28] transition-colors"
+        type="button"
+        aria-label="通知を開く"
+        className="relative w-[44px] h-[44px] rounded-full border border-[#E2E1DA] bg-white flex items-center justify-center hover:border-[#351E28] transition-colors"
         title="通知"
       >
         <Bell className="w-4 h-4 text-[#351E28]" />

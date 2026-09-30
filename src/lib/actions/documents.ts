@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
 import { revalidatePath } from 'next/cache'
 
 export type DocumentType = 'quotation' | 'invoice' | 'delivery_note' | 'rfq' | 'inventory_cert'
@@ -29,21 +30,23 @@ async function nextDocumentNumber(supabase: Awaited<ReturnType<typeof createClie
   const ym = new Date().toISOString().slice(0, 7).replace('-', '') // YYYYMM
   const startsWith = `${prefix}-${ym}-`
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('documents')
     .select('document_number')
     .eq('document_type', type)
     .like('document_number', `${startsWith}%`)
-    .order('document_number', { ascending: false })
-    .limit(1)
 
-  let next = 1
-  if (data && data.length > 0 && data[0].document_number) {
-    const tail = data[0].document_number.split('-').pop()
-    const n = Number(tail)
-    if (Number.isFinite(n)) next = n + 1
-  }
+
+  if (error) throw new Error('帳票番号を取得できませんでした')
+  const existing = (data || []).map(row => Number(row.document_number?.slice(startsWith.length))).filter(Number.isSafeInteger)
+  const next = Math.max(0, ...existing) + 1
   return `${startsWith}${String(next).padStart(3, '0')}`
+}
+
+async function reserveDocumentNumber(supabase: Awaited<ReturnType<typeof createClient>>, type: DocumentType) {
+  const { data, error } = await supabase.rpc('reserve_document_number', { p_type: type })
+  if (error || typeof data !== 'string') return { number: null, error: '帳票番号を確保できませんでした。採番migrationの適用状態を確認してください' }
+  return { number: data, error: null }
 }
 
 export async function issueDocument(input: {
@@ -57,7 +60,21 @@ export async function issueDocument(input: {
   } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Unauthorized' }
 
-  const number = await nextDocumentNumber(supabase, input.document_type)
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  const bundle = await fetchDocumentBundle(input.deal_id)
+  if (bundle.error || !bundle.data) return { data: null, error: bundle.error || '帳票データを取得できませんでした' }
+  const quotes = bundle.data.quotes as Array<{ status: string; quantity: number; total_billing_jpy: number }>
+  const approved = quotes.filter(q => q.status === 'approved')
+  if (input.document_type !== 'rfq' && (!approved.length || approved.some(q => !Number.isInteger(Number(q.quantity)) || Number(q.quantity) <= 0 || q.total_billing_jpy == null || !Number.isFinite(Number(q.total_billing_jpy)) || Number(q.total_billing_jpy) < 0)))
+    return { data: null, error: '有効な数量・金額の採用見積を登録してから発行してください' }
+  if (input.document_type === 'rfq' && !(bundle.data.variants as unknown[]).length)
+    return { data: null, error: '商品仕様を登録してからRFQを発行してください' }
+  const { deal, specs, products, variants, fees, company, banks } = bundle.data
+  const snapshot = { deal, specs, products, variants, quotes, fees, company, banks }
+  const reservation = await reserveDocumentNumber(supabase, input.document_type)
+  if (reservation.error || !reservation.number) return { data: null, error: reservation.error }
+  const number = reservation.number
 
   const { data, error } = await supabase
     .from('documents')
@@ -66,7 +83,7 @@ export async function issueDocument(input: {
       document_type: input.document_type,
       document_number: number,
       version: 1,
-      metadata: input.metadata || null,
+      metadata: { ...input.metadata, snapshot_version: 1, snapshot },
       issued_at: new Date().toISOString(),
       issued_by_user_id: user.id,
     })
@@ -94,7 +111,11 @@ export async function issueStandaloneDocument(input: {
   } = await supabase.auth.getUser()
   if (!user) return { number: null, error: 'Unauthorized' }
 
-  const number = await nextDocumentNumber(supabase, input.document_type)
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { number: null, error: accessError }
+  const reservation = await reserveDocumentNumber(supabase, input.document_type)
+  if (reservation.error || !reservation.number) return { number: null, error: reservation.error }
+  const number = reservation.number
   const { error } = await supabase.from('documents').insert({
     deal_id: null,
     document_type: input.document_type,
@@ -134,14 +155,14 @@ export async function fetchDocumentBundle(
   if (!user) return { data: null, error: 'Unauthorized' }
 
   const [
-    { data: deal },
-    { data: specs },
-    { data: products },
-    { data: variantsRaw },
-    { data: quotes },
-    { data: fees },
+    { data: deal, error: dealError },
+    { data: specs, error: specsError },
+    { data: products, error: productsError },
+    { data: variantsRaw, error: variantsError },
+    { data: quotes, error: quotesError },
+    { data: fees, error: feesError },
     docs,
-    { data: settings },
+    { data: settings, error: settingsError },
     nextQuotation,
     nextInvoice,
     nextDelivery,
@@ -172,7 +193,7 @@ export async function fetchDocumentBundle(
     supabase
       .from('deal_quotes')
       .select(
-        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, cost_ratio'
+        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status'
       )
       .eq('deal_id', dealId)
       .order('version', { ascending: false }),
@@ -189,6 +210,7 @@ export async function fetchDocumentBundle(
     nextDocumentNumber(supabase, 'rfq'),
   ])
 
+  if ([dealError, specsError, productsError, variantsError, quotesError, feesError, settingsError].some(Boolean)) return { data: null, error: '帳票データの取得に失敗しました。再読み込みしてください' }
   if (!deal) return { data: null, error: '案件が見つかりません' }
 
   const variants = (variantsRaw || []).map((v) => {
