@@ -44,3 +44,7 @@
 最小の一度の確認は **上表の権限変更＋既存backupの読取確認（追加料金ゼロ）**。既存backupがない場合にローカルfallbackまで今回一度で許可するなら、保存先・個人情報/hash含むscope・鍵入力・保管期限・localhost一時復元/削除を上記のまま明示する。クラウド新project/PITR購入/外部メール/6件補完は含めない。
 
 切替はwriter停止→backup確認/必要backup取得→SQL/hash/履歴/集計再確認→承認された権限変更と038〜050→tested SHAの公開→readonly smoke→writer再開。再開前の失敗はwriterを止めたまま復元可否を判断。再開後は取引喪失を避けrollforward優先、全DB restoreは実際の喪失範囲を提示して別確認する。
+
+## 最終追加差分
+
+051顧客自社請求SELECT/PDFだけ追加アクセス拡大を確認待ち。staff発行/送信/履歴読取は既承認範囲。旧storage_billing direct writerはコードにないため既存画面停止なし。Storage policyは既存supautils policy_grantsで管理可能。supabase_admin将来表default ACLだけ変更不能で扱いを確認待ち。Vercel ProjectはSupabase2変数だけ、Shared linkedなし。RESEND_API_KEY/RFQ_MAIL_FROM未設定。既存検証済みsenderと既存keyのProduction設定が必要。秘密取得/新key/外部送信なし。最新対象39テスト・全取引実DB/browser・RFQ復帰browser・build合格。専用localhost環境停止/volume削除済み。

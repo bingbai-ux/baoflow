@@ -1,6 +1,6 @@
 # 10月1日朝の受入記録（ローカル合格・本番保留）
 
-公開URL候補 `https://baoflow.vercel.app`。本番公開は未実行。最終tested SHAは追加範囲の検証後に確定する。以前の代表実Auth/PostgREST/Postgresの案件→仕様→RFQ→回答→採用→帳票→発注→入庫→出荷→納品PASSは、現在の追加差分全体の合格と混同しない。
+公開URL候補 `https://baoflow.vercel.app`。本番公開は未実行。最終ローカル検証は完了。SHAはこの記録を含むcommit履歴を参照。以前の代表実Auth/PostgREST/Postgresの案件→仕様→RFQ→回答→採用→帳票→発注→入庫→出荷→納品PASSは、現在の追加差分全体の合格と混同しない。
 
 ## 本番バックアップを画面で確認
 
@@ -52,3 +52,5 @@ Storage所有者はsupabase_storage_adminだが、既存supautils policy_grants�
 
 staffログイン→案件作成→仕様/数量→RFQ→登録工場回答/未登録の明示取込→採用→請求/発注→物流入庫/検収→在庫→保管料の確定量/契約根拠→請求書発行→PDFの量/金額/期間/期限→送付先確認→顧客ポータル自社請求閲覧→顧客出荷依頼→staff確認→物流出荷/納品。
 朝の確認で実取引先へのメール送信は、宛先と内容をユーザー自身が確定するまで行わない。旧6件は各案件に内容入り仕様候補1件ずつがあるが、見積spec_id/variant_id・商品階層・見積source_file・仕様existing_quote_file・RFQ回答・帳票snapshotはいずれもない。仕様が採用時の正本かを確認できず、推測補完せず未解決を維持。手動確認の最小scopeは6件それぞれの採用元見積と当時の仕様/数量/工場の一致、採用時の変更履歴、今後の発注に使う商品/variantの根拠。ID/名前/価格/原文は本記録へコピーしていない。
+
+検証後、専用localhost Supabaseを stop --no-backup で停止。project名によるDocker container/volume一覧がともに0件であることを確認し、合成dataを専用volumeごと削除した。重い検証プロセスも残存なし。
