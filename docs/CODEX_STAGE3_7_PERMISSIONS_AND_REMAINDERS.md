@@ -58,3 +58,6 @@
 
 ## Stage10（追加表なし・本番未適用）
 営業/管理者の訂正版preview、同請求reissue、期限切れlink更新、明示依頼の同版再送、銀行実施済み返金記録。新RPCは認証＋staff限定、匿名/顧客/工場/物流拒否。顧客は既存自社packet RLSの範囲で旧版/取消版をreadonly閲覧・状態付きPDF取得。内部payment family/totalsは一般ロールのEXECUTE剥奪。返金/再送の事実は既存request履歴に追記、31表の既存role範囲を広げない。Stage10 release gateとrollback注意参照。着金済みの金額変更/相殺は別扱いで未実装。
+
+## Stage11（表数・既存role範囲は不変）
+新RPC preview_client_price_reissueだけを追加（authenticated EXECUTE＋内部営業/管理者必須、PUBLIC/anon不可）。既存finance commandで発注前の再価格提示/顧客の新価格と着金配賦再承認/請求差替を追加。自社顧客のrespond_quoteに引継ぎ確認を保存。工場/物流/他社には追加操作なし。既存staff summaryの読取項目とclient contextのcurrent_priceを追加。新表0、既存31表のGRANT/RLS/Storage追加0。新migrationと新業務操作の審査/適用は未承認のまま。発送済み/発注済みの再契約・実返金送金は行わない。

@@ -831,3 +831,6 @@ shipment_mail_receipts: id UUID, plan_id UUID, event_key text UNIQUE, payload JS
 client_document_packets.snapshot に payment_origin_packet_ids / replaces_packet_id / reissue_kind を保存。
 client_finance_requests.operation は record_refund / reserve_document_resend / finish_document_resend を追加し、payload の packet_id / amount_jpy / refunded_on / bank_reference / reason / mail_payload / attempt_id と result の refund_jpy / net_jpy / previous_attempt_id / status / provider_id を使用。銀行事実・再送予約は既存の不変リクエスト履歴へ追記。
 同じUUIDの再送予約は初回だけ claimed=true、再実行は claimed=false。外部送信を再実行する根拠に保存済みresultを使わない。
+
+## Stage11 再価格承認候補（本番未適用）
+新表/カラムなし。client_document_packets.snapshot に reprices_invoice_id / payment_carry_jpy を追加し、reissue_kind=customer_reapproved_price の新請求へ既存系列のpayment_origin_packet_idsを保存。client_finance_requests.operation=reissue_priced_invoice、payloadのapproval_packet_id / payment_allocation_confirmedを使用。respond_quoteのpayloadにpayment_carry_confirmed、publish_documentにreprice_invoice_id / reprice_confirmed / reasonを追加。staff_client_finance_summaryに document_type/status/current_price/decision/upfront_jpy を既存データから投影。client_finance_contextにcurrent_priceを投影する。元の着金・旧版・顧客回答は更新/削除しない。

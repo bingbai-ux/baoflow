@@ -7,6 +7,7 @@ import { PortalShell } from '@/components/external/portal-shell'
 import { portalFactoryRfqs } from '@/lib/actions/portal-data'
 import { listFactoryOrders } from '@/lib/actions/factory-orders'
 import Link from 'next/link'
+import {SearchableCollection} from '@/components/ui/searchable-collection'
 
 function fmt(d: string | null): string {
   if (!d) return '—'
@@ -71,12 +72,11 @@ export default async function FactoryHome() {
                   No open requests. / 目前没有待回复的询价。
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {open.map((r) => (
-                    <div key={r.invitation_id} className="bg-white rounded-[16px] border-[1.5px] border-[#E9F056] px-4 py-3">
+                <SearchableCollection label="RFQ番号・依頼内容で検索 / 搜索询价" empty={<p>現在回答待ちの依頼はありません。</p>} rows={open.map((r,i) => ({id:r.invitation_id,text:`${r.rfq_number||''} ${r.request_message||''}`,content:
+                    <div key={r.invitation_id} className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3">
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <span className="fc-num text-[12px] font-bold text-[#351E28]">{r.rfq_number || 'RFQ'}</span>
-                        <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">
+                        <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">
                           NEW / 待回复
                         </span>
                         <span className="text-[11px] text-[#84787D] fc-num">
@@ -96,7 +96,7 @@ export default async function FactoryHome() {
                         {r.form_token && r.form_status === 'pending' ? (
                           <a
                             href={`/external/${r.form_token}`}
-                            className="inline-flex items-center min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 no-underline hover:brightness-95"
+                            className={`inline-flex items-center min-h-[44px] rounded-full border border-[#E2E1DA] ${i===0?'bg-[#E9F056] text-[#666C14]':'bg-white'} text-[12px] font-bold px-4 py-2 no-underline hover:brightness-95`}
                           >
                             Submit quotation / 提交报价 →
                           </a>
@@ -107,21 +107,20 @@ export default async function FactoryHome() {
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  }))}/>
               )}
             </section>
 
             <section className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
               <h2 className="text-[14px] font-bold mb-2">Purchase orders / 工厂订单</h2>
-              {purchaseOrders.error ? <p className="text-[12px] text-[#B03616]">Orders could not be loaded. / 订单暂时无法加载。</p> : purchaseOrders.orders.length === 0 ? <p className="text-[12px] text-[#84787D]">No purchase orders yet. / 暂无订单。</p> : purchaseOrders.orders.map((order) => (
+              {purchaseOrders.error ? <p className="text-[12px] text-[#B03616]">Orders could not be loaded. / 订单暂时无法加载。</p> : purchaseOrders.orders.length === 0 ? <p className="text-[12px] text-[#84787D]">No purchase orders yet. / 暂无订单。</p> : <SearchableCollection label="発注番号・商品で検索 / 搜索订单" empty={<p>発注はありません。</p>} categories={[{value:'ordered',label:'有効 / 有效'},{value:'cancelled',label:'取消 / 取消'}]} rows={purchaseOrders.orders.map((order) => ({id:order.id,text:`${order.order_no} ${order.snapshot.item_name||''}`,category:order.status,content:
                 <div key={order.id} className="py-3 border-b border-[#E2E1DA] last:border-b-0 text-[12.5px]">
                   <p className="font-bold">{order.order_no} · {order.snapshot.item_name || 'Product'}</p>
                   <p>{order.quantity.toLocaleString()} pcs · USD {Number(order.unit_price_usd).toFixed(4)} / pc · {order.status === 'ordered' ? 'Ordered / 已下单' : 'Cancelled / 已取消'}</p>
                   {order.expected_delivery_date && <p className="text-[11px] text-[#84787D]">Expected delivery / 预计交货: {fmt(order.expected_delivery_date)}</p>}
-                  <Link href={`/factory/orders/${order.id}`} className="min-h-11 inline-flex items-center underline">最終条件・着金・製造開始を確認 / 确认条件及生产</Link>
+                  {order.status==='ordered'?<Link href={`/factory/orders/${order.id}`} className="min-h-11 inline-flex items-center underline">最終条件・着金・製造開始を確認 / 确认条件及生产</Link>:<p>取消済みです。新しい発注条件はBAO担当へ確認してください。 / 已取消，请联系BAO。</p>}
                 </div>
-              ))}
+              }))}/>}
             </section>
             {done.length > 0 && (
               <details className="bg-[#FBFAF6] rounded-[16px] border border-[#E2E1DA]">

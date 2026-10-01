@@ -1,3 +1,4 @@
+import {financeNextAction,type FinanceEvidence} from '@/lib/deals/finance-next-action'
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -109,6 +110,10 @@ export default async function DealDetailPage({ params }: Props) {
 
   if ([productsError, variantsError, quotesError, historyError, communicationsError, documentsError, rfqError].some(Boolean)) throw new Error('Deal workflow data could not be loaded')
 
+  const finance=await supabase.rpc('staff_client_finance_summary',{p_deal_id:id})
+  if(finance.error)throw new Error('Financial workflow facts could not be loaded')
+  const financeHold=financeNextAction((finance.data||[]) as FinanceEvidence[])
+
   // strip the joined deal_products from variants
   const variants = (variantsRaw || []).map((v) => {
     const { deal_products: _omit, ...rest } = v as Record<string, unknown>
@@ -170,11 +175,14 @@ export default async function DealDetailPage({ params }: Props) {
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">担当</dt><dd className="font-bold">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
       </dl>
 
-      <Link href={`/deals/${id}/samples`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3">サンプル手配・未請求費用を確認</Link>
-      <Link href={`/deals/${id}/settlement`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3 ml-4">顧客承認・実着金を確認</Link>
-      <Link href={`/deals/${id}/shipping`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3 ml-4">発送・物流・顧客受領を確認</Link>
-      <Link href={`/deals/${id}/production`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3 ml-4">工場条件・支払・製造開始を確認</Link>
+      <details className="mb-3"><summary className="inline-flex min-h-11 items-center cursor-pointer underline text-[12px]">業務台帳を開く</summary><nav aria-label="案件の業務台帳" className="flex flex-wrap gap-x-4">
+      <Link href={`/deals/${id}/samples`} className="inline-flex min-h-11 items-center underline text-[13px] ">サンプル手配・未請求費用を確認</Link>
+      <Link href={`/deals/${id}/settlement`} className="inline-flex min-h-11 items-center underline text-[13px] ">顧客承認・実着金を確認</Link>
+      <Link href={`/deals/${id}/shipping`} className="inline-flex min-h-11 items-center underline text-[13px] ">発送・物流・顧客受領を確認</Link>
+      <Link href={`/deals/${id}/production`} className="inline-flex min-h-11 items-center underline text-[13px] ">工場条件・支払・製造開始を確認</Link>
+      </nav></details>
       <DealFlow
+        financeHold={financeHold}
         deal={flowDeal as never}
         products={(products || []) as never}
         catalog={catalog}

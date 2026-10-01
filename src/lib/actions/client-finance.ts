@@ -28,6 +28,11 @@ export async function previewClientReissue(packetId:string,documentId:string){
  const {data,error}=await db.rpc('preview_client_reissue',{p_packet_id:packetId,p_document_id:documentId})
  return error||!data?{error:'同じ請求の訂正版だけ発行できます。金額・支払条件・期限を維持し、未確認の入金申告を先に確認してください'}:{preview:data as Record<string,unknown>}
 }
+export async function previewClientPriceReissue(packetId:string,documentId:string,approvalPacketId:string){
+ const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied}
+ const {data,error}=await db.rpc('preview_client_price_reissue',{p_packet_id:packetId,p_document_id:documentId,p_approval_packet_id:approvalPacketId})
+ return error||!data?{error:'発注前の再承認済み見積と新しい請求書が必要です。着金の引継ぎ額が変わった場合は再承認し、過剰な着金は先に実施済み返金を確認してください'}:{preview:data as Record<string,unknown>}
+}
 
 export async function previewClientDocumentResend(packetId:string){
  const r=await clientDocumentMail(packetId);if(r.error)return {error:r.error}
@@ -62,7 +67,7 @@ async function clientDocumentMail(packetId:string){
  if(customer.error||links.error||receipt.error||!from||!to||!base||!link||!process.env.RESEND_API_KEY)return {error:'登録顧客メール・送信元・アプリURL・有効リンク・メール設定を確認してください。未送信です'}
  const url=new URL(`/portal/documents/${packetId}`,base);if(url.protocol!=='https:'&&!['127.0.0.1','localhost'].includes(url.hostname))return {error:'安全なアプリURLを確認してください。未送信です'};url.searchParams.set('token',link.token)
  const s=p.snapshot as PublicDocumentSnapshot,pdf=await clientDocumentPDF(s),kind=s.type==='quotation'?'見積書':'請求書'
- const payload={from,to,token:link.token,subject:`${kind} ${s.number}`,body:`${s.customer_name} 御中\n${kind}を添付します。税込金額 ¥${Number(s.total).toLocaleString('ja-JP')}${s.payment_conditions?`\n支払条件 ${s.payment_conditions.mode==='full_prepaid'?'全額前払い':s.payment_conditions.mode==='half_prepaid'?'半金前払い':'後払い'} / 発注前 ¥${Number(s.payment_conditions.upfront_jpy).toLocaleString('ja-JP')} / 発送前累計 ¥${Number(s.payment_conditions.shipment_required_jpy).toLocaleString('ja-JP')} / 残金 ${s.payment_conditions.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}`:''}${s.due_date?`\n支払期限 ${s.due_date}`:''}\n内容の確認・${s.type==='quotation'?'回答':'振込後の入金申告'}は自社アカウントでログインしてください。\n${url}\nリンク有効期限 ${link.expires_at}\n期限切れの場合はポータルの帳票一覧をご利用ください。`,attachment:`${s.number}.pdf`,pdf_sha256:createHash('sha256').update(pdf).digest('hex')}
+ const payload={from,to,token:link.token,subject:`${kind} ${s.number}`,body:`${s.customer_name} 御中\n${kind}を添付します。税込金額 ¥${Number(s.total).toLocaleString('ja-JP')}${s.payment_conditions?`\n支払条件 ${s.payment_conditions.mode==='full_prepaid'?'全額前払い':s.payment_conditions.mode==='half_prepaid'?'半金前払い':'後払い'} / 発注前 ¥${Number(s.payment_conditions.upfront_jpy).toLocaleString('ja-JP')} / 発送前累計 ¥${Number(s.payment_conditions.shipment_required_jpy).toLocaleString('ja-JP')} / 残金 ${s.payment_conditions.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}`:''}${s.reprices_invoice_id?`\n請求差替・引継ぐ差引着金 ¥${Number(s.payment_carry_jpy||0).toLocaleString('ja-JP')} / 差替時点の未収 ¥${Math.max(0,Number(s.total)-Number(s.payment_carry_jpy||0)).toLocaleString('ja-JP')}（現在の入金状況はポータルで確認）`:''}${s.due_date?`\n支払期限 ${s.due_date}`:''}\n内容の確認・${s.type==='quotation'?'回答':'振込後の入金申告'}は自社アカウントでログインしてください。\n${url}\nリンク有効期限 ${link.expires_at}\n期限切れの場合はポータルの帳票一覧をご利用ください。`,attachment:`${s.number}.pdf`,pdf_sha256:createHash('sha256').update(pdf).digest('hex')}
  return {payload,pdf,status:receipt.data?.status||null,fingerprint:createHash('sha256').update(JSON.stringify(payload)).digest('hex')}
 }
 export async function previewClientDocumentMail(packetId:string){const r=await clientDocumentMail(packetId);return r.error?{error:r.error}:{preview:{...r.payload!,fingerprint:r.fingerprint!,status:r.status}}}

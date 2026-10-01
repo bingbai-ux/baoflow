@@ -14,7 +14,7 @@ export async function clientDocumentPDF(s:PublicDocumentSnapshot,status:string|n
  const money=(v:string)=>`¥${Number(v).toLocaleString('ja-JP')}`
  if(status==='superseded'||status==='cancelled')line(`${status==='cancelled'?'取消済み':'旧版'}・支払や承認には使用しないでください`,13);
  line(s.type==='quotation'?'見積書':'請求書',21);line(`No. ${s.number}`);line(`発行日 ${s.issued_at.slice(0,10)}`);line(`${s.customer_name} 御中`,15);line(s.deal_name)
- line(`税込金額 ${money(s.total)}`,18);if(s.payment_conditions){const t=s.payment_conditions;line(`支払条件 ${t.mode==='full_prepaid'?'全額前払い':t.mode==='half_prepaid'?'半金前払い':'後払い'}`);line(`発注前 ${money(t.upfront_jpy)} / 発送前累計 ${money(t.shipment_required_jpy)}`);line(`残金は${t.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}（半金の円端数は前払側）`)}if(s.due_date)line(`支払期限 ${s.due_date}`)
+ line(`税込金額 ${money(s.total)}`,18);if(s.reprices_invoice_id){line(`請求差替・引継ぐ差引着金 ${money(s.payment_carry_jpy||'0')}`);line(`差替時点の未収 ${money(String(Math.max(0,Number(s.total)-Number(s.payment_carry_jpy||0))))} / 現在の入金状況はポータルで確認`)}if(s.payment_conditions){const t=s.payment_conditions;line(`支払条件 ${t.mode==='full_prepaid'?'全額前払い':t.mode==='half_prepaid'?'半金前払い':'後払い'}`);line(`発注前 ${money(t.upfront_jpy)} / 発送前累計 ${money(t.shipment_required_jpy)}`);line(`残金は${t.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}（半金の円端数は前払側）`)}if(s.due_date)line(`支払期限 ${s.due_date}`)
  for(const l of s.lines){line(`${l.name} / ${l.variant}`);line(`${l.quantity}個 × ${money(l.unit_jpy)}（税抜単価） / 税込 ${money(l.gross)}`)}
  line(`保存済み税抜小計 ${money(s.subtotal)} / 消費税 ${money(s.tax)} / 合計 ${money(s.total)}`)
  if(s.notes)line(s.notes)
