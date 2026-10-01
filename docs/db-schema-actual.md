@@ -758,3 +758,18 @@
 `document_id` uuid PK/FK documents、`actor_id` uuid not null FK profiles、`attempt_id` uuid not null unique、`status` text not null（attempting/accepted/unknown/rejected）、`provider_message_id` text nullable、`started_at` timestamptz not null、`finished_at` timestamptz nullable。staff SELECTのみ、直接書込撤回。staff限定 `issue_storage_invoice` / `claim_storage_invoice_email` / `finish_storage_invoice_email` は原子的発行・永久送信予約・同actor結果確定を担う。051 SQLを正典とし、既存取引の推測補完はしない。
 
 本番反映：2026-09-30、038〜051 sourceをworkflow_release_038_051/version20260930150639で一括適用。052は内部8RPCのanon個別EXECUTE撤回のみ。受入記録/本番migration履歴を照合する。将来internal owner table default ACLは変更していない。
+
+## 未適用ローカル候補：sample_ledger_v1（20261001111822）
+
+本番schemaではない。新導線はmigration承認/適用後だけ公開する。既存deal_samples/deal_sample_summaryは変更しない。
+
+- sample_rounds: id, deal_id, product_id, variant_id, factory_id, round_number, quantity, due_date, note, status, created_by, created_at。
+- sample_estimates: id, round_id, kind, carrier, amount, currency, basis, created_by, created_at。概算だけを保持し請求対象外。
+- sample_costs: id, round_id, kind, carrier, estimate, amount, currency, fx, customer_charge_jpy, basis, confirmed_by, confirmed_at, voided_at, void_reason。
+- sample_payments: id, round_id, amount, currency, paid_on, reference, created_by, created_at。
+- sample_invoices: id, deal_id, document_number, snapshot, status, previous_invoice_id, cancellation_reason, cancelled_at, created_by, created_at。
+- sample_invoice_lines: id, invoice_id, cost_id, released_at。有効割当cost_idに部分unique。
+- sample_requests: id, created_by, deal_id, operation, payload, result, created_at。本人staff SELECTのみ。
+- sample_mail_receipts: invoice_id, attempt_id, created_by, payload, status, provider_id, created_at, finished_at。
+
+全表RLS、authenticated SELECT/staff限定、直接write/TRUNCATEなし。型・nullable・check・FKの正本は候補migration。preview_sample_invoice、sample_command、claim_sample_email、finish_sample_emailはstaff専用RPC。

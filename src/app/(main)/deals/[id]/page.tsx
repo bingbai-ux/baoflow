@@ -170,6 +170,7 @@ export default async function DealDetailPage({ params }: Props) {
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">担当</dt><dd className="font-bold">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
       </dl>
 
+      <Link href={`/deals/${id}/samples`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3">サンプル手配・未請求費用を確認</Link>
       <DealFlow
         deal={flowDeal as never}
         products={(products || []) as never}

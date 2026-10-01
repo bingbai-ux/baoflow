@@ -1,6 +1,6 @@
 # サンプル独立手配・後日まとめ請求：実装契約
 
-2026-10-01。実装前設計。基点0d9af18。最新確定要件はCODEX_CASE_FLOW_REQUIREMENTS_20261001.md。既存deal_samples/deal_sample_summaryは閲覧保持し、推測移行しない。本書は機能完成・本番権限承認を示さない。
+2026-10-01。設計契約。基点0d9af18。ローカル実装・対象受入はCODEX_SAMPLE_LEDGER_RELEASE_GATE.md参照。最新確定要件はCODEX_CASE_FLOW_REQUIREMENTS_20261001.md。既存deal_samples/deal_sample_summaryは閲覧保持し、推測移行しない。本書は機能完成・本番権限承認を示さない。
 
 ## 確認した既存実装の不足
 

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 
-export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision'
+export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger'
 /** Read only the current staff user's saved transaction result, never another actor's request. */
 export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
   const supabase = await createClient()
@@ -13,6 +13,11 @@ export async function recoverWorkflowRequest(operation: RecoverableOperation, re
   if (!user) return { actorId: null, result: null, error: 'ログインしてください' }
   if (!requestId) return { actorId: user.id, result: null, error: null }
   if (!/^[0-9a-f-]{36}$/i.test(requestId)) return { actorId: user.id, result: null, error: '保存要求IDが無効です' }
+  if(operation==='sample_ledger'){
+    const {data,error}=await supabase.from('sample_requests').select('deal_id,result').eq('id',requestId).eq('created_by',user.id).maybeSingle()
+    if(data&&data.deal_id!==dealId)return {actorId:user.id,result:null,error:'サンプルの案件が一致しません'}
+    return {actorId:user.id,result:data?.result as Record<string,unknown>|null,error:error?'前回のサンプル保存を確認できません':null}
+  }
   if (operation === 'pricing_revision') {
     const {data,error}=await supabase.from('quote_pricing_requests').select('quote_id,deal_id').eq('request_id',requestId).eq('created_by',user.id).maybeSingle()
     if(data && data.deal_id!==dealId)return {actorId:user.id,result:null,error:'見積の案件が一致しません'}
