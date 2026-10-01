@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { PortalShell } from '@/components/external/portal-shell'
 import { portalFactoryRfqs } from '@/lib/actions/portal-data'
 import { listFactoryOrders } from '@/lib/actions/factory-orders'
+import Link from 'next/link'
 
 function fmt(d: string | null): string {
   if (!d) return '—'
@@ -118,6 +119,7 @@ export default async function FactoryHome() {
                   <p className="font-bold">{order.order_no} · {order.snapshot.item_name || 'Product'}</p>
                   <p>{order.quantity.toLocaleString()} pcs · USD {Number(order.unit_price_usd).toFixed(4)} / pc · {order.status === 'ordered' ? 'Ordered / 已下单' : 'Cancelled / 已取消'}</p>
                   {order.expected_delivery_date && <p className="text-[11px] text-[#84787D]">Expected delivery / 预计交货: {fmt(order.expected_delivery_date)}</p>}
+                  <Link href={`/factory/orders/${order.id}`} className="min-h-11 inline-flex items-center underline">最終条件・着金・製造開始を確認 / 确认条件及生产</Link>
                 </div>
               ))}
             </section>

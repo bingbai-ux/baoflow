@@ -172,6 +172,7 @@ export default async function DealDetailPage({ params }: Props) {
 
       <Link href={`/deals/${id}/samples`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3">サンプル手配・未請求費用を確認</Link>
       <Link href={`/deals/${id}/settlement`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3 ml-4">顧客承認・実着金を確認</Link>
+      <Link href={`/deals/${id}/production`} className="inline-flex min-h-11 items-center underline text-[13px] mb-3 ml-4">工場条件・支払・製造開始を確認</Link>
       <DealFlow
         deal={flowDeal as never}
         products={(products || []) as never}

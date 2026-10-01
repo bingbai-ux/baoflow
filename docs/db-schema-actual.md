@@ -786,3 +786,15 @@
 - client_document_mail_receipts: packet_id、attempt_id、payload、status、created_by、provider_id、created_at/finished_at。
 
 全表RLS、直接write/TRUNCATEなし。顧客SELECTは自社packet・自分のreport/requestだけ。顧客context RPCはclient本人の自社有効版のみ。公開token単独では認証不可。顧客回答/申告とstaff実着金/工程反映を別commandにする。issued documentsの未来snapshotには既存deals.client_idを含める（legacy補完なし）。
+
+### 第5段 工場最終条件・支払記録・着金確認（ローカル候補）
+
+`20261001130755_factory_production_v1.sql`が型/FK/checkの正本。本番未適用。
+- factory_final_terms: id/order_id/version、total_usd numeric(20,4)、payment_mode、upfront_usd numeric(20,4)、balance_due、lead_days、bank_snapshot（factories.bank_info原文/更新日時/source/factory_id）、note、created_by/created_at。
+- factory_terms_agreements: order_id PK、terms_id、bank_evidence、note、approved_by/approved_at。staff SELECTのみ。factory contextでは同意版ID/時刻だけ返す。
+- factory_transfer_reports: id/order_id/terms_id、amount_usd numeric(20,4)、sent_on、reference unique、created_by/created_at。
+- factory_bank_acknowledgments: id/report_id/order_id、amount_usd numeric(20,4)、received_on、bank_reference、created_by/created_at。order_id+bank_reference unique。
+- factory_production_starts: order_id PK、terms_id、started_on、expected_completion_on、note、created_by/created_at。
+- factory_workflow_requests: id、order_id、created_by、operation、payload、result、created_at。本人staff/本人自社factory操作のSELECTのみ。
+
+全表immutable/RLS/直接write・TRUNCATEなし。staffとfactory自社に限定（agreement内部照合情報はstaffのみ）。factory_order_context、factory_workflow_commandはauthenticated EXECUTE/実行時roleとfactory_id照合、anon/PUBLICなし。既存PO銀行情報を推測補完しない。既存USD PO総額の変更は新採用見積/発注へ戻し、支払条件で原価を無言変更しない。
