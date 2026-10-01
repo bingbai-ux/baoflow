@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 
-export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice'
+export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision'
 /** Read only the current staff user's saved transaction result, never another actor's request. */
 export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
   const supabase = await createClient()
@@ -13,6 +13,11 @@ export async function recoverWorkflowRequest(operation: RecoverableOperation, re
   if (!user) return { actorId: null, result: null, error: 'ログインしてください' }
   if (!requestId) return { actorId: user.id, result: null, error: null }
   if (!/^[0-9a-f-]{36}$/i.test(requestId)) return { actorId: user.id, result: null, error: '保存要求IDが無効です' }
+  if (operation === 'pricing_revision') {
+    const {data,error}=await supabase.from('quote_pricing_requests').select('quote_id,deal_id').eq('request_id',requestId).eq('created_by',user.id).maybeSingle()
+    if(data && data.deal_id!==dealId)return {actorId:user.id,result:null,error:'見積の案件が一致しません'}
+    return {actorId:user.id,result:data as Record<string,unknown>|null,error:error?'前回の価格保存を確認できません':null}
+  }
   if (operation === 'storage_invoice') {
     const {data,error}=await supabase.from('storage_billing').select('id,invoice_document_id,snapshot').eq('request_id',requestId).eq('created_by',user.id).maybeSingle()
     return {actorId:user.id,result:data as Record<string,unknown>|null,error:error?'前回の保管請求発行を確認できません':null}

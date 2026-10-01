@@ -1,0 +1,37 @@
+import { test, expect } from '@playwright/test'
+const deal='/deals/33333333-3333-4333-8333-333333333333'
+const jwt=[{alg:'HS256',typ:'JWT'},{sub:'11111111-1111-4111-8111-111111111111',exp:4102444800,iat:1700000000,role:'authenticated'},'fixture'].map(x=>typeof x==='string'?x:Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')
+test.beforeEach(async({context,request})=>{
+ await context.route('**/*',route=>{const host=new URL(route.request().url()).hostname;return ['127.0.0.1','localhost'].includes(host)?route.continue():route.abort()})
+ await request.post('http://127.0.0.1:55440/__reset')
+ const session={access_token:jwt,refresh_token:'local-fixture-refresh',expires_at:4102444800,expires_in:3600,token_type:'bearer',user:{id:'11111111-1111-4111-8111-111111111111',role:'authenticated',email:'local@example.test'}}
+ await context.addCookies([{name:'sb-127-auth-token',value:'base64-'+Buffer.from(JSON.stringify(session)).toString('base64url'),domain:'127.0.0.1',path:'/'}])
+})
+test('lost successful price-save response restores the same revision after reload without storing form data',async({page,request})=>{
+ await page.goto(deal+'/quote-builder');const source='66666666-6666-4666-8666-666666666666';await page.locator(`[data-quote-id="${source}"]`).getByRole('button',{name:'価格を改訂して確認',exact:true}).click();const dialog=page.getByRole('dialog',{name:'価格改訂の確認',exact:true})
+ await dialog.getByLabel('消費税率（%・0も明示）',{exact:true}).fill('10');await dialog.getByLabel('確認した取得元・根拠',{exact:true}).fill('Synthetic reload reference');await dialog.getByLabel('基準日時（タイムゾーン付ISO）',{exact:true}).fill('2026-09-30T00:00:00Z');await dialog.getByLabel('レート・根拠・基準日時を確認しました',{exact:true}).check()
+ for(const name of ['版代','色指定費','中国国内送料','国際送料','その他費用']){await dialog.getByLabel(name+'の総額',{exact:true}).fill('0');await dialog.getByLabel(name+'を確認',{exact:true}).check()}
+ await dialog.getByRole('button',{name:'価格・費目を確認',exact:true}).click();await expect(dialog).toContainText('DB確認済み')
+ let resolve!:()=>void;const lost=new Promise<void>(r=>resolve=r)
+ await page.route('**/*',async route=>{if(route.request().method()==='POST'&&route.request().headers()['next-action']){await route.fetch();await route.abort('failed');resolve()}else await route.fallback()})
+ await dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true}).click();await lost;await page.unroute('**/*')
+ const key=`baoflow-request:v1:11111111-1111-4111-8111-111111111111:pricing/${deal.split('/').pop()}/${source}`
+ const pending=await page.evaluate(k=>JSON.parse(sessionStorage.getItem(k)!),key);expect(Object.keys(pending).sort()).toEqual(['id','signature'])
+ await page.reload();await page.locator(`[data-quote-id="${source}"]`).getByRole('button',{name:'価格を改訂して確認',exact:true}).click();await expect(page.getByRole('dialog',{name:'価格改訂の確認',exact:true})).toContainText('前回の価格版を保存済みです')
+ const state=await(await request.get('http://127.0.0.1:55440/__state')).json();expect(state.deal_quotes).toHaveLength(2);expect(state.quote_pricing_requests).toHaveLength(1)
+})
+test('manual FX and every cost must be confirmed; selling unit preview saves a separate price version once',async({page,request})=>{
+ const base=(await(await request.get('http://127.0.0.1:55440/__state')).json()).deal_quotes[0]
+ await page.goto(deal+'/quote-builder');await page.getByRole('button',{name:'価格を改訂して確認',exact:true}).click();const dialog=page.getByRole('dialog',{name:'価格改訂の確認',exact:true})
+ await expect(dialog.getByRole('button',{name:'価格・費目を確認',exact:true})).toBeDisabled()
+ await dialog.getByRole('combobox',{name:'入力する価格',exact:true}).selectOption('selling_price');await dialog.getByLabel('税抜売単価（円・整数）',{exact:true}).fill('37');await dialog.getByLabel('消費税率（%・0も明示）',{exact:true}).fill('10')
+ await dialog.getByLabel('確認した取得元・根拠',{exact:true}).fill('Synthetic manually confirmed reference');await dialog.getByLabel('基準日時（タイムゾーン付ISO）',{exact:true}).fill('2026-09-30T00:00:00Z');await dialog.getByLabel('レート・根拠・基準日時を確認しました',{exact:true}).check()
+ for(const name of ['版代','色指定費','中国国内送料','国際送料','その他費用']){await dialog.getByLabel(name+'の総額',{exact:true}).fill(name==='国際送料'?'20':'0');await dialog.getByLabel(name+'を確認',{exact:true}).check()}
+ await expect(dialog).toContainText('税込 ¥40,700');await dialog.getByRole('button',{name:'価格・費目を確認',exact:true}).click();await expect(dialog).toContainText('DB確認済み')
+ await dialog.getByLabel('税抜売単価（円・整数）',{exact:true}).fill('38');await expect(dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true})).toHaveCount(0);await dialog.getByLabel('税抜売単価（円・整数）',{exact:true}).fill('37');await dialog.getByRole('button',{name:'価格・費目を確認',exact:true}).click();await expect(dialog).toContainText('DB確認済み')
+ await page.setViewportSize({width:390,height:900});await dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true}).scrollIntoViewIfNeeded();expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await expect(dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true})).toBeInViewport();await page.screenshot({path:'tmp/quote-stage3/pricing-confirm-390.png'})
+ await request.post('http://127.0.0.1:55440/__fail',{data:{table:'save_quote_pricing_v2'}});await dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('保存結果を確認できません');await expect(dialog.getByLabel('税抜売単価（円・整数）',{exact:true})).toBeDisabled()
+ await dialog.getByRole('button',{name:'この内容で新しい価格版を保存',exact:true}).click();await expect(dialog).not.toBeVisible()
+ const after=(await(await request.get('http://127.0.0.1:55440/__state')).json());expect(after.deal_quotes).toHaveLength(2);expect(after.deal_quotes[0]).toEqual(base);expect(after.deal_quotes[1].selling_price_jpy).toBe(37);expect(after.deal_quotes[1].sample_cost_usd).toBe(0);expect(after.quote_pricing_requests).toHaveLength(1)
+ await page.reload();await expect(page.getByRole('button',{name:'価格を改訂して確認',exact:true})).toHaveCount(2)
+})

@@ -12,6 +12,7 @@ import { updateQuoteField } from '@/lib/actions/inline-edit'
 import { selectQuote, unselectQuote } from '@/lib/actions/quotes'
 import { useUi } from '@/components/ui/ui-store'
 import { formatJPY } from '@/lib/utils/format'
+import {PricingRevisionEditor} from './pricing-revision-editor'
 
 export interface DealHead {
   id: string
@@ -59,6 +60,7 @@ export interface BuilderQuote {
   factory_id?: string | null
   factory?: { factory_name: string } | null
   factory_response?: { line?: Record<string, unknown> } | null
+  pricing_snapshot?: Record<string,unknown>|null
 }
 
 const num = (v: number | null | undefined, digits = 0) =>
@@ -278,6 +280,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
   const [ratioDraft, setRatioDraft] = useState<string | null>(null)
+  const [editingPrice,setEditingPrice]=useState(false)
 
   const adoptionIssue = quoteAdoptionIssue(q)
   const approvedRow = q.status === 'approved'
@@ -315,7 +318,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
   }
 
   return (
-    <tr className={`grid grid-cols-2 md:table-row gap-y-2 p-3 md:p-0 border-b border-[#EFEFEA] last:border-b-0 ${approvedRow ? 'bg-[rgba(233,240,86,0.28)]' : index % 2 ? 'bg-[#FBFAF6]' : 'bg-white'}`}>
+    <tr data-quote-id={q.id} className={`grid grid-cols-2 md:table-row gap-y-2 p-3 md:p-0 border-b border-[#EFEFEA] last:border-b-0 ${approvedRow ? 'bg-[rgba(233,240,86,0.28)]' : index % 2 ? 'bg-[#FBFAF6]' : 'bg-white'}`}>
       <td className="col-span-2 md:table-cell px-3 py-2 whitespace-nowrap">
         <span className="text-[10.5px] text-[#84787D] fc-num">v{q.version ?? '—'}</span>
         {q.factory_id && <span className="block text-[10px] text-[#84787D]">{q.factory?.factory_name || '工場回答'}</span>}
@@ -337,7 +340,8 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
           step="0.01"
           min="0.01"
           max="1"
-          disabled={pending}
+          disabled={pending||!!q.pricing_snapshot}
+          title={q.pricing_snapshot?'保存版の掛率は固定です。「価格を改訂して確認」から新しい版を作成してください':undefined}
           value={ratioDraft ?? (q.cost_ratio == null ? '' : String(q.cost_ratio))}
           onChange={(e) => setRatioDraft(e.target.value)}
           onBlur={(e) => commitRatio(e.target.value)}
@@ -363,6 +367,8 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
         {margin == null ? '—' : `${margin.toFixed(1)}%`}
       </td>
       <td className="col-span-2 md:table-cell px-3 py-2 text-right whitespace-nowrap">
+        {q.variant_id&&<button type="button" className="block min-h-11 mb-2 rounded-full border border-[#E2E1DA] px-3 font-bold" onClick={()=>setEditingPrice(true)}>価格を改訂して確認</button>}
+        {editingPrice&&<PricingRevisionEditor quote={q} dealId={deal.id} onClose={()=>setEditingPrice(false)}/>}
         {q.factory_response && !q.total_cost_usd && <button type="button" disabled={pending} className="block mb-1 rounded-full border border-[#351E28] px-3 py-1.5 text-[11px]" onClick={() => startTransition(async () => {
           const r = await updateQuoteField(q.id, 'quantity', String(q.quantity))
           if (r.success) { toast('工場回答のカートン条件から原価・売値を計算しました'); router.refresh() }
@@ -389,11 +395,15 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
 
 function QuoteBreakdown({quote:q}:{quote:BuilderQuote}) {
   const line=q.factory_response?.line
+  const fx=q.pricing_snapshot?.fx as {rate?:string;reference?:string;as_of?:string}|undefined
+  const ledger=q.pricing_snapshot?.cost_lines as Array<{key:string;name:string;amount:string;currency:string}>|undefined
   const value=(key:string,unit:string)=>line?.[key]!=null?`${String(line[key])} ${unit}`:'未回答'
   const fees:[string,number|null][]=[['版代',q.plate_fee_usd],['色指定費',q.pantone_color_fee_usd],['中国国内送料',q.domestic_china_freight_usd],['算定送料',q.china_freight_usd],['工場提示送料',q.factory_calculated_freight_usd],['サンプル製作費（旧保存値）',q.sample_cost_usd],['サンプル送料（旧保存値）',q.sample_shipping_usd],['その他費用（旧一括値）',q.other_fees_usd]]
   return <details className="mt-2 whitespace-normal text-[12px] max-w-[340px]"><summary className="min-h-11 cursor-pointer font-bold">回答条件・費用内訳</summary><div className="space-y-2 py-2">
     <p>梱包: {value('pcs_per_carton','個/CTN')} · {value('carton_w_cm','cm')} × {value('carton_h_cm','cm')} × {value('carton_d_cm','cm')}</p><p>重量: {value('gross_weight_kg','kg/CTN')} · 工場製造納期: {value('production_lead_days','日')}（輸送日数を含みません）</p>
     <dl>{fees.map(([name,n])=><div key={name} className="flex justify-between gap-3"><dt>{name}</dt><dd className="fc-num">{n==null?'未登録':`${num(n,2)} USD`}</dd></div>)}</dl><p>工場提示送料は算定送料と別記録です。包含・重複を確認せず両方を合算しません。表の算定送料は国内送料を含まない保存値です。</p>
-    <p>為替: {q.exchange_rate==null?'未登録':`${num(q.exchange_rate,4)} JPY/USD（保存値）`}。取得元・取得時刻はこの旧見積では未記録です。</p><p>送料の適用料金表・有効日・税／DDP・追加料金・輸送日数は要確認。保存額を確定見積とは扱わず、見積発行前に確認してください。</p><p>売単価は円切上げ。その他費用の明細化・サンプル独立請求・改訂版の最新為替固定は後続実装で、ここでは既存値を再分類しません。</p>
+    {fx?<p>手入力確認FX: {fx.rate} JPY/USD · 基準 {fx.as_of} · 根拠 {fx.reference}（最新自動取得なし）</p>:<p>為替: {q.exchange_rate==null?'未登録':`${num(q.exchange_rate,4)} JPY/USD（保存値）`}。取得元・取得時刻はこの旧見積では未記録です。</p>}
+    {ledger&&<div><p className="font-bold">保存した費目明細（上の集計に含む・再加算しません）</p>{ledger.map(l=><p key={l.key}>{l.name}: {l.amount} {l.currency} / この数量の総額</p>)}</div>}
+    <p>送料の適用料金表・有効日・税／DDP・追加料金・輸送日数は要確認。保存額を確定見積とは扱わず、見積発行前に確認してください。</p><p>売単価は円切上げ。サンプル独立手配・後日請求は別工程です。ここでは既存値を再分類しません。</p>
   </div></details>
 }

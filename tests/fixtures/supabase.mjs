@@ -1,6 +1,8 @@
 // Local-only PostgREST/Auth fixture. Contains synthetic data and accepts no external URLs.
 import http from 'node:http'
 import { randomUUID } from 'node:crypto'
+import {tsImport} from 'tsx/esm/api'
+const {calculatePricingRevision}=await tsImport('../../src/lib/calc/pricing-revision.ts',import.meta.url)
 export const IDs={user:'11111111-1111-4111-8111-111111111111',client:'22222222-2222-4222-8222-222222222222',deal:'33333333-3333-4333-8333-333333333333',product:'44444444-4444-4444-8444-444444444444',variant:'55555555-5555-4555-8555-555555555555',quote:'66666666-6666-4666-8666-666666666666'}
 const now='2026-09-30T00:00:00Z'
 const user={id:IDs.user,aud:'authenticated',role:'authenticated',email:'local@example.test',app_metadata:{},user_metadata:{},created_at:now}
@@ -27,6 +29,18 @@ const server=http.createServer(async(req,res)=>{
  const table=url.pathname.split('/').pop()
  if(failure===table){failure=null;send({code:'XX000',message:'Local simulated database failure'},500);return}
  if(url.pathname.includes('/rpc/')){
+  if(table==='preview_quote_pricing_v2'||table==='save_quote_pricing_v2'){
+   try{
+    if(!['sales','admin'].includes(db.profiles[0].role))throw Error('Sales or administrator access required')
+    const q=db.deal_quotes.find(q=>q.id===input.p_quote_id);if(!q?.variant_id)throw Error('Specification binding required')
+    const snapshot={schema_version:1,source_quote_id:q.id,deal_id:q.deal_id,variant_id:q.variant_id,factory_id:q.factory_id||null,quantity:q.quantity,factory_unit_price_usd:String(q.factory_unit_price_usd),factory_response:q.factory_response||null,mode:input.p_input.mode,input_value:String(input.p_input.value),fx:{kind:'manual_confirmed',rate:String(input.p_input.fx.rate),reference:input.p_input.fx.reference,as_of:input.p_input.fx.as_of},tax_rate:String(input.p_input.tax_rate),cost_lines:input.p_input.cost_lines,...calculatePricingRevision(q.quantity,q.factory_unit_price_usd,input.p_input),sample_costs_included:false}
+    if(table==='preview_quote_pricing_v2'){send(snapshot);return}
+    db.quote_pricing_requests||=[];const payload=JSON.stringify(input),saved=db.quote_pricing_requests.find(r=>r.request_id===input.p_request_id)
+    if(saved){if(saved.payload!==payload)throw Error('different input');send({quote_id:saved.quote_id,deal_id:q.deal_id});return}
+    if(JSON.stringify(snapshot)!==JSON.stringify(input.p_expected))throw Error('Preview changed')
+    const id=randomUUID(),next={...q,id,version:Math.max(...db.deal_quotes.filter(x=>x.deal_id===q.deal_id).map(x=>x.version||0))+1,status:'drafting',source_type:'pricing_revision',pricing_snapshot:snapshot,...calculatePricingRevision(q.quantity,q.factory_unit_price_usd,input.p_input),exchange_rate:input.p_input.fx.rate,sample_cost_usd:0,sample_shipping_usd:0};db.deal_quotes.push(next);db.quote_pricing_requests.push({request_id:input.p_request_id,created_by:IDs.user,deal_id:q.deal_id,payload,quote_id:id});send({quote_id:id,deal_id:q.deal_id});return
+   }catch(e){send({code:'P0001',message:e.message},400);return}
+  }
   // Synthetic contract for browser wiring only. Transaction/RLS correctness is
   // separately tested against in-memory Postgres in verify-wizard-atomic.mjs.
   if(table==='wizard_atomic') {

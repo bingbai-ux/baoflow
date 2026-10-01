@@ -74,6 +74,9 @@ export async function issueDocument(input: {
   })
   if (error || !data) return { data: null, error: error?.message.includes('different input')
     ? 'この依頼IDは既に発行済みです。内容が変わっているため、発行履歴を確認してください'
+    : error?.message.includes('Legacy separate fees') ? '旧別途費用と新価格版の費目が未整理です。二重請求を避けるため発行を停止しました。担当者が配賦を確認してください'
+    : error?.message.includes('manual FX') || error?.message.includes('Revise all') ? '発行時の手入力FXと全採用価格版を確認してください。変更があれば価格を改訂してPDFを再確認してください'
+    : error?.message.includes('snapshot changed') ? '価格版が変更されています。再読込して採用版とPDFを確認してください'
     : '帳票を発行できませんでした。同じ内容で再試行してください' }
 
   revalidatePath(`/deals/${input.deal_id}`)
@@ -170,7 +173,7 @@ export async function fetchDocumentBundle(
     supabase
       .from('deal_quotes')
       .select(
-        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status'
+        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, pricing_snapshot'
       )
       .eq('deal_id', dealId)
       .order('version', { ascending: false }),
