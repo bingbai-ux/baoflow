@@ -1,0 +1,4 @@
+import Link from 'next/link'
+import {createClient} from '@/lib/supabase/server'
+import {PortalShell} from '@/components/external/portal-shell'
+export default async function Page(){const db=await createClient(),{data,error}=await db.rpc('my_shipment_orders');const orders=(data||[]) as {id:string;number:string;item_name:string;quantity:number}[];return <PortalShell title="配送一覧" loginPath="/portal/login" userLabel={null}><Link href="/portal" className="inline-flex min-h-11 items-center underline">ホームへ戻る</Link><h1 className="text-[21px] font-extrabold my-3">配送一覧</h1>{error?<p role="alert">配送履歴を取得できません。再読込してください。</p>:orders.length?<ul className="space-y-3">{orders.map(o=><li key={o.id} className="rounded-card border border-[#E2E1DA] p-4"><Link className="min-h-11 inline-flex items-center underline" href={`/portal/shipments/${o.id}`}>{o.number} / {o.item_name} / {o.quantity}個を確認</Link></li>)}</ul>:<p>対象の発送計画はありません。営業が担当・納品先を確認すると表示されます。</p>}</PortalShell>}

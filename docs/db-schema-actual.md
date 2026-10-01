@@ -810,3 +810,14 @@
 全表immutable/RLS/直接write・TRUNCATEなし、staffと自社factoryのみ。factory_qc_context/commandはauthenticated実行時scopeチェック、匿名/PUBLICなし。新private bucket factory-qc（PNG/JPEG/MP4、50MiB以下、order UUID/asset UUIDの保存先）。factory自社・製造開始済みのINSERTだけ、staff/factory自社SELECT、UPDATE/DELETEなし。画像/動画閲覧はauth/RLS/ファイルhash照合後の60秒署名URL。既存public deal-imagesを変更しない。
 
 localhostで実確認したstorage.objects列はid UUID、bucket_id/name text、owner UUID、created_at/updated_at/last_accessed_at timestamptz、metadata jsonb、path_tokens ARRAY、version text、owner_id text、user_metadata jsonb、archived_at timestamptz、is_delete_marker/is_versioned boolean。登録はStorage API保存済みのowner_id/metadata.mimetype・size/user_metadata.sha256を照合する。SQLでobject metadata行を作らない。
+
+## 第7段ローカル候補：輸出配送（本番未適用）
+
+既存PO id/deal_id/factory_id/quantity/status/snapshot.variant_id、profiles id/role/client_id/display_name、deal_products shipping_address_full/shipping_recipient_name/shipping_phone、clients default_delivery_address/company_name/email、logistics_partners id/partner_kind/company_name/address/is_active/contact_email、system_settings company_info_phase1を使用する。既存inboundはBAO倉庫入庫台帳なので輸出台帳へ流用しない。
+
+新shipment_plans: id UUID, order_id/deal_id/client_id/factory_id UUID, quantity integer, logistics_actor_id/partner_id UUID, snapshot JSONB, created_by UUID, created_at timestamptz。
+shipment_milestones: id/plan_id/created_by UUID, kind/source/note/tracking_number text, occurred_at/created_at timestamptz。
+shipment_customer_receipts: id/plan_id/created_by UUID, quantity integer, received_on date, note text, created_at timestamptz。
+shipment_delivery_documents: id/plan_id UUID, document_number text UNIQUE, snapshot JSONB, created_by UUID, created_at timestamptz。
+shipment_workflow_requests: id UUID, order_id UUID, created_by UUID, operation text, payload/result JSONB, created_at timestamptz。
+shipment_mail_receipts: id UUID, plan_id UUID, event_key text UNIQUE, payload JSONB, status text, provider_id text nullable, created_by UUID, created_at/finished_at timestamptz。

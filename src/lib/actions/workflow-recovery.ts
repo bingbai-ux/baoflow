@@ -3,17 +3,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 
-export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc'
+export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc' | 'shipment_workflow'
 /** Read only the current staff user's saved transaction result, never another actor's request. */
 export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
   const supabase = await createClient()
-  if(operation==='factory_workflow'||operation==='factory_qc'){
+  if(operation==='factory_workflow'||operation==='factory_qc'||operation==='shipment_workflow'){
     const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)return {actorId:null,result:null,error:'ログインしてください'}
     const {data:profile,error:profileError}=await supabase.from('profiles').select('role').eq('id',user.id).single()
-    if(profileError||!profile||!['admin','sales','factory'].includes(profile.role))return {actorId:null,result:null,error:'この操作を利用できません'}
+    if(profileError||!profile||!(operation==='shipment_workflow'?['admin','sales','factory','logistics','client']:['admin','sales','factory']).includes(profile.role))return {actorId:null,result:null,error:'この操作を利用できません'}
     if(!requestId)return {actorId:user.id,result:null,error:null}
     if(!/^[0-9a-f-]{36}$/i.test(requestId))return {actorId:user.id,result:null,error:'保存要求IDが無効です'}
-    const {data,error}=await supabase.from(operation==='factory_qc'?'factory_qc_requests':'factory_workflow_requests').select('order_id,result').eq('id',requestId).eq('created_by',user.id).maybeSingle()
+    const {data,error}=await supabase.from(operation==='shipment_workflow'?'shipment_workflow_requests':operation==='factory_qc'?'factory_qc_requests':'factory_workflow_requests').select('order_id,result').eq('id',requestId).eq('created_by',user.id).maybeSingle()
     if(data&&data.order_id!==dealId)return {actorId:user.id,result:null,error:'保存要求の発注が一致しません'}
     return {actorId:user.id,result:data?.result as Record<string,unknown>|null,error:error?'前回の保存結果を確認できません':null}
   }

@@ -1,0 +1,39 @@
+# 第3段・サンプル・第4〜7段：公開権限と総残表
+
+第2/3段は親から承認済み、現行backup認証/復元点確認待ち。サンプルと第4〜7段は以下の追加境界をまとめて審査。本書は適用承認ではない。本番変更なし。
+
+| 対象 | 新表/保存先 | 営業管理者 | 工場 | 担当物流 | 顧客 |
+|---|---|---|---|---|---|
+| 第3段（承認済） | quote_cost_lines / quote_pricing_requests、deal_quotes.pricing_snapshot | 新価格/費目/FX版作成、本人要求復帰、固定PDF | 追加なし | 追加なし | 追加なし |
+| サンプル | sample_rounds / sample_estimates / sample_costs / sample_payments / sample_invoices / sample_invoice_lines / sample_requests / sample_mail_receipts | 8表読取/専用RPCで手配・実費・支払記録・まとめ請求・取消・メール管理、PDF | なし | なし | 添付を受けるが新ポータルPDF権限なし |
+| 第4段 | client_document_packets / client_document_links / client_document_responses / client_payment_reports / client_payment_receipts / client_finance_requests / client_document_mail_receipts | 共有/取消/実着金確認/進行/メール管理 | なし | なし | 自社有効固定版/PDF、見積回答・入金申告。申告≠実着金。内部銀行番号/リンク/メール台帳不可 |
+| 第5段 | factory_final_terms / factory_terms_agreements / factory_transfer_reports / factory_bank_acknowledgments / factory_production_starts / factory_workflow_requests | 登録銀行原文照合・条件同意・実手動送金の記録・工程反映 | 自社条件提示/送金読取/自社着金確認/実製造開始。営業の銀行照合根拠は非公開 | なし | なし |
+| 第6段 | factory_qc_assets / factory_qc_submissions / factory_qc_reviews / factory_qc_requests、private factory-qc | 証跡読取・最新QC判断。Storage SELECTのみ | 自社製造済み発注の証跡INSERT/SELECTと完工提出。Storage上書き/削除不可 | なし | なし |
+| 第7段 | shipment_plans / shipment_milestones / shipment_customer_receipts / shipment_delivery_documents / shipment_workflow_requests / shipment_mail_receipts | 固定配送版・全体読取・納品書/PDF/通知管理・明示案件反映 | 自社中国宛先/方法/数量、国内実発送のみ。顧客最終住所/電話なし | 指定本人の便だけ、実中国受領/食品/輸送/配達。金融情報/QC Storage/納品書なし | 自社公開配送/数量/実受領/納品書PDF。内部情報源/中国住所なし |
+
+計31新表（サンプル8＋第4段7＋第5段6＋第6段4＋第7段6）。第3段の承認済2表は別。すべてRLS、直接write/TRUNCATEなし、限定RPC・固定search_path・実行時role/対象確認。要求台帳は本人。匿名の新EXECUTEなし。唯一の新Storageはprivate QC PNG/JPEG/MP4、50MiB、60秒read URL。既存公開deal-imagesは変更なし。Auth/新credential/default ACLの追加変更なし。将来supabase_admin作成tableのdefault TRUNCATE残課題は既承認の残置を維持。
+
+既存機能の停止影響：新版価格/共有帳票は直接訂正不可で新固定版が必要。新金融案件は顧客承認/合意条件の実着金なしに発注へ進めない。新工場台帳は工場着金/開始なしに製造へ進めない。新QC対象は未承認/出荷前残金未着金で発送不可。新製造台帳を始めた案件は配送計画未登録でも全数量の実発送、顧客実受領と納品書/送付受付なしに完了不可。旧未記録事実はbackfillしない。
+
+## 総残表（合格済みの代表通しと全機能完成を区別）
+
+| 優先 | 未完・外部確認 | 現在の安全条件/次の受入 |
+|---|---|---|
+| 公開前 | 最新provider backup認証/Restore点と書込差分 | 第2/3承認済でも本番変更は待機。実データexport/新課金なし |
+| 公開前 | サンプル/第4〜7の新権限 | 上記範囲を具体承認後、tested migrationと同SHAを公開 |
+| 公開前/運用 | 船/air×食品の正式海源中国宛先対応表、担当物流の本人所属 | 推測自動割当しない。固定版作成時の出典確認必須 |
+| 当初必須 | 顧客の半金・後払契約と条件別請求/発注gate | 現顧客フローは全額実着金条件。工場側半金/後払だけ合格して顧客側完成としない |
+| 当初必須 | 工場の分割完工QC | 現QCは全発注量。QC通過後の配送分便・顧客部分受領は対応。部分QCなしに部分製造出荷しない |
+| 当初必須 | 自動最新FX/RMB・確定した料金表 | 手入力FXの出典確認のみ、fallbackなし。未確認料率を正本扱いしない |
+| 運用必須 | 誤記訂正/返金/支払取消/合意条件改訂/銀行差替え | 不変履歴を削除して訂正しない。実送金なし、専用追記訂正設計が必要 |
+| UI受入前 | 検証エラー後の入力訂正と要求ID復帰 | コード精査で、確定SQL拒否後もUUID/SHAが残り、入力変更を止める可能性を確認。本人の要求台帳で未保存を確認でき、接続不明ではない場合だけ訂正を解除する修正と再現テストが必要。送信予約は解除しない |
+| 運用必須 | 同版メール再送・リンク期限延長 | 不明結果は永久再送停止。第4段本人ポータルで閲覧は継続。確認済み再送/再発行の新管理は未実装 |
+| 運用必須 | 固定配送版の発送前訂正/取消、配達未受領の争議台帳、追跡番号途中変更 | 現版は不変、実数受領と連絡で安全に停止。分便/部分受領は対応するが全訂正業務は未完 |
+| 外部連携 | carrier追跡API、FAINS/検査機関、実メール到達 | 手動 source/time と未連携表示。ローカルMailpit合格は本番接続/到達の保証なし |
+| 外部/旧データ | 旧未紐付け採用6件 | 勝手な紐付け/破壊なし。正本に基づく手動整理、閲覧/旧PDFを保持 |
+| 残置 | DB current_date UTCとJST業務日境界 | 時刻付き輸送は端末現地→UTC保存。金融/製造の業務日TZ統一は未完 |
+| 後回し | 新倉庫保管・月次請求の拡張 | 既存倉庫/保管請求は保持、新中国輸出とBAO倉庫入庫を混同しない |
+
+履歴を書いた後のrollbackは新規操作停止＋互換読取維持のforward fix。backup復元はbackup後の実取引書込を失うため利用停止/差分判断が先。新台帳DROP・旧6件delete・実データ無承認copyを復旧手順にしない。
+
+最終追加確認：新製造台帳の案件は発送計画をまだ作っていなくても、直接shipped/deliveredへの変更を拒否する。発送計画は製造中だけ作成可能。旧製造台帳のない案件の過去履歴を補完しない。
