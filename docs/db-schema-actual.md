@@ -798,3 +798,15 @@
 - factory_workflow_requests: id、order_id、created_by、operation、payload、result、created_at。本人staff/本人自社factory操作のSELECTのみ。
 
 全表immutable/RLS/直接write・TRUNCATEなし。staffとfactory自社に限定（agreement内部照合情報はstaffのみ）。factory_order_context、factory_workflow_commandはauthenticated EXECUTE/実行時roleとfactory_id照合、anon/PUBLICなし。既存PO銀行情報を推測補完しない。既存USD PO総額の変更は新採用見積/発注へ戻し、支払条件で原価を無言変更しない。
+
+### 第6段 QC（ローカル候補・本番未適用）
+
+`20261001134525_factory_qc_v1.sql`が正本。
+- factory_qc_assets: id UUID（保存要求と同一）、order_id、kind、object_path unique、mime、byte_size bigint、sha256、created_by/created_at。
+- factory_qc_submissions: id/order_id/version、completed_on、quantity（全PO数量）、asset_ids UUID[]、note、created_by/created_at。
+- factory_qc_reviews: id/order_id/submission_id unique、decision、note、created_by/created_at。
+- factory_qc_requests: id/order_id/created_by、operation、payload、result、created_at。本人staff/本人factory操作のみSELECT。
+
+全表immutable/RLS/直接write・TRUNCATEなし、staffと自社factoryのみ。factory_qc_context/commandはauthenticated実行時scopeチェック、匿名/PUBLICなし。新private bucket factory-qc（PNG/JPEG/MP4、50MiB以下、order UUID/asset UUIDの保存先）。factory自社・製造開始済みのINSERTだけ、staff/factory自社SELECT、UPDATE/DELETEなし。画像/動画閲覧はauth/RLS/ファイルhash照合後の60秒署名URL。既存public deal-imagesを変更しない。
+
+localhostで実確認したstorage.objects列はid UUID、bucket_id/name text、owner UUID、created_at/updated_at/last_accessed_at timestamptz、metadata jsonb、path_tokens ARRAY、version text、owner_id text、user_metadata jsonb、archived_at timestamptz、is_delete_marker/is_versioned boolean。登録はStorage API保存済みのowner_id/metadata.mimetype・size/user_metadata.sha256を照合する。SQLでobject metadata行を作らない。
