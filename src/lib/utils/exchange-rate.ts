@@ -12,7 +12,8 @@ export function parseReferenceRate(data:unknown,from:string,to:string,now=Date.n
  const rate=target/base;if(!Number.isFinite(rate)||rate<=0)return fail('Invalid cross rate')
  return {rate,source:'ExchangeRate-API (daily reference; USD base cross rate)',timestamp:new Date(stamp).toISOString(),success:true}
 }
-export async function getExchangeRate(from='USD',to='JPY'):Promise<ExchangeRateResult>{
- try{const res=await fetch(API_URL,{next:{revalidate:3600},signal:AbortSignal.timeout(8000)});if(!res.ok)throw Error('Reference rate unavailable');return parseReferenceRate(await res.json(),from,to)}catch{return {rate:0,source:'ExchangeRate-API',timestamp:'',success:false,error:'参考レートを取得できません。確認済みの手入力レートを使用してください'}}
-}
+async function referenceData(fresh=false){const res=await fetch(API_URL,{...(fresh?{cache:'no-store' as const}:{next:{revalidate:3600}}),signal:AbortSignal.timeout(8000)});if(!res.ok)throw Error('Reference rate unavailable');return res.json()}
+const unavailable=():ExchangeRateResult=>({rate:0,source:'ExchangeRate-API',timestamp:'',success:false,error:'参考レートを取得できません。確認済みの手入力レートを使用してください'})
+export async function getExchangeRate(from='USD',to='JPY'):Promise<ExchangeRateResult>{try{return parseReferenceRate(await referenceData(),from,to)}catch{return unavailable()}}
+export async function pricingReferenceRates(fresh=false){try{const data=await referenceData(fresh);return {usd:parseReferenceRate(data,'USD','JPY'),cny:parseReferenceRate(data,'CNY','JPY')}}catch{return {usd:unavailable(),cny:unavailable()}}}
 export async function getExchangeRateWithFallback(fallbackRate=150):Promise<ExchangeRateResult>{const result=await getExchangeRate();return result.success?result:{...result,rate:fallbackRate,source:'system_settings (manual fallback; not latest)',timestamp:'',success:false}}

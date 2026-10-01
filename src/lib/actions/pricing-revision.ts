@@ -2,7 +2,7 @@
 import {createClient} from '@/lib/supabase/server'
 import {requireSalesAccess} from './deal-access'
 import type {PricingRevisionInput} from '@/lib/calc/pricing-revision'
-import {getExchangeRate} from '@/lib/utils/exchange-rate'
+import {pricingReferenceRates} from '@/lib/utils/exchange-rate'
 import {revalidatePath} from 'next/cache'
 export async function previewPricingRevision(quoteId:string,input:PricingRevisionInput){
  const db=await createClient(),denied=await requireSalesAccess(db)
@@ -21,7 +21,7 @@ export async function savePricingRevision(requestId:string,quoteId:string,input:
 
 export async function fetchPricingReferenceFx(){
  const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied,fx:null}
- const usd=await getExchangeRate('USD','JPY'),cny=await getExchangeRate('CNY','JPY')
+ const {usd,cny}=await pricingReferenceRates()
  if(!usd.success||!cny.success||usd.timestamp!==cny.timestamp)return {error:'同じ基準日時の新しい日次参考値を取得できません。確認済みの手入力レートを使用してください',fx:null}
  return {error:null,fx:{rate:usd.rate,cny_jpy_rate:cny.rate,reference:usd.source,as_of:usd.timestamp,confirmed:false}}
 }

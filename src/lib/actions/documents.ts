@@ -1,5 +1,7 @@
 'use server'
 
+import {frozenFxNote,usesDailyReference,currentDailyFxMatches,type FxQuote} from '@/lib/calc/fx-reference'
+import {pricingReferenceRates} from '@/lib/utils/exchange-rate'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { revalidatePath } from 'next/cache'
@@ -59,18 +61,26 @@ export async function issueDocument(input: {
   if (accessError) return { data: null, error: accessError }
   const bundle = await fetchDocumentBundle(input.deal_id)
   if (bundle.error || !bundle.data) return { data: null, error: bundle.error || '帳票データを取得できませんでした' }
-  const quotes = bundle.data.quotes as Array<{ status: string; quantity: number; total_billing_jpy: number }>
+  const quotes = bundle.data.quotes as Array<FxQuote & {quantity:number;total_billing_jpy:number}>
   const approved = quotes.filter(q => q.status === 'approved')
   if (input.document_type !== 'rfq' && (!approved.length || approved.some(q => !Number.isInteger(Number(q.quantity)) || Number(q.quantity) <= 0 || q.total_billing_jpy == null || !Number.isFinite(Number(q.total_billing_jpy)) || Number(q.total_billing_jpy) < 0)))
     return { data: null, error: '有効な数量・金額の採用見積を登録してから発行してください' }
   if (input.document_type === 'rfq' && !(bundle.data.variants as unknown[]).length)
     return { data: null, error: '商品仕様を登録してからRFQを発行してください' }
+  // Quotation references must match the freshly fetched daily source at issuance.
+  // Invoice keeps the customer-approved basis; reprint/resend never fetch current FX.
+  if(input.document_type==='quotation'&&usesDailyReference(quotes)){
+    const {usd,cny}=await pricingReferenceRates(true)
+    if(!usd.success||!cny.success||usd.timestamp!==cny.timestamp)return {data:null,error:'発行時の日次参考値を確認できません。発行せず取得元を確認してください。手入力を使う場合は根拠と基準日時を確認した新価格版が必要です'}
+    if(!currentDailyFxMatches(quotes,{rate:usd.rate,cny_jpy_rate:cny.rate,as_of:usd.timestamp}))return {data:null,error:'取得元の最新基準日時または参考レートが採用価格版と異なります。新しい価格版をプレビュー・採用してから発行してください'}
+  }
+  const reference=frozenFxNote(quotes),metadata={...(input.metadata||{}),...(reference&&['quotation','invoice'].includes(input.document_type)?{notes:[input.metadata?.notes,reference].filter(Boolean).join('\n\n')}:{})}
   const { deal, specs, products, variants, fees, company, banks } = bundle.data
   const byId = (rows: unknown) => (rows as Array<Record<string, unknown>>).slice().sort((a,b) => String(a.id).localeCompare(String(b.id)))
   const snapshot = { deal, specs: byId(specs), products: byId(products), variants: byId(variants), quotes: byId(quotes), fees: byId(fees), company, banks }
   const { data, error } = await supabase.rpc('issue_document_atomic', {
     p_request_id: input.request_id, p_deal_id: input.deal_id, p_type: input.document_type,
-    p_metadata: input.metadata || {}, p_snapshot: snapshot,
+    p_metadata: metadata, p_snapshot: snapshot,
   })
   if (error || !data) return { data: null, error: error?.message.includes('different input')
     ? 'この依頼IDは既に発行済みです。内容が変わっているため、発行履歴を確認してください'

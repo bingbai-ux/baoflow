@@ -1,0 +1,23 @@
+✔ preview never sends; recipient/PDF changes require another preview (55.153ms)
+✔ provider acceptance followed by DB finish failure and long retries never POST twice (7.6105ms)
+✔ provider rejection, lost response, invalid acceptance and accepted retry retain permanent guard (21.629ms)
+✔ client cannot preview or send a staff document email (4.332084ms)
+✔ explicit resend requires accepted predecessor and customer request; UUID replay does not POST (5.983041ms)
+✔ explicit resend result loss or uncertain provider blocks same and new reservation POST (21.414958ms)
+✔ resend rechecks frozen PDF and registered recipient before reserving (13.789375ms)
+✔ missing mail settings cannot report accepted or reserve/send (8.031583ms)
+✔ same daily source gives JPY per USD and JPY per CNY on weekends, retaining actual source date (1.296ms)
+✔ stale/future/missing source date, invalid base/rates and unknown currency fail without fabricated current timestamp (0.100708ms)
+✔ failed fetch manual fallback remains failure and never masquerades as a latest successful reference (0.186459ms)
+✔ fresh daily basis is fixed in document notes; only public source and no internal evidence (35.039709ms)
+✔ changed rate or latest source date and provider failure stop issuance before RPC (20.688291ms)
+✔ invoice retains agreed reference; manual evidence is redacted and never falsely called latest daily (9.172542ms)
+✔ creator history follows current role and organization; demoted staff cannot read prepared addresses (611.311666ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 746.043458

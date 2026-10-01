@@ -1,4 +1,5 @@
 'use client'
+import {frozenFxNote,FX_NOTE_PREFIX,usesDailyReference} from '@/lib/calc/fx-reference'
 
 import { documentTotals } from '@/lib/calc/document-totals'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -356,7 +357,8 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
         </section>
       )}
 
-      {quotes.some(q=>q.status==='approved'&&q.pricing_snapshot)&&<p className="text-[10px] text-[#84787D] mb-3">価格版の為替（手入力確認・最新自動取得なし）: {[...new Set(quotes.filter(q=>q.status==='approved'&&q.pricing_snapshot).map(q=>{const fx=q.pricing_snapshot?.fx as {rate?:string;as_of?:string};return `${fx?.rate||'未登録'} JPY/USD・基準 ${fx?.as_of||'未登録'}`}))].join(' / ')}。円単価・税込総額は切上げ。保存した発行版を再出力します。</p>}
+      {frozenFxNote(quotes)&&!meta.notes?.includes(FX_NOTE_PREFIX)&&<p className="text-[10px] text-[#84787D] mb-3 whitespace-pre-wrap">{frozenFxNote(quotes)}。円単価・税込総額は切上げ。保存した発行版を再出力します。</p>}
+      {usesDailyReference(quotes)&&<a href="https://www.exchangerate-api.com" className="text-[10px] underline" target="_blank" rel="noreferrer">Rates By Exchange Rate API</a>}
 
       <footer className="text-center text-[9px] text-[#AEB8A0] mt-8 pt-4 border-t border-[#EFEFEA]">
         Issued via BAO Flow · {today}

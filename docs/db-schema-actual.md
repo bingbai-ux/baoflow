@@ -842,3 +842,6 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - Existing profiles: id/role/client_id/factory_id/display_name; current RFQ invitations/sample rounds/ordered factory POs/assigned shipment plans define chat counterparties. No inferred recipient.
 
 - quote_cost_lines.currency accepts CNY in Stage12 candidate; pricing_snapshot.fx.cny_jpy_rate freezes JPY per CNY, conversion amount*CNYJPY/USDJPY. USD/JPY existing paths remain unchanged. No new FX table.
+
+## Final release scope review (local candidate)
+- shipment_workflow_requests unchanged columns: id, order_id, created_by, operation, payload, result, created_at. Owner SELECT also checks current role and frozen plan client/logistics or factory order identity through shipment_request_visible; no new table/column.
