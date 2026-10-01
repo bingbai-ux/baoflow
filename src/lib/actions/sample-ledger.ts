@@ -38,12 +38,16 @@ export async function previewSampleInvoice(dealId:string,input:Record<string,unk
  return error||!data?{error:'請求内容を確認できません。未請求費用・顧客名・発行者設定・税率・日付・振込案内を確認してください'}:{preview:data as SampleInvoiceSnapshot}
 }
 export async function getSampleInvoice(id:string):Promise<SampleInvoice|null>{
- const db=await createClient();if(await requireSalesAccess(db))return null
+ const db=await createClient();if(await requireSalesAccess(db)){const {data,error}=await db.rpc('client_sample_invoices',{p_invoice_id:id});return error?null:(data?.[0]||null) as SampleInvoice|null}
  const {data,error}=await db.from('sample_invoices').select('*').eq('id',id).maybeSingle();return error?null:data as SampleInvoice|null
 }
+export async function listOwnSampleInvoices():Promise<{data:SampleInvoice[];error:string|null}>{
+ const db=await createClient(),{data,error}=await db.rpc('client_sample_invoices',{});return {data:error?[]:data||[],error:error?'自社の請求履歴を確認できません':null}
+}
 async function sampleMail(id:string){
+ const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied}
  const bill=await getSampleInvoice(id);if(!bill||bill.status!=='issued')return {error:'有効な請求書がありません'}
- const db=await createClient(),deal=await db.from('deals').select('client_id').eq('id',bill.deal_id).single()
+ const deal=await db.from('deals').select('client_id').eq('id',bill.deal_id).single()
  const customer=deal.data?.client_id?await db.from('clients').select('email').eq('id',deal.data.client_id).single():{data:null,error:null}
  const receipt=await db.from('sample_mail_receipts').select('status').eq('invoice_id',id).maybeSingle()
  const from=process.env.RFQ_MAIL_FROM,to=customer.data?.email

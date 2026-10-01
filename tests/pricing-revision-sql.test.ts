@@ -13,7 +13,7 @@ async function setup(){
  insert into deal_quotes(id,deal_id,variant_id,version,quantity,factory_unit_price_usd,status,sample_cost_usd) values('${quote}','${deal}','${variant}',1,1000,.1,'approved',25);`)
  await db.exec(`create table deal_fees(id uuid primary key default gen_random_uuid(),deal_id uuid);create type document_type as enum ('quotation','invoice','delivery_note','rfq','inventory_cert');create table documents(id uuid primary key default gen_random_uuid(),deal_id uuid,document_type document_type,document_number text,version int,metadata jsonb,issued_at timestamptz,issued_by_user_id uuid);create function reserve_document_number(text) returns text language sql as $$select 'QUO-'||(select count(*)+1 from documents)::text$$;`)
  await db.exec(await readFile('supabase/migrations/047_atomic_document_issuance.sql','utf8'))
- await db.exec(await readFile('supabase/migrations/20261001102446_quote_pricing_revision_v2.sql','utf8'));return db
+ await db.exec(await readFile('supabase/migrations/20261001102446_quote_pricing_revision_v2.sql','utf8'));await db.exec(await readFile('supabase/migrations/20261001200100_confirmed_cny_reference_fx_v1.sql','utf8'));return db
 }
 const preview=async(db:PGlite,i=input())=>(await db.query<{p:any}>('select preview_quote_pricing_v2($1,$2) p',[quote,JSON.stringify(i)])).rows[0].p
 const save=async(db:PGlite,i:PricingRevisionInput,p:any,key=request)=>(await db.query<{r:any}>('select save_quote_pricing_v2($1,$2,$3,$4) r',[key,quote,JSON.stringify(i),JSON.stringify(p)])).rows[0].r
@@ -56,3 +56,5 @@ test('quotation issuance freezes confirmed manual FX and increments version; cha
  await db.query('insert into deal_fees(deal_id) values($1)',[deal]);await assert.rejects(issue('99999999-9999-4999-8999-999999999999',{manual_fx:{rate:150,confirmed:true}}),/Legacy separate fees/);assert.equal((await db.query('select * from documents')).rows.length,2)
  }finally{await db.close()}
 })
+
+test('CNY expenses convert JPY per CNY once and require explicit fixed rate; old USD/JPY preserved',async()=>{const db=await setup();try{const i=input();i.fx.cny_jpy_rate=20;i.cost_lines.push({key:'cny-inspection',kind:'custom',name:'Inspection RMB',amount:75,currency:'CNY',confirmed:true});const p=await preview(db,i);assert.equal(Number(p.total_cost_usd),110);assert.equal(p.fx.cny_jpy_rate,'20');const result=await save(db,i,p);assert.equal(Number((await db.query<any>('select currency,amount_usd from quote_cost_lines where quote_id=$1 and currency=\'CNY\'',[result.quote_id])).rows[0].amount_usd),10);delete i.fx.cny_jpy_rate;await assert.rejects(preview(db,i),/JPY\/CNY/)}finally{await db.close()}})

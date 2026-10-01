@@ -107,7 +107,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
       setExchangeRate(String(r.result.rate))
       setMessage({
         type: 'success',
-        text: `為替レートを ${r.result.rate.toFixed(2)} に更新しました (${r.result.source || 'API'})`,
+        text: `日次参考レートを ${r.result.rate.toFixed(2)} JPY/USD に更新しました。基準日時 ${r.result.timestamp} (${r.result.source})`,
       })
     })
   }
@@ -136,7 +136,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
           </p>
         </div>
 
-        <Field label="為替レート (USD/JPY)" hint="為替 API から取得もできます">
+        <Field label="参考為替レート (JPY/USD・1USDあたりの円)" hint="見積の初期値。銀行の実決済レートではありません">
           <div className="flex gap-2">
             <input
               type="number"
@@ -153,10 +153,11 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
               className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-[12px] px-3 text-[12px] font-body whitespace-nowrap inline-flex items-center gap-1 disabled:opacity-50"
             >
               <RefreshCw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
-              {isFetching ? '取得中...' : '最新を取得'}
+              {isFetching ? '取得中...' : '日次参考値を取得'}
             </button>
           </div>
         </Field>
+        <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer" className="underline text-xs">Rates By Exchange Rate API</a>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="消費税率 (%)">

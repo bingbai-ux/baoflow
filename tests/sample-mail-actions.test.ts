@@ -26,7 +26,7 @@ test('accepted provider response followed by DB failure permanently blocks long 
 test('provider rejection, uncertain response and missing provider ID all preserve no-resend receipt',async()=>{
  for(const provider of ['rejected','throw','invalid']){const h=harness({provider}),p=await h.preview();await h.send(p.preview.fingerprint);assert.equal(h.receipt().status,provider==='rejected'?'rejected':'unknown');await h.send(p.preview.fingerprint);assert.equal(h.posts(),1);assert.equal(h.claims(),1)}
 })
-test('accepted mail is not posted twice; nonstaff cannot read invoice or invoke provider',async()=>{
+test('accepted mail is not posted twice; client cannot invoke staff mail preview or provider',async()=>{
  const h=harness(),p=await h.preview();assert.equal((await h.send(p.preview.fingerprint)).status,'accepted');assert.equal((await h.send(p.preview.fingerprint)).status,'accepted');assert.equal(h.posts(),1)
  const denied=harness({role:'client'});assert.ok((await denied.preview()).error);assert.ok((await denied.send('fake')).error);assert.equal(denied.reads(),0);assert.equal(denied.posts(),0)
 })

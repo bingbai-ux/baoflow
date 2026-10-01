@@ -42,6 +42,7 @@ export default async function FactoryHome() {
       loginPath="/factory/login"
       userLabel={profile?.display_name || profile?.email || null}
     >
+      <Link href="/factory/messages" className="underline min-h-11 inline-flex items-center">営業との案件別会話</Link>
       <div className="space-y-4">
         <div>
           <h1 className="font-display text-[20px] font-bold">

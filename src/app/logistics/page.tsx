@@ -36,7 +36,10 @@ export default async function LogisticsHome() {
       loginPath="/logistics/login"
       userLabel={profile?.display_name || profile?.email || null}
     >
+      <nav aria-label="案件・請求の確認" className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[13px]">
+      <Link href="/logistics/messages" className="underline min-h-11 inline-flex items-center">営業との案件別会話</Link>
       <Link href="/logistics/shipments" className="underline min-h-11 inline-flex items-center">担当輸送・食品検査を確認</Link>
+      </nav>
       <LogisticsPortal
         shipments={inb.shipments}
         requests={reqs.requests}

@@ -58,9 +58,13 @@ export default async function PortalHome() {
 
   return (
     <PortalShell {...shell} wide>
+      <nav aria-label="案件・請求の確認" className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[13px]">
       <Link href="/portal/invoices" className="underline inline-flex items-center min-h-[44px] text-[13px]">保管料請求書を確認</Link>
-      <Link href="/portal/documents" className="underline inline-flex items-center min-h-[44px] text-[13px] ml-4">見積承認・請求を確認</Link>
+      <Link href="/portal/documents" className="underline inline-flex items-center min-h-[44px] text-[13px]">見積承認・請求を確認</Link>
       <Link href="/portal/shipments" className="underline min-h-11 inline-flex items-center">配送・実受領を確認</Link>
+      <Link href="/portal/samples" className="underline min-h-11 inline-flex items-center">サンプル請求を確認</Link>
+      <Link href="/portal/messages" className="underline min-h-11 inline-flex items-center">営業との案件別会話</Link>
+      </nav>
       <ClientPortal
         clientName={client?.short_name || client?.company_name || 'お客'}
         items={inv.items}

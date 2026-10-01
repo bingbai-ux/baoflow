@@ -1,11 +1,11 @@
-# 第3段・サンプル・第4〜9段：公開権限と総残表
+# 第3段・サンプル・第4〜12段：公開権限と総残表
 
 第2/3段は親から承認済み、現行backup認証/復元点確認待ち。サンプルと第4〜9段は以下の追加境界をまとめて審査。本書は適用承認ではない。本番変更なし。
 
 | 対象 | 新表/保存先 | 営業管理者 | 工場 | 担当物流 | 顧客 |
 |---|---|---|---|---|---|
 | 第3段（承認済） | quote_cost_lines / quote_pricing_requests、deal_quotes.pricing_snapshot | 新価格/費目/FX版作成、本人要求復帰、固定PDF | 追加なし | 追加なし | 追加なし |
-| サンプル | sample_rounds / sample_estimates / sample_costs / sample_payments / sample_invoices / sample_invoice_lines / sample_requests / sample_mail_receipts | 8表読取/専用RPCで手配・実費・支払記録・まとめ請求・取消・メール管理、PDF | なし | なし | 添付を受けるが新ポータルPDF権限なし |
+| サンプル | sample_rounds / sample_estimates / sample_costs / sample_payments / sample_invoices / sample_invoice_lines / sample_requests / sample_mail_receipts | 8表読取/専用RPCで手配・実費・支払記録・まとめ請求・取消・メール管理、PDF | なし | なし | Stage12で発行時確定した自社宛の固定請求/PDFだけ。原価/支払/メール履歴不可、旧宛先欠損は非公開 |
 | 第4段 | client_document_packets / client_document_links / client_document_responses / client_payment_reports / client_payment_receipts / client_finance_requests / client_document_mail_receipts | 共有/取消/実着金確認/進行/メール管理 | なし | なし | 自社有効固定版/PDF、見積回答・入金申告。申告≠実着金。内部銀行番号/リンク/メール台帳不可 |
 | 第5段 | factory_final_terms / factory_terms_agreements / factory_transfer_reports / factory_bank_acknowledgments / factory_production_starts / factory_workflow_requests | 登録銀行原文照合・条件同意・実手動送金の記録・工程反映 | 自社条件提示/送金読取/自社着金確認/実製造開始。営業の銀行照合根拠は非公開 | なし | なし |
 | 第6段 | factory_qc_assets / factory_qc_submissions / factory_qc_reviews / factory_qc_requests、private factory-qc | 証跡読取・最新QC判断。Storage SELECTのみ | 自社製造済み発注の証跡INSERT/SELECTと完工提出。Storage上書き/削除不可 | なし | なし |
@@ -61,3 +61,6 @@
 
 ## Stage11（表数・既存role範囲は不変）
 新RPC preview_client_price_reissueだけを追加（authenticated EXECUTE＋内部営業/管理者必須、PUBLIC/anon不可）。既存finance commandで発注前の再価格提示/顧客の新価格と着金配賦再承認/請求差替を追加。自社顧客のrespond_quoteに引継ぎ確認を保存。工場/物流/他社には追加操作なし。既存staff summaryの読取項目とclient contextのcurrent_priceを追加。新表0、既存31表のGRANT/RLS/Storage追加0。新migrationと新業務操作の審査/適用は未承認のまま。発送済み/発注済みの再契約・実返金送金は行わない。
+
+## Stage12（未公開）
+case_chat_reads新1表で未公開台帳32表。既存chat_rooms/messagesの広いpolicyとPUBLIC継承direct writeを閉じ、営業管理者/実顧客・工場・割当物流だけの会話。legacy peer欠損室はstaffのみ。新業務RPC7＋RLS helper1、内部helper2は一般EXECUTEなし。自社sample請求PDF読取は固定宛先RPCだけ。既存pricing RPC/CNY費目で新価格版換算、原価の外部読取拡張なし。Storage/credential/default ACLのStage12追加0。旧非公開archiveのdirect chat writeは新RPCへの配線が必要。詳細とrollforwardはCODEX_CHAT_SAMPLE_FX_STAGE12_RELEASE_GATE.md。

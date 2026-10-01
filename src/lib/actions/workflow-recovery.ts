@@ -3,10 +3,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 
-export type RecoverableOperation = 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc' | 'shipment_workflow'
+export type RecoverableOperation = 'case_chat' | 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc' | 'shipment_workflow'
 /** Read only the current staff user's saved transaction result, never another actor's request. */
 export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
   const supabase = await createClient()
+  if(operation==='case_chat'){
+    const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)return {actorId:null,result:null,error:'ログインしてください'}
+    const {data:profile,error:profileError}=await supabase.from('profiles').select('role').eq('id',user.id).single()
+    if(profileError||!profile||!['admin','sales','client','factory','logistics'].includes(profile.role))return {actorId:null,result:null,error:'会話を利用できません'}
+    if(!requestId)return {actorId:user.id,result:null,error:null}
+    if(!/^[0-9a-f-]{36}$/i.test(requestId)||!dealId)return {actorId:user.id,result:null,error:'会話の保存要求が無効です'}
+    const access=await supabase.rpc('read_case_chat',{p_room:dealId,p_before:null});if(access.error)return {actorId:user.id,result:null,error:'この会話を確認できません'}
+    const {data,error}=await supabase.from('chat_messages').select('id,room_id,sequence').eq('id',requestId).eq('user_id',user.id).maybeSingle()
+    if(data&&data.room_id!==dealId)return {actorId:user.id,result:null,error:'送信要求の会話が一致しません'}
+    return {actorId:user.id,result:data?{id:data.id,sequence:data.sequence}:null,error:error?'前回の送信結果を確認できません':null}
+  }
   if(operation==='factory_workflow'||operation==='factory_qc'||operation==='shipment_workflow'){
     const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)return {actorId:null,result:null,error:'ログインしてください'}
     const {data:profile,error:profileError}=await supabase.from('profiles').select('role').eq('id',user.id).single()

@@ -71,20 +71,20 @@ test('active staff/external routes and role lists render at desktop and mobile w
  await request.post(fixture+'/rest/v1/rfq_requests',{data:{id:req,deal_id:deal.split('/').pop(),rfq_number:'RFQ-SYNTHETIC',product_ids:['44444444-4444-4444-8444-444444444444'],response_deadline:'2026-10-15'}})
  await request.post(fixture+'/rest/v1/rfq_factory_invitations',{data:{id:req,rfq_id:req,external_form_id:'a0000000-0000-4000-8000-000000000004'}})
  const routes=['/','/deals','/deals?q=synthetic', '/deals/new',deal,deal+'/edit',deal+'/quote-builder',deal+'/documents',deal+'/samples',deal+'/settlement',deal+'/production',deal+'/shipping','/inventory','/inventory?tab=inbound','/inventory?tab=requests','/inventory?tab=shipping','/inventory?tab=fees','/master','/master?tab=factories','/master?tab=staff','/master?tab=logistics','/master?tab=clients&id='+client,'/docs','/analytics','/archive','/settings','/print/request/'+req,'/print/stock/'+client,'/account-invite/'+tokens[5],'/external/'+tokens[0],...['client-registration','factory-registration','logistics-registration','shipping-registration','rfq-response'].map((type,i)=>'/external/'+type+'/'+tokens[i]),'/external/'+'f'.repeat(64)]
- await mkdir('tmp/ui-clarity/routes',{recursive:true});await mkdir('artifacts/ui-final-stage11',{recursive:true})
+ await mkdir('tmp/ui-clarity/routes',{recursive:true});await mkdir('artifacts/ui-final-stage12',{recursive:true})
  for(const [index,url] of routes.entries())for(const width of [1280,390]){
   await page.setViewportSize({width,height:900});expect((await page.goto(url))?.status(),url).toBe(200)
   await expect(page.locator('body')).not.toContainText('Application error')
   await expect(page.locator('body')).not.toContainText('画面を読み込めませんでした')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),url+' mobile overflow').toBe(true)
-  await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`tmp/ui-clarity/routes/${index}-${width}.png`,fullPage:true});if(width===390&&[deal,deal+'/settlement','/inventory'].includes(url))await page.screenshot({path:`artifacts/ui-final-stage11/staff-${url===deal?'case':url.endsWith('settlement')?'settlement':'inventory'}-390.png`,fullPage:true})
+  await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`tmp/ui-clarity/routes/${index}-${width}.png`,fullPage:true});if(width===390&&[deal,deal+'/settlement','/inventory'].includes(url))await page.screenshot({path:`artifacts/ui-final-stage12/staff-${url===deal?'case':url.endsWith('settlement')?'settlement':'inventory'}-390.png`,fullPage:true})
  }
- for(const [role,urls] of [['client',['/portal','/portal?tab=order','/portal?tab=history','/portal?tab=shipping','/portal?tab=deals','/portal/invoices','/portal/documents','/portal/shipments']],['factory',['/factory']],['logistics',['/logistics','/logistics?tab=manual','/logistics?tab=requests','/logistics?tab=shipping','/logistics?tab=stock','/logistics/shipments']]] as const){
+ for(const [role,urls] of [['client',['/portal','/portal?tab=order','/portal?tab=history','/portal?tab=shipping','/portal?tab=deals','/portal/invoices','/portal/documents','/portal/shipments','/portal/samples','/portal/messages']],['factory',['/factory','/factory/messages']],['logistics',['/logistics','/logistics?tab=manual','/logistics?tab=requests','/logistics?tab=shipping','/logistics?tab=stock','/logistics/shipments','/logistics/messages']]] as const){
   await request.post(fixture+'/__role',{data:{role}})
   for(const [index,url] of urls.entries()){
    await page.setViewportSize({width:390,height:900});expect((await page.goto(url))?.status(),url).toBe(200)
    await expect(page.locator('body')).not.toContainText('Application error');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),url+' overflow').toBe(true)
-   await page.screenshot({path:`tmp/ui-clarity/routes/${role}-${index}-390.png`,fullPage:true});if(index===0)await page.screenshot({path:`artifacts/ui-final-stage11/${role}-390.png`,fullPage:true})
+   await page.screenshot({path:`tmp/ui-clarity/routes/${role}-${index}-390.png`,fullPage:true});if(index===0)await page.screenshot({path:`artifacts/ui-final-stage12/${role}-390.png`,fullPage:true})
   }
  }
  await context.clearCookies()

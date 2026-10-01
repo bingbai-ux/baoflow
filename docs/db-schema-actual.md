@@ -834,3 +834,11 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 
 ## Stage11 再価格承認候補（本番未適用）
 新表/カラムなし。client_document_packets.snapshot に reprices_invoice_id / payment_carry_jpy を追加し、reissue_kind=customer_reapproved_price の新請求へ既存系列のpayment_origin_packet_idsを保存。client_finance_requests.operation=reissue_priced_invoice、payloadのapproval_packet_id / payment_allocation_confirmedを使用。respond_quoteのpayloadにpayment_carry_confirmed、publish_documentにreprice_invoice_id / reprice_confirmed / reasonを追加。staff_client_finance_summaryに document_type/status/current_price/decision/upfront_jpy を既存データから投影。client_finance_contextにcurrent_priceを投影する。元の着金・旧版・顧客回答は更新/削除しない。
+
+## Stage12 local candidate (not production applied)
+- sample_invoices adds client_id (frozen actual recipient at insert; no legacy backfill); snapshot.client_id. client_sample_invoices strips lines.cost_id and internal cancellation_reason.
+- chat_rooms adds peer_role (client/factory/logistics), peer_id. chat_messages adds sequence.
+- case_chat_reads: room_id, user_id, last_sequence. Own cursor via RPC only.
+- Existing profiles: id/role/client_id/factory_id/display_name; current RFQ invitations/sample rounds/ordered factory POs/assigned shipment plans define chat counterparties. No inferred recipient.
+
+- quote_cost_lines.currency accepts CNY in Stage12 candidate; pricing_snapshot.fx.cny_jpy_rate freezes JPY per CNY, conversion amount*CNYJPY/USDJPY. USD/JPY existing paths remain unchanged. No new FX table.

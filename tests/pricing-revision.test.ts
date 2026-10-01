@@ -19,3 +19,5 @@ test('custom currencies convert once; samples and duplicate plate costs cannot e
  const i=input();i.cost_lines.push({key:'inspection',kind:'custom',name:'Inspection',amount:1500,currency:'JPY',confirmed:true});assert.equal(calculatePricingRevision(1000,.1,i).total_cost_usd,110)
  for(const name of ['sample round 1','サンプル製作費','版代追加']){const s=input();s.cost_lines.push({key:'extra',kind:'custom',name,amount:10,currency:'USD',confirmed:true});assert.throws(()=>calculatePricingRevision(1000,.1,s))}
 })
+
+test('CNY direction is JPY per yuan and confirmed missing rate cannot silently use USD FX',()=>{const i=input();i.fx.cny_jpy_rate=20;i.cost_lines.push({key:'inspection',kind:'custom',name:'Inspection RMB',amount:75,currency:'CNY',confirmed:true});assert.equal(calculatePricingRevision(1000,.1,i).total_cost_usd,110);delete i.fx.cny_jpy_rate;assert.throws(()=>calculatePricingRevision(1000,.1,i),/JPY\/CNY/)})

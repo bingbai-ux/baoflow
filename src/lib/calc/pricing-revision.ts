@@ -1,6 +1,6 @@
 export type CostKind = 'plate' | 'color' | 'domestic_freight' | 'international_freight' | 'other' | 'custom'
-export interface PricingCostLine { key: string; kind: CostKind; name: string; amount: number | null; currency: 'USD' | 'JPY'; confirmed: boolean }
-export interface ManualFx { rate: number | null; reference: string; as_of: string; confirmed: boolean }
+export interface PricingCostLine { key: string; kind: CostKind; name: string; amount: number | null; currency: 'USD' | 'JPY' | 'CNY'; confirmed: boolean }
+export interface ManualFx { rate: number | null; reference: string; as_of: string; confirmed: boolean; cny_jpy_rate?: number | null }
 export interface PricingRevisionInput { mode: 'ratio' | 'selling_price'; value: number | null; tax_rate: number | null; fx: ManualFx; cost_lines: PricingCostLine[] }
 export const requiredCostKinds: CostKind[] = ['plate','color','domestic_freight','international_freight','other']
 export const costKindNames: Record<CostKind,string> = {plate:'版代',color:'色指定費',domestic_freight:'中国国内送料',international_freight:'国際送料',other:'その他費用',custom:'追加費目'}
@@ -29,9 +29,10 @@ export function calculatePricingRevision(quantity:number|null,factoryPrice:numbe
   let total=multiply(fraction(quantity),fraction(factoryPrice))
   for(const l of input.cost_lines){
     const name=l.name.trim().toLowerCase()
-    if(!l.key||keys.has(l.key)||!name||names.has(name)||!l.confirmed||l.amount==null||!Number.isFinite(l.amount)||l.amount<0||!['USD','JPY'].includes(l.currency)||!(l.kind in costKindNames))throw Error('追加費目の欠損・重複・金額・確認状態を修正してください')
+    if(!l.key||keys.has(l.key)||!name||names.has(name)||!l.confirmed||l.amount==null||!Number.isFinite(l.amount)||l.amount<0||!['USD','JPY','CNY'].includes(l.currency)||!(l.kind in costKindNames))throw Error('追加費目の欠損・重複・金額・確認状態を修正してください')
     if(l.kind==='custom'&&/(版代|プレート|plate|sample|サンプル)/i.test(name))throw Error('版代は専用行、サンプル費は独立手配・後日請求へ記録してください')
-    keys.add(l.key);names.add(name);total=add(total,l.currency==='USD'?fraction(l.amount):divide(fraction(l.amount),fraction(input.fx.rate)))
+    if(l.currency==='CNY'&&!positive(input.fx.cny_jpy_rate??null))throw Error('人民元費目には確認済みのJPY/CNYレートが必要です')
+    keys.add(l.key);names.add(name);total=add(total,l.currency==='USD'?fraction(l.amount):divide(l.currency==='CNY'?multiply(fraction(l.amount),fraction(input.fx.cny_jpy_rate!)):fraction(l.amount),fraction(input.fx.rate)))
   }
   const unit=divide(total,fraction(quantity)),unitYen=multiply(unit,fraction(input.fx.rate)),unitJpy=approximate(unitYen)
   if(!Number.isFinite(unitJpy)||unitJpy<=0)throw Error('原価を確認してください')
