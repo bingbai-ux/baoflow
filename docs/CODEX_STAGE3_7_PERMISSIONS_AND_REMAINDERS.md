@@ -55,3 +55,6 @@
 新tableなし。factory_qc_reviews.rejection_scope列を追加（all既定 / new_quantity）。既存factory_qc_commandの自社工場累計提出/営業管理者QC判断だけで記録する。新caller/token/Storage権限は追加しない。QC数量/配送倉庫予約helper/triggerは一般role実行不可。既存shipment_contextは営業/工場の自社QC数量、営業の割当残量だけを追加投影し、物流/顧客にはnull。PRIVATE QC画像の読取scope/60秒署名、顧客帳票7日リンクとログイン必須を維持。
 
 業務影響：一部承認数量だけを発送/入庫へ割当可能になる。別便と倉庫の二重割当、取消後の容量超過再有効化を停止。後続QCの不承認は既定で既承認分も止める。営業が追加分だけの影響で既承認分は問題なしと確認した場合だけ前承認数量を維持。既存履歴は変更しない。旧全量提出は累計全量のまま互換、新製造台帳なし案件の推測補完なし。分割数量開始後の旧UIだけの切戻しは避け、互換閲覧＋forward fix。公開全体は第2/3既承認、サンプル8＋第4〜7計23表の新権限、private QC、そして第8/9の既存gate変更を同時に審査する。
+
+## Stage10（追加表なし・本番未適用）
+営業/管理者の訂正版preview、同請求reissue、期限切れlink更新、明示依頼の同版再送、銀行実施済み返金記録。新RPCは認証＋staff限定、匿名/顧客/工場/物流拒否。顧客は既存自社packet RLSの範囲で旧版/取消版をreadonly閲覧・状態付きPDF取得。内部payment family/totalsは一般ロールのEXECUTE剥奪。返金/再送の事実は既存request履歴に追記、31表の既存role範囲を広げない。Stage10 release gateとrollback注意参照。着金済みの金額変更/相殺は別扱いで未実装。

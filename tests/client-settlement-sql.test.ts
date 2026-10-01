@@ -148,3 +148,44 @@ test('customer revision loop creates a new payment-condition version without alt
  const original=(await db.query<any>('select status,snapshot from client_document_packets where id=$1',[first.published.packet_id])).rows[0];assert.equal(original.status,'superseded');assert.equal(original.snapshot.payment_conditions.mode,'full_prepaid')
  assert.equal((await db.query<any>('select decision from client_document_responses where packet_id=$1',[first.published.packet_id])).rows[0].decision,'revision_requested')
  }finally{await db.close()}})
+
+async function correctionSetup(){const db=await paymentSetup();await db.exec("alter table clients add column email text;update clients set email='customer@example.test'");await db.exec(await readFile('supabase/migrations/20261001180000_client_document_corrections_v1.sql','utf8'));return db}
+const totals=async(db:PGlite,packet:string)=>(await db.query<any>('select client_payment_totals($1) r',[packet])).rows[0].r
+async function reissue(db:PGlite,packet:string,doc:string,key=randomUUID()){
+ const expected=(await db.query<any>('select preview_client_reissue($1,$2) r',[packet,doc])).rows[0].r
+ return cmd(db,'reissue_invoice',{packet_id:packet,document_id:doc,expected,reason:'Synthetic identical-obligation document correction',same_obligation_confirmed:true},key)
+}
+test('same-obligation invoice reissue carries cash once; old receipt and number remain, changing amount or parallel duplicate reissue is denied',async()=>{const db=await correctionSetup();try{
+ const bill=await termsInvoice(db,'half_prepaid','after_delivery'),id=bill.published.packet_id;await termsReceipt(db,id,'550','SYNTH-CARRY-1');const newdoc=await document(db,'invoice'),revised=await reissue(db,id,newdoc)
+ assert.deepEqual(await totals(db,revised.packet_id),{gross_jpy:'550',refund_jpy:'0',net_jpy:'550'});assert.equal((await db.query<any>('select status from client_document_packets where id=$1',[id])).rows[0].status,'superseded');assert.equal((await db.query<any>('select packet_id from client_payment_receipts')).rows[0].packet_id,id)
+ await assert.rejects(reissue(db,id,await document(db,'invoice')),/Current invoice/)
+ await actor(db,client);const ctx=(await db.query<any>('select client_finance_context($1,null) r',[revised.packet_id])).rows[0].r;assert.equal(ctx.confirmed_jpy,'550');assert.equal(ctx.paid_in_full,false);await actor(db,staff);await cmd(db,'advance_paid',{packet_id:revised.packet_id})
+ const bad=await document(db,'invoice');await db.query("update documents set metadata=jsonb_set(metadata,'{payment_due_date}','\"2026-11-30\"') where id=$1",[bad]);await assert.rejects(reissue(db,revised.packet_id,bad),/identical invoice obligation/)
+ const next=await reissue(db,revised.packet_id,await document(db,'invoice'));assert.deepEqual(await totals(db,next.packet_id),{gross_jpy:'550',refund_jpy:'0',net_jpy:'550'});assert.equal((await db.query<any>('select count(*) n from client_document_packets where document_type=\'invoice\' and status=\'active\'')).rows[0].n,1)
+ }finally{await db.close()}})
+test('manual refund is append-only bank evidence: gross remains, net gates progression, duplicate/over-refund/client writes fail',async()=>{const db=await correctionSetup();try{
+ const bill=await termsInvoice(db,'half_prepaid','before_shipment'),id=bill.published.packet_id;await termsReceipt(db,id,'550','SYNTH-INCOMING');await cmd(db,'advance_paid',{packet_id:id})
+ const input={packet_id:id,amount_jpy:'100',refunded_on:'2026-10-01',bank_reference:'SYNTH-REFUND',reason:'Synthetic manual refund executed outside app',bank_confirmed:true},key=randomUUID();await actor(db,client);await assert.rejects(cmd(db,'record_refund',input,key),/Client response/);await actor(db,staff)
+ const r=await cmd(db,'record_refund',input,key);assert.equal(r.money_transfer_executed,false);assert.deepEqual(await cmd(db,'record_refund',input,key),r);assert.deepEqual(await totals(db,id),{gross_jpy:'550',refund_jpy:'100',net_jpy:'450'})
+ await assert.rejects(cmd(db,'record_refund',input),/unique/);await assert.rejects(cmd(db,'record_refund',{...input,amount_jpy:'451',bank_reference:'SYNTH-OVER'}),/exceeds received/)
+ await assert.rejects(db.query('insert into factory_purchase_orders(deal_id,source_quote_id) values($1,$2)',[deal,quote]),/upfront receipt/)
+ await assert.rejects(cmd(db,'cancel_packet',{packet_id:id,reason:'Synthetic'}),/accounting correction/)
+ await cmd(db,'record_refund',{...input,amount_jpy:'450',bank_reference:'SYNTH-REMAINING'});assert.equal((await totals(db,id)).net_jpy,'0');await cmd(db,'cancel_packet',{packet_id:id,reason:'Synthetic refund complete'});assert.equal((await db.query<any>('select sum(amount_jpy) v from client_payment_receipts')).rows[0].v,'550')
+ await assert.rejects(db.exec('delete from client_finance_requests'),/immutable/)
+ }finally{await db.close()}})
+test('resend needs explicit recipient request and accepted predecessor; reservation/result loss and cross-actor finish never allow another send',async()=>{const db=await correctionSetup();try{
+ const bill=await invoice(db),packet=bill.packet_id,payload={from:'sender@example.test',to:'customer@example.test',token:bill.token,pdf_sha256:'a'.repeat(64)},input={packet_id:packet,mail_payload:payload,reason:'Synthetic explicit recipient request',recipient_requested:true}
+ await assert.rejects(cmd(db,'reserve_document_resend',input),/Previous send uncertain/)
+ const original=(await db.query<any>('select claim_client_document_email($1,$2) r',[packet,JSON.stringify(payload)])).rows[0].r;await db.query("select finish_client_document_email($1,$2,'accepted','synthetic-original')",[packet,original.attempt_id]);await assert.rejects(cmd(db,'reserve_document_resend',{...input,recipient_requested:false}),/explicit recipient/)
+ const key=randomUUID(),attempt=await cmd(db,'reserve_document_resend',input,key);assert.equal(attempt.claimed,true);assert.deepEqual(await cmd(db,'reserve_document_resend',input,key),{...attempt,claimed:false});await assert.rejects(cmd(db,'reserve_document_resend',input),/Previous send uncertain/)
+ await actor(db,client);await assert.rejects(db.query("select finish_client_document_resend($1,'accepted','fake')",[attempt.attempt_id]),/staff/);await actor(db,staff)
+ await db.query("select finish_client_document_resend($1,'accepted','synthetic-resend')",[attempt.attempt_id]);await db.query("select finish_client_document_resend($1,'accepted','synthetic-resend')",[attempt.attempt_id]);const next=await cmd(db,'reserve_document_resend',input);assert.equal(next.previous_attempt_id,attempt.attempt_id)
+ await db.query("select finish_client_document_resend($1,'unknown',null)",[next.attempt_id]);await assert.rejects(cmd(db,'reserve_document_resend',input),/Previous send uncertain/);assert.equal((await db.query<any>('select count(*) n from client_finance_requests where operation=\'reserve_document_resend\'')).rows[0].n,2)
+ }finally{await db.close()}})
+test('expired-link renewal preserves PDF snapshot and amounts; pending bank report blocks reissue and old tokens remain invalid',async()=>{const db=await correctionSetup();try{
+ const bill=await invoice(db);await assert.rejects(cmd(db,'renew_link',{packet_id:bill.packet_id}),/still valid/)
+ await db.query("update client_document_links set revoked_at=now() where packet_id=$1",[bill.packet_id]);const renewed=await cmd(db,'renew_link',{packet_id:bill.packet_id});assert.notEqual(renewed.token,bill.token)
+ await actor(db,client);await assert.rejects(db.query('select client_finance_context($1,$2)',[bill.packet_id,bill.token]),/expired/);assert.ok((await db.query<any>('select client_finance_context($1,$2) r',[bill.packet_id,renewed.token])).rows[0].r)
+ await cmd(db,'report_payment',{packet_id:bill.packet_id,amount_jpy:'100',paid_on:'2026-10-01',reference:'Synthetic pending report'});await actor(db,staff);await assert.rejects(reissue(db,bill.packet_id,await document(db,'invoice')),/review pending/)
+ assert.equal((await db.query<any>("select has_function_privilege('anon','preview_client_reissue(uuid,uuid)','execute') a,has_function_privilege('authenticated','client_payment_totals(uuid)','execute') b")).rows[0].a,false);assert.equal((await db.query<any>("select has_function_privilege('authenticated','client_payment_totals(uuid)','execute') b")).rows[0].b,false)
+ }finally{await db.close()}})

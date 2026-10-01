@@ -29,6 +29,7 @@ const server=http.createServer(async(req,res)=>{
  const table=url.pathname.split('/').pop()
  if(failure===table){failure=null;send({code:'XX000',message:'Local simulated database failure'},500);return}
  if(url.pathname.includes('/rpc/')){
+  if(table==='staff_client_finance_summary'){send([]);return}
   if(table==='preview_quote_pricing_v2'||table==='save_quote_pricing_v2'){
    try{
     if(!['sales','admin'].includes(db.profiles[0].role))throw Error('Sales or administrator access required')

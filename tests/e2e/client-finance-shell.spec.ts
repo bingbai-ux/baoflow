@@ -12,7 +12,7 @@ test.beforeEach(async({context,request})=>{
 test('staff empty-state, existing document exit, customer no-document state and unavailable link are usable on mobile',async({page,request})=>{
  await mkdir('artifacts/client-settlement-stage4',{recursive:true})
  await page.goto(`/deals/${deal}/settlement`);await expect(page.getByRole('heading',{name:'顧客承認・請求・実着金確認'})).toBeVisible()
- await expect(page.getByText('発行済み見積書・請求書がありません。案件の帳票画面で発行して戻ってください。')).toBeVisible()
+ await expect(page.getByText('未共有の発行版はありません。新しい版は案件の帳票画面で発行して戻ってください。')).toBeVisible()
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
  await page.locator('#main-content').screenshot({path:'artifacts/client-settlement-stage4/staff-empty-390.png'})
  await page.getByRole('link',{name:'帳票を発行・確認する',exact:true}).click();await expect(page).toHaveURL(new RegExp(`/deals/${deal}/documents`))

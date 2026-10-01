@@ -23,6 +23,36 @@ export async function getClientFinanceContext(packetId:string,token:string|null=
  return error||!data?null:data as Record<string,unknown>
 }
 
+export async function previewClientReissue(packetId:string,documentId:string){
+ const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied}
+ const {data,error}=await db.rpc('preview_client_reissue',{p_packet_id:packetId,p_document_id:documentId})
+ return error||!data?{error:'同じ請求の訂正版だけ発行できます。金額・支払条件・期限を維持し、未確認の入金申告を先に確認してください'}:{preview:data as Record<string,unknown>}
+}
+
+export async function previewClientDocumentResend(packetId:string){
+ const r=await clientDocumentMail(packetId);if(r.error)return {error:r.error}
+ const db=await createClient(),state=await db.rpc('client_document_send_state',{p_packet_id:packetId})
+ if(state.error||!state.data)return {error:'前回の送信結果を確認できません。再送停止'}
+ return {preview:{...r.payload!,fingerprint:r.fingerprint!,status:state.data.status,canResend:state.data.can_resend===true}}
+}
+
+// A new explicit recipient request is a separate intent. Replaying its UUID must
+// never repeat the provider POST, even if recording the first outcome failed.
+export async function sendClientDocumentAgain(requestId:string,packetId:string,fingerprint:string,reason:string,recipientRequested:boolean){
+ const r=await clientDocumentMail(packetId);if(r.error)return {error:r.error}
+ if(r.fingerprint!==fingerprint)return {error:'宛先・PDF・リンク・内容が変わりました。再確認してください'}
+ const db=await createClient(),claim=await db.rpc('client_finance_command',{p_request_id:requestId,p_operation:'reserve_document_resend',p_input:{packet_id:packetId,recipient_requested:recipientRequested,reason,mail_payload:r.payload}})
+ if(claim.error||!claim.data)return {error:'再送予約を確認できません。前回の受付確認と顧客の再送依頼を確認してください'}
+ if(claim.data.claimed!==true)return {status:'reserved',error:'この再送依頼は予約済みです。履歴を確認するまで再送しないでください'}
+ let status='unknown',providerId:string|null=null
+ try{
+  const p=r.payload!,response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':`client-document-resend/${requestId}`},body:JSON.stringify({from:p.from,to:[p.to],subject:p.subject,text:p.body,attachments:[{filename:p.attachment,content:Buffer.from(r.pdf!).toString('base64')}]})})
+  if(!response.ok)status='rejected';else{const body=await response.json();if(typeof body.id==='string'&&body.id){status='accepted';providerId=body.id}}
+ }catch{/* The durable reservation remains after an uncertain provider response. */}
+ const finish=await db.rpc('finish_client_document_resend',{p_attempt_id:claim.data.attempt_id,p_status:status,p_provider_id:providerId});revalidatePath('/deals')
+ return finish.error?{status:'unknown',error:'再送結果を保存できません。重複防止のため再送停止'}:{status,error:status==='accepted'?undefined:'再送結果を確認できません。履歴を確認してください'}
+}
+
 async function clientDocumentMail(packetId:string){
  const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied}
  const {data:p,error}=await db.from('client_document_packets').select('client_id,status,snapshot').eq('id',packetId).maybeSingle()
