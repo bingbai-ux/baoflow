@@ -13,7 +13,7 @@ export async function clientDocumentPDF(s:PublicDocumentSnapshot){
  function line(raw:string,size=11){let part='';const draw=()=>{if(y-size<60){page=pdf.addPage([595.28,841.89]);y=787}page.drawText(part,{x:48,y,size,font,color:rgb(.208,.118,.157)});y-=size+9;part=''};for(const c of raw.normalize('NFC').replace(/[\u0000-\u001f\u007f]/g,' ')){if(part&&font.widthOfTextAtSize(part+c,size)>499)draw();part+=c}draw()}
  const money=(v:string)=>`¥${Number(v).toLocaleString('ja-JP')}`
  line(s.type==='quotation'?'見積書':'請求書',21);line(`No. ${s.number}`);line(`発行日 ${s.issued_at.slice(0,10)}`);line(`${s.customer_name} 御中`,15);line(s.deal_name)
- line(`税込金額 ${money(s.total)}`,18);if(s.due_date)line(`支払期限 ${s.due_date}`)
+ line(`税込金額 ${money(s.total)}`,18);if(s.payment_conditions){const t=s.payment_conditions;line(`支払条件 ${t.mode==='full_prepaid'?'全額前払い':t.mode==='half_prepaid'?'半金前払い':'後払い'}`);line(`発注前 ${money(t.upfront_jpy)} / 発送前累計 ${money(t.shipment_required_jpy)}`);line(`残金は${t.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}（半金の円端数は前払側）`)}if(s.due_date)line(`支払期限 ${s.due_date}`)
  for(const l of s.lines){line(`${l.name} / ${l.variant}`);line(`${l.quantity}個 × ${money(l.unit_jpy)}（税抜単価） / 税込 ${money(l.gross)}`)}
  line(`保存済み税抜小計 ${money(s.subtotal)} / 消費税 ${money(s.tax)} / 合計 ${money(s.total)}`)
  if(s.notes)line(s.notes)

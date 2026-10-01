@@ -10,12 +10,12 @@ export async function clientFinanceCommand(requestId:string,operation:string,inp
  const db=await createClient(),{data:{user},error:authError}=await db.auth.getUser()
  if(authError||!user)return {error:'ログインしてください'}
  const {data,error}=await db.rpc('client_finance_command',{p_request_id:requestId,p_operation:operation,p_input:input})
- if(error||!data)return {canCorrect:await canCorrectRejectedWorkflowRequest('client_finance',requestId,undefined,error?.code),error:error?.message.includes('Preview changed')?'発行内容が変わりました。もう一度確認してください':error?.message.includes('full bank receipt')?'実着金の全額確認が必要です。顧客の申告だけでは進められません':error?.message.includes('expired')?'リンクが期限切れです。ポータルから有効な帳票を開いてください':'保存を確認できません。入力を変えず再試行してください。重複操作の前に履歴を確認してください'}
+ if(error||!data)return {canCorrect:await canCorrectRejectedWorkflowRequest('client_finance',requestId,undefined,error?.code),error:error?.message.includes('Preview changed')?'発行内容が変わりました。もう一度確認してください':(error?.message.includes('full bank receipt')||error?.message.includes('upfront bank receipt'))?'合意した前払額の実着金確認が必要です。顧客の申告だけでは進められません':error?.message.includes('expired')?'リンクが期限切れです。ポータルから有効な帳票を開いてください':'保存を確認できません。入力を変えず再試行してください。重複操作の前に履歴を確認してください'}
  revalidatePath('/portal/documents');revalidatePath('/deals');return {result:data as Record<string,unknown>}
 }
-export async function previewClientDocument(documentId:string,approvalPacketId:string|null=null){
+export async function previewClientDocument(documentId:string,approvalPacketId:string|null=null,mode:string='full_prepaid',balance:string='before_shipment'){
  const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied}
- const {data,error}=await db.rpc('preview_client_document',{p_document_id:documentId,p_approval_packet_id:approvalPacketId})
+ const {data,error}=await db.rpc('preview_client_document_with_terms',{p_document_id:documentId,p_approval_packet_id:approvalPacketId,p_mode:mode,p_balance:balance})
  return error||!data?{error:'発行版の顧客・採用価格・税込額を確認してください。請求書は顧客承認後に発行し、支払期限が必要です。旧帳票は閲覧を残して新しい版を発行してください'}:{preview:data as Record<string,unknown>}
 }
 export async function getClientFinanceContext(packetId:string,token:string|null=null){
@@ -32,7 +32,7 @@ async function clientDocumentMail(packetId:string){
  if(customer.error||links.error||receipt.error||!from||!to||!base||!link||!process.env.RESEND_API_KEY)return {error:'登録顧客メール・送信元・アプリURL・有効リンク・メール設定を確認してください。未送信です'}
  const url=new URL(`/portal/documents/${packetId}`,base);if(url.protocol!=='https:'&&!['127.0.0.1','localhost'].includes(url.hostname))return {error:'安全なアプリURLを確認してください。未送信です'};url.searchParams.set('token',link.token)
  const s=p.snapshot as PublicDocumentSnapshot,pdf=await clientDocumentPDF(s),kind=s.type==='quotation'?'見積書':'請求書'
- const payload={from,to,token:link.token,subject:`${kind} ${s.number}`,body:`${s.customer_name} 御中\n${kind}を添付します。税込金額 ¥${Number(s.total).toLocaleString('ja-JP')}${s.due_date?`\n支払期限 ${s.due_date}`:''}\n内容の確認・${s.type==='quotation'?'回答':'振込後の入金申告'}は自社アカウントでログインしてください。\n${url}\nリンク有効期限 ${link.expires_at}\n期限切れの場合はポータルの帳票一覧をご利用ください。`,attachment:`${s.number}.pdf`,pdf_sha256:createHash('sha256').update(pdf).digest('hex')}
+ const payload={from,to,token:link.token,subject:`${kind} ${s.number}`,body:`${s.customer_name} 御中\n${kind}を添付します。税込金額 ¥${Number(s.total).toLocaleString('ja-JP')}${s.payment_conditions?`\n支払条件 ${s.payment_conditions.mode==='full_prepaid'?'全額前払い':s.payment_conditions.mode==='half_prepaid'?'半金前払い':'後払い'} / 発注前 ¥${Number(s.payment_conditions.upfront_jpy).toLocaleString('ja-JP')} / 発送前累計 ¥${Number(s.payment_conditions.shipment_required_jpy).toLocaleString('ja-JP')} / 残金 ${s.payment_conditions.balance_due==='before_shipment'?'発送前':'納品後・請求書の支払期限まで'}`:''}${s.due_date?`\n支払期限 ${s.due_date}`:''}\n内容の確認・${s.type==='quotation'?'回答':'振込後の入金申告'}は自社アカウントでログインしてください。\n${url}\nリンク有効期限 ${link.expires_at}\n期限切れの場合はポータルの帳票一覧をご利用ください。`,attachment:`${s.number}.pdf`,pdf_sha256:createHash('sha256').update(pdf).digest('hex')}
  return {payload,pdf,status:receipt.data?.status||null,fingerprint:createHash('sha256').update(JSON.stringify(payload)).digest('hex')}
 }
 export async function previewClientDocumentMail(packetId:string){const r=await clientDocumentMail(packetId);return r.error?{error:r.error}:{preview:{...r.payload!,fingerprint:r.fingerprint!,status:r.status}}}

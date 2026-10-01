@@ -821,3 +821,5 @@ shipment_customer_receipts: id/plan_id/created_by UUID, quantity integer, receiv
 shipment_delivery_documents: id/plan_id UUID, document_number text UNIQUE, snapshot JSONB, created_by UUID, created_at timestamptz。
 shipment_workflow_requests: id UUID, order_id UUID, created_by UUID, operation text, payload/result JSONB, created_at timestamptz。
 shipment_mail_receipts: id UUID, plan_id UUID, event_key text UNIQUE, payload JSONB, status text, provider_id text nullable, created_by UUID, created_at/finished_at timestamptz。
+
+第8段ローカル候補 `20261001162000_client_payment_conditions_v1.sql` は新表/カラムなし。既存 client_document_packets.snapshot の payment_conditions に mode / balance_due / upfront_jpy / shipment_required_jpy / total_jpy / rounding を保存する。既存 client_payment_receipts.packet_id / amount_jpy と顧客承認版を参照して発注/発送の必要着金を確認。paid は合意前払条件成立を表し、実全額着金はreceipt合計とpaid_in_fullで別判定する。

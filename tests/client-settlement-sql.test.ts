@@ -104,3 +104,47 @@ test('late request-save failure rolls back payment declaration; staff privilege 
  await db.exec('grant usage on schema auth to authenticated;grant select on profiles to authenticated');await actor(db,staff);await db.exec("update profiles set role='factory' where id=auth.uid();set role authenticated")
  assert.equal((await db.query('select * from client_finance_requests')).rows.length,0)
  }finally{await db.close()}})
+
+async function paymentSetup(){const db=await setup();await db.exec(`
+create table factory_purchase_orders(id uuid default gen_random_uuid(),deal_id uuid,source_quote_id uuid);
+create table shipment_plans(id uuid default gen_random_uuid(),deal_id uuid);
+create table shipment_milestones(plan_id uuid);
+`);await db.exec(await readFile('supabase/migrations/20261001162000_client_payment_conditions_v1.sql','utf8'));await db.exec('create trigger guard_financed_factory_order before insert on factory_purchase_orders for each row execute function guard_financed_factory_order()');return db}
+async function termsPublish(db:PGlite,id:string,approval:string|null,mode:string,balance:string){const expected=(await db.query<any>('select preview_client_document_with_terms($1,$2,$3,$4) r',[id,approval,mode,balance])).rows[0].r;return {published:await cmd(db,'publish_document',{document_id:id,approval_packet_id:approval,expected}),expected}}
+async function termsInvoice(db:PGlite,mode:string,balance:string){const q=await termsPublish(db,await document(db),null,mode,balance);await actor(db,client);await cmd(db,'respond_quote',{packet_id:q.published.packet_id,decision:'approved',note:''});await actor(db,staff);await cmd(db,'advance_quote',{packet_id:q.published.packet_id});return termsPublish(db,await document(db,'invoice'),q.published.packet_id,'postpaid','after_delivery')}
+async function termsReceipt(db:PGlite,packet:string,amount:string,ref:string){await actor(db,client);const r=await cmd(db,'report_payment',{packet_id:packet,amount_jpy:amount,paid_on:'2026-10-01',reference:ref});await actor(db,staff);return cmd(db,'confirm_receipt',{packet_id:packet,report_id:r.report_id,amount_jpy:amount,received_on:'2026-10-01',bank_reference:ref,bank_confirmed:true})}
+test('half prepaid is an approved immutable rule: upfront PO gate and distinct shipment balance, never full receipt',async()=>{const db=await paymentSetup();try{
+ const b=await termsInvoice(db,'half_prepaid','before_shipment'),id=b.published.packet_id
+ assert.equal(b.expected.payment_conditions.upfront_jpy,'550');assert.equal(b.expected.payment_conditions.shipment_required_jpy,'1100')
+ await assert.rejects(cmd(db,'advance_paid',{packet_id:id}),/upfront/)
+ await assert.rejects(db.query('insert into factory_purchase_orders(deal_id,source_quote_id) values($1,$2)',[deal,quote]),/Formal PO/)
+ await termsReceipt(db,id,'549','SYNTH-HALF-1');await assert.rejects(cmd(db,'advance_paid',{packet_id:id}),/upfront/)
+ await termsReceipt(db,id,'1','SYNTH-HALF-2');await cmd(db,'advance_paid',{packet_id:id});await db.query('insert into factory_purchase_orders(deal_id,source_quote_id) values($1,$2)',[deal,quote])
+ await actor(db,client);assert.equal((await db.query<any>('select client_finance_context($1,null) r',[id])).rows[0].r.paid_in_full,false);await actor(db,staff)
+ await assert.rejects(db.query('insert into shipment_plans(deal_id) values($1)',[deal]),/shipment balance/)
+ await termsReceipt(db,id,'550','SYNTH-HALF-3');await db.query('insert into shipment_plans(deal_id) values($1)',[deal])
+ await assert.rejects(db.query("update client_document_packets set snapshot=jsonb_set(snapshot,'{payment_conditions,upfront_jpy}','\"0\"') where id=$1",[id]),/immutable/)
+ }finally{await db.close()}})
+test('postpaid and half balance after delivery preserve actual unpaid invoice; approvals/price match still gate PO and shipment',async()=>{for(const mode of ['postpaid','half_prepaid']){const db=await paymentSetup();try{
+ const b=await termsInvoice(db,mode,'after_delivery'),id=b.published.packet_id
+ if(mode==='half_prepaid')await termsReceipt(db,id,'550','SYNTH-UPFRONT')
+ await cmd(db,'advance_paid',{packet_id:id});await db.query('insert into factory_purchase_orders(deal_id,source_quote_id) values($1,$2)',[deal,quote]);await db.query('insert into shipment_plans(deal_id) values($1)',[deal])
+ await actor(db,client);const context=(await db.query<any>('select client_finance_context($1,null) r',[id])).rows[0].r;assert.equal(context.paid_in_full,false);assert.equal(context.confirmed_jpy,mode==='postpaid'?'0':'550');await actor(db,staff)
+ await db.exec('update deal_quotes set selling_price_jpy=501');await assert.rejects(db.query('insert into factory_purchase_orders(deal_id,source_quote_id) values($1,$2)',[deal,quote]),/Formal PO/);await assert.rejects(db.query('insert into shipment_plans(deal_id) values($1)',[deal]),/shipment balance/)
+ }finally{await db.close()}}})
+test('legacy snapshots default full payment; terms preview is staff-only and half odd-yen rounding is deterministic',async()=>{const db=await paymentSetup();try{
+ const b=await invoice(db);await assert.rejects(cmd(db,'advance_paid',{packet_id:b.packet_id}),/upfront/)
+ const id=await document(db);await actor(db,foreign);await assert.rejects(db.query("select preview_client_document_with_terms($1,null,'postpaid','after_delivery')",[id]),/Sales/);await actor(db,staff)
+ const rules=(await db.query<any>("select client_payment_conditions(1101,'half_prepaid','after_delivery') r")).rows[0].r;assert.equal(rules.upfront_jpy,'551');assert.equal(rules.shipment_required_jpy,'551')
+ await assert.rejects(db.query("select client_payment_conditions(1101,'postpaid','before_shipment')"),/timing/)
+ await assert.rejects(db.query("select client_payment_conditions(1101,null,'before_shipment')"),/Explicit/)
+ }finally{await db.close()}})
+
+test('customer revision loop creates a new payment-condition version without altering the rejected quote or approving its invoice',async()=>{const db=await paymentSetup();try{
+ const first=await termsPublish(db,await document(db),null,'full_prepaid','before_shipment');await actor(db,client);await cmd(db,'respond_quote',{packet_id:first.published.packet_id,decision:'revision_requested',note:'Synthetic request for half payment'});await actor(db,staff)
+ await assert.rejects(cmd(db,'advance_quote',{packet_id:first.published.packet_id}),/approval/)
+ const second=await termsPublish(db,await document(db),null,'half_prepaid','after_delivery');await actor(db,client);await cmd(db,'respond_quote',{packet_id:second.published.packet_id,decision:'approved',note:'Synthetic agreement to revised conditions'});await actor(db,staff);await cmd(db,'advance_quote',{packet_id:second.published.packet_id})
+ const bill=await termsPublish(db,await document(db,'invoice'),second.published.packet_id,'full_prepaid','before_shipment');assert.equal(bill.expected.payment_conditions.mode,'half_prepaid');assert.equal(bill.expected.payment_conditions.balance_due,'after_delivery')
+ const original=(await db.query<any>('select status,snapshot from client_document_packets where id=$1',[first.published.packet_id])).rows[0];assert.equal(original.status,'superseded');assert.equal(original.snapshot.payment_conditions.mode,'full_prepaid')
+ assert.equal((await db.query<any>('select decision from client_document_responses where packet_id=$1',[first.published.packet_id])).rows[0].decision,'revision_requested')
+ }finally{await db.close()}})

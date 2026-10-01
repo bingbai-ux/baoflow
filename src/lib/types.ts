@@ -709,11 +709,11 @@ export const SIMPLE_STATUS_CONFIG: Record<SimpleStatus, SimpleStatusConfig> = {
     label: '見積確定',
     step: 2,
     color: 'confirmed',
-    nextLabel: '入金完了',
+    nextLabel: '支払条件確認済み',
     nextAction: '請求書を発行し入金を確認',
   },
   paid: {
-    label: '入金完了',
+    label: '支払条件確認済み',
     step: 3,
     color: 'warning',
     nextLabel: '最終入稿データ確認完了',

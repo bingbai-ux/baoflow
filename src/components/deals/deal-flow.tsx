@@ -1088,7 +1088,7 @@ function StepInvoice({
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx === 1 && (
-          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" disabled={!canIssue || docs.length === 0} />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="支払条件を確認した → 発注準備へ" disabled={!canIssue || docs.length === 0} />
         )}
       </div>
       {!canIssue && <p className="mt-3 text-[12px]">請求の元になる採用見積・金額を確認してください。<Link href={`/deals/${deal.id}?step=6`} className="underline ml-2">採用見積を確認</Link></p>}
@@ -1113,7 +1113,7 @@ function StepDataCheck({
   return (
     <div>
       <p className="text-[12px] font-body text-[#351E28] mb-2">
-        入金を確認したら工場へ前払い(Wise/Alibaba)。並行して最終入稿データをここに集め、工場と最終確認します。
+        顧客との支払条件と必要な実着金を確認したら、工場との合意条件に従って手動支払を行います。並行して最終入稿データをここに集め、工場と最終確認します。
       </p>
       <AttachmentGallery dealId={deal.id} initial={designFiles} />
       <div className="mt-2.5 flex items-center gap-2.5 flex-wrap">
