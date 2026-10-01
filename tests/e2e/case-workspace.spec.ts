@@ -22,6 +22,14 @@ test('capture the same synthetic case at desktop and mobile', async ({ page }) =
     await expect(page.locator('body')).not.toContainText('画面を読み込めませんでした')
     await page.evaluate(() => document.fonts.ready)
     if (name === 'new') await expect(page.locator('#deal-create-requirement')).not.toContainText('確認しています')
+    if (name === 'case' && phase === 'after') {
+      const action = page.getByRole('region', { name: '次の対応' }).getByRole('button', { name: '売値を比較して採用', exact: true })
+      await expect(action).toBeVisible()
+      const box = await action.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.y + box!.height).toBeLessThanOrEqual(900)
+      await expect(page.getByRole('button', { name: /次の作業.*戻る/ })).toHaveCount(0)
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: `${dir}/${name}-${width}.png`, fullPage: true })
   }

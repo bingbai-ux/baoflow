@@ -332,7 +332,7 @@ export function DealFlow({
     <div className="pb-8">
       <section aria-label="次の対応" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E1DA] pb-3">
         <div><p className="text-[11px] text-[#84787D]">次の対応</p><p className="text-[15px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
-        <div className="flex gap-2 flex-wrap"><button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{selCurrent ? '作業欄へ移動' : '次の作業を開く'}</button><button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
+        <div className="flex gap-2 flex-wrap"><button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{action.label}</button><button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
       </section>
       <div className="flex flex-col xl:flex-row gap-4"><div className="min-w-0 flex-1">
       {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
@@ -344,7 +344,6 @@ export function DealFlow({
             {steps.map((st, i) => <option key={st.title} value={i}>{i + 1}. {SHORT_LABELS[i]}{doneList[i] ? ' · 記録あり' : i === currentIdx ? ' · 次の作業' : ''}</option>)}
           </select>
         </label>
-        {!selCurrent && <button type="button" onClick={() => viewStep(null)} className="min-h-[44px] rounded-full bg-white border border-[#E2E1DA] text-[#351E28] px-4 text-[12px] font-bold">次の作業: {SHORT_LABELS[currentIdx]}へ戻る</button>}
       </div>
       {/* Desktop overview; mobile uses the same single, labelled section selector. */}
       <div className="hidden lg:block sticky top-0 z-10 bg-white rounded-[16px] border border-[#E2E1DA] px-3 py-2 mb-3 overflow-x-auto">

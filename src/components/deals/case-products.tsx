@@ -41,8 +41,12 @@ export function CaseProducts({ dealId, products, variants, quotes, catalog, onEd
       <nav aria-label="案件の商品" className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
         {products.map(p => {
           const vs = variants.filter(v => v.product_id === p.id)
+          const summary = vs.slice(0, 2).map(v => {
+            const size = [['W', v.width_mm], ['H', v.height_mm], ['D', v.depth_mm]].filter(([, n]) => n != null).map(([axis, n]) => `${axis}${n}`).join('×')
+            return [v.variant_label, size ? `${size}mm` : null, v.material].filter(Boolean).join(' · ')
+          }).join(' / ')
           const quantityCount = quotes.filter(q => vs.some(v => v.id === q.variant_id) && q.quantity != null).length
-          return <button key={p.id} type="button" aria-pressed={product?.id === p.id} onClick={() => select(p.id)} className={'shrink-0 lg:shrink min-w-[180px] lg:min-w-0 text-left rounded-card border px-3 py-3 ' + (product?.id === p.id ? 'border-[#351E28] bg-[#FBFAF6]' : 'border-[#E2E1DA] bg-white')}><span className="block text-[11px] text-[#84787D]">商品 {p.product_no}</span><span className="block text-[13px] font-bold break-words mt-1">{p.description}</span><span className="block text-[11px] text-[#84787D] mt-2">{vs.length ? `${vs.length}仕様案 · ${quantityCount}数量候補` : '仕様・数量が未登録'}</span></button>
+          return <button key={p.id} type="button" aria-pressed={product?.id === p.id} onClick={() => select(p.id)} className={'shrink-0 lg:shrink min-w-[180px] lg:min-w-0 max-w-[260px] lg:max-w-none text-left rounded-card border px-3 py-3 ' + (product?.id === p.id ? 'border-[#351E28] bg-[#FBFAF6]' : 'border-[#E2E1DA] bg-white')}><span className="block text-[11px] text-[#84787D]">商品 {p.product_no} · {p.id.slice(0, 8)}</span><span className="block text-[13px] font-bold break-words mt-1">{p.description}</span><span className="block text-[11px] text-[#84787D] break-words mt-1">{summary || 'サイズ・素材が未登録'}{vs.length > 2 ? ` / 他${vs.length - 2}仕様` : ''}</span><span className="block text-[11px] text-[#84787D] mt-2">{vs.length ? `${vs.length}仕様案 · ${quantityCount}数量候補` : '仕様・数量が未登録'}</span></button>
         })}
         {!products.length && <p className="text-[12px] text-[#84787D]">商品が未登録です</p>}
       </nav>
