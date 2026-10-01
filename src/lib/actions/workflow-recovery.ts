@@ -64,3 +64,13 @@ export async function recoverWorkflowRequest(operation: RecoverableOperation, re
   if (data && dealId && (rfq ? data.payload?.deal : data.payload?.deal_id) !== dealId) return { actorId: user.id, result: null, error: '保存要求の案件が一致しません' }
   return { actorId: user.id, result: (data?.result || null) as Record<string, unknown> | null, error: null }
 }
+
+/** Only a definite PostgreSQL rejection plus an authenticated, successful absence check
+ * permits correcting the form. Transport failures and saved results retain their UUID. */
+export async function canCorrectRejectedWorkflowRequest(operation: RecoverableOperation, requestId: string, targetId: string | undefined, code?: string) {
+  if (!code || !/^(P0001|22[0-9A-Z]{3}|23[0-9A-Z]{3}|42501|40001|40P01)$/.test(code)) return false
+  try {
+    const recovered = await recoverWorkflowRequest(operation, requestId, targetId)
+    return Boolean(recovered.actorId && !recovered.error && recovered.result == null)
+  } catch { return false }
+}

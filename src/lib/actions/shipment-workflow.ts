@@ -1,4 +1,5 @@
 'use server'
+import {canCorrectRejectedWorkflowRequest} from './workflow-recovery'
 import {createClient} from '@/lib/supabase/server'
 import {requireSalesAccess} from './deal-access'
 import {revalidatePath} from 'next/cache'
@@ -6,7 +7,7 @@ import {createHash} from 'node:crypto'
 import {deliveryNotePDF} from '@/lib/pdf/delivery-note'
 import {milestoneNames,type ShipmentContext,type DeliverySnapshot,type Milestone} from '@/lib/shipping/types'
 export async function getShipmentWorkflow(orderId:string):Promise<ShipmentContext|null>{const db=await createClient(),{data,error}=await db.rpc('shipment_context',{p_order_id:orderId});return error||!data?null:data as ShipmentContext}
-export async function shipmentCommand(requestId:string,orderId:string,operation:string,input:Record<string,unknown>){const db=await createClient(),{data,error}=await db.rpc('shipment_command',{p_request_id:requestId,p_order_id:orderId,p_operation:operation,p_input:input});if(error||!data)return {error:error?.message||'保存を確認できません。同じ内容で再試行してください'};revalidatePath('/portal/shipments');revalidatePath('/logistics/shipments');revalidatePath(`/factory/orders/${orderId}`);revalidatePath(`/deals/${(await getShipmentWorkflow(orderId))?.order.deal_id}/shipping`);return {result:data as Record<string,unknown>}}
+export async function shipmentCommand(requestId:string,orderId:string,operation:string,input:Record<string,unknown>){const db=await createClient(),{data,error}=await db.rpc('shipment_command',{p_request_id:requestId,p_order_id:orderId,p_operation:operation,p_input:input});if(error||!data)return {canCorrect:await canCorrectRejectedWorkflowRequest('shipment_workflow',requestId,orderId,error?.code),error:error?.message.includes('chronological milestone time')?'実際の発生日時を確認してください。未来・発送計画より前・前工程より前の日時は保存できません':error?.message||'保存を確認できません。同じ内容で再試行してください'};revalidatePath('/portal/shipments');revalidatePath('/logistics/shipments');revalidatePath(`/factory/orders/${orderId}`);revalidatePath(`/deals/${(await getShipmentWorkflow(orderId))?.order.deal_id}/shipping`);return {result:data as Record<string,unknown>}}
 async function mailData(planId:string,eventKey:string){
  const db=await createClient(),denied=await requireSalesAccess(db);if(denied)return {error:denied};const {data:p,error}=await db.from('shipment_plans').select('*').eq('id',planId).single();if(error||!p)return {error:'配送版を確認できません'}
  const doc=eventKey==='delivery'?await db.from('shipment_delivery_documents').select('*').eq('plan_id',planId).single():null,event=eventKey!=='delivery'?await db.from('shipment_milestones').select('*').eq('id',eventKey).eq('plan_id',planId).single():null

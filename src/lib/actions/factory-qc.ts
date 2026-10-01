@@ -1,4 +1,5 @@
 'use server'
+import {canCorrectRejectedWorkflowRequest} from './workflow-recovery'
 import {createClient} from '@/lib/supabase/server'
 import {requireSalesAccess} from './deal-access'
 import {createHash} from 'node:crypto'
@@ -26,7 +27,7 @@ export async function factoryQcCommand(requestId:string,orderId:string,operation
  }
  }
  const {data,error}=await db.rpc('factory_qc_command',{p_request_id:requestId,p_order_id:orderId,p_operation:operation,p_input:input})
- if(error||!data)return {error:error?.message.includes('revised evidence')?'不承認後は修正した写真・動画を追加して、新しい提出版を確認してください':'保存を確認できません。全体写真・梱包写真・動画、完了数量・日付、最新提出版と権限を確認し、同じ要求で再試行してください'}
+ if(error||!data)return {canCorrect:await canCorrectRejectedWorkflowRequest('factory_qc',requestId,orderId,error?.code),error:error?.message.includes('revised evidence')?'不承認後は修正した写真・動画を追加して、新しい提出版を確認してください':'保存を確認できません。全体写真・梱包写真・動画、完了数量・日付、最新提出版と権限を確認し、同じ要求で再試行してください'}
  revalidatePath(`/factory/orders/${orderId}`);revalidatePath('/deals');return {result:data as Record<string,unknown>}
 }
 async function verifiedQcAsset(a:QcAsset){const db=await createClient(),{data,error}=await db.storage.from('factory-qc').download(a.object_path);if(error||!data||data.size!==a.byte_size)return null;const bytes=new Uint8Array(await data.arrayBuffer());return validQcBytes(bytes,a.mime)&&createHash('sha256').update(bytes).digest('hex')===a.sha256?data:null}

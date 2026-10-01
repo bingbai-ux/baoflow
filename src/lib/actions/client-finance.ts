@@ -1,4 +1,5 @@
 'use server'
+import {canCorrectRejectedWorkflowRequest} from './workflow-recovery'
 import {createClient} from '@/lib/supabase/server'
 import {requireSalesAccess} from './deal-access'
 import {revalidatePath} from 'next/cache'
@@ -9,7 +10,7 @@ export async function clientFinanceCommand(requestId:string,operation:string,inp
  const db=await createClient(),{data:{user},error:authError}=await db.auth.getUser()
  if(authError||!user)return {error:'ログインしてください'}
  const {data,error}=await db.rpc('client_finance_command',{p_request_id:requestId,p_operation:operation,p_input:input})
- if(error||!data)return {error:error?.message.includes('Preview changed')?'発行内容が変わりました。もう一度確認してください':error?.message.includes('full bank receipt')?'実着金の全額確認が必要です。顧客の申告だけでは進められません':error?.message.includes('expired')?'リンクが期限切れです。ポータルから有効な帳票を開いてください':'保存を確認できません。入力を変えず再試行してください。重複操作の前に履歴を確認してください'}
+ if(error||!data)return {canCorrect:await canCorrectRejectedWorkflowRequest('client_finance',requestId,undefined,error?.code),error:error?.message.includes('Preview changed')?'発行内容が変わりました。もう一度確認してください':error?.message.includes('full bank receipt')?'実着金の全額確認が必要です。顧客の申告だけでは進められません':error?.message.includes('expired')?'リンクが期限切れです。ポータルから有効な帳票を開いてください':'保存を確認できません。入力を変えず再試行してください。重複操作の前に履歴を確認してください'}
  revalidatePath('/portal/documents');revalidatePath('/deals');return {result:data as Record<string,unknown>}
 }
 export async function previewClientDocument(documentId:string,approvalPacketId:string|null=null){
