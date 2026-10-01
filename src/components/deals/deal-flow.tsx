@@ -35,8 +35,8 @@ import {
 import { updateDealStatus } from '@/lib/actions/deal-status'
 import { createQuote } from '@/lib/actions/quotes'
 import { createFactoryOrder, createInboundForFactoryOrder, type FactoryOrderRow } from '@/lib/actions/factory-orders'
-import { ProductWizard } from '@/components/deals/product-wizard'
-import { SpecTable } from '@/components/deals/spec-table'
+import { CaseProducts } from '@/components/deals/case-products'
+import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
 import type { CatalogNode } from '@/lib/actions/catalog'
 import { archiveDeal } from '@/lib/actions/deals'
 import { useUi } from '@/components/ui/ui-store'
@@ -107,9 +107,9 @@ interface DealFlowProps {
 type Actor = 'us' | 'factory' | 'client'
 
 const ACTOR_LABEL: Record<Actor, string> = {
-  us: '● 自分',
-  factory: '▲ 工場',
-  client: '◯ クライアント',
+  us: '営業',
+  factory: '工場',
+  client: '顧客',
 }
 
 // ---------------------------------------------------------------------------
@@ -149,12 +149,12 @@ export function DealFlow({
   // 各ステップの完了判定(status が先へ進んでいれば前段は完了扱い)
   const doneList: boolean[] = [
     true, // 1 案件作成
-    products.length > 0 && variants.length > 0, // 2 仕様
-    rfqCount > 0 || statusIdx >= 1, // 3 RFQ
-    factoryReady || statusIdx >= 1, // 4 工場回答
-    factoryReady || statusIdx >= 1, // 5 原価(自動)
-    approvedQuotes.length > 0 || statusIdx >= 1, // 6 売値
-    statusIdx >= 1, // 7 見積書→承認
+    products.length > 0 && products.every(p => variants.some(v => v.product_id === p.id)) && variants.every(v => quotes.some(q => q.variant_id === v.id && Number.isInteger(Number(q.quantity)) && Number(q.quantity) > 0)), // 2 仕様と数量の登録
+    rfqCount > 0, // 3 RFQ
+    factoryReady, // 4 工場回答
+    factoryReady, // 5 原価(自動)
+    approvedQuotes.length > 0, // 6 売値
+    quoteDocs.length > 0, // 7 発行の事実のみ
     statusIdx >= 2, // 8 請求書→入金
     statusIdx >= 3, // 9 前払い・入稿データ
     statusIdx >= 4, // 10 製作開始
@@ -162,7 +162,11 @@ export function DealFlow({
     statusIdx >= 6, // 12 到着・検品・入庫
     false, // 13 完了(最終)
   ]
-  const currentIdx = doneList.findIndex((d) => !d)
+  const amount = approvedAmount(quotes)
+  const action = caseAction(deal.simple_status, { products: products.length, variants: variants.length, incompleteProducts: products.filter(p => !variants.some(v => v.product_id === p.id)).length, missingQuantities: variants.filter(v => !quotes.some(q => q.variant_id === v.id && Number.isInteger(Number(q.quantity)) && Number(q.quantity) > 0)).length, rfqs: rfqCount, pricedQuotes, approvedQuotes: amount.count, missingAmounts: amount.missing, invalidApprovedQuotes: invalidDocumentQuotes(quotes), quotationDocs: quoteDocs.length, invoiceDocs: invoiceDocs.length })
+  const currentIdx = action.step - 1
+  const [contactsOpen, setContactsOpen] = useState(false)
+  const [specEditing, setSpecEditing] = useState(false)
 
   // Sprint 14: 上=横パイプライン / 下=選んだステップの詳細
   const [selected, setSelected] = useState<number | null>(null)
@@ -176,6 +180,7 @@ export function DealFlow({
     return () => window.removeEventListener('popstate', readStep)
   }, [deal.id])
   const viewStep = (value: number | null) => {
+    if (document.querySelector('[data-case-unsaved="true"]') && !window.confirm('未保存の商品入力を閉じて別の工程を表示しますか？')) return
     const url = new URL(window.location.href)
     if (value == null) url.searchParams.delete('step')
     else url.searchParams.set('step', String(value + 1))
@@ -212,6 +217,7 @@ export function DealFlow({
           quotes={quotes}
           designFiles={designFiles}
           catalog={catalog}
+        onEditorChange={setSpecEditing}
         />
       ),
     },
@@ -269,14 +275,14 @@ export function DealFlow({
       actor: 'client',
       summary:
         quoteDocs.length > 0 ? `見積書 ${quoteDocs.length}通 発行済み` : 'まだ発行していません',
-      body: <StepQuoteDoc deal={deal} docs={quoteDocs} statusIdx={statusIdx} />,
+      body: <StepQuoteDoc deal={deal} docs={quoteDocs} statusIdx={statusIdx} canIssue={amount.count > 0 && amount.missing === 0 && invalidDocumentQuotes(quotes) === 0} />,
     },
     {
       title: '承認 → 見積確定 → 請求書 → 入金待ち',
       actor: 'client',
       summary:
         invoiceDocs.length > 0 ? `請求書 ${invoiceDocs.length}通 発行済み` : '承認後に請求書を発行',
-      body: <StepInvoice deal={deal} docs={invoiceDocs} statusIdx={statusIdx} />,
+      body: <StepInvoice deal={deal} docs={invoiceDocs} statusIdx={statusIdx} canIssue={amount.count > 0 && amount.missing === 0 && invalidDocumentQuotes(quotes) === 0} />,
     },
     {
       title: '入金確認 → 工場へ前払い → 入稿データ最終確認',
@@ -324,31 +330,36 @@ export function DealFlow({
 
   return (
     <div className="pb-8">
+      <section aria-label="次の対応" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E1DA] pb-3">
+        <div><p className="text-[11px] text-[#84787D]">次の対応</p><p className="text-[15px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
+        <div className="flex gap-2 flex-wrap"><button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{selCurrent ? '作業欄へ移動' : '次の作業を開く'}</button><button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
+      </section>
+      <div className="flex flex-col xl:flex-row gap-4"><div className="min-w-0 flex-1">
       {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
       <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <label className="flex items-center gap-2 text-[12px] font-bold min-w-0">
           工程を表示
           <select aria-label="表示する工程" value={sel} onChange={e => viewStep(Number(e.target.value))}
             className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px] max-w-[240px]">
-            {steps.map((st, i) => <option key={st.title} value={i}>{i + 1}. {SHORT_LABELS[i]}{doneList[i] ? ' · 完了' : i === currentIdx ? ' · 次の作業' : ''}</option>)}
+            {steps.map((st, i) => <option key={st.title} value={i}>{i + 1}. {SHORT_LABELS[i]}{doneList[i] ? ' · 記録あり' : i === currentIdx ? ' · 次の作業' : ''}</option>)}
           </select>
         </label>
-        {!selCurrent && <button type="button" onClick={() => viewStep(null)} className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] px-4 text-[12px] font-bold">次の作業: {SHORT_LABELS[currentIdx]}へ戻る</button>}
+        {!selCurrent && <button type="button" onClick={() => viewStep(null)} className="min-h-[44px] rounded-full bg-white border border-[#E2E1DA] text-[#351E28] px-4 text-[12px] font-bold">次の作業: {SHORT_LABELS[currentIdx]}へ戻る</button>}
       </div>
       {/* Desktop overview; mobile uses the same single, labelled section selector. */}
-      <div className="hidden lg:block bg-white rounded-[16px] border border-[#E2E1DA] px-3 py-2 mb-3 overflow-x-auto">
+      <div className="hidden lg:block sticky top-0 z-10 bg-white rounded-[16px] border border-[#E2E1DA] px-3 py-2 mb-3 overflow-x-auto">
         <div ref={stepStrip} className="flex items-start min-w-[900px]">
           {steps.map((st, i) => <button key={st.title} type="button" onClick={() => viewStep(i)} data-step={i}
-            aria-label={`${i + 1}. ${SHORT_LABELS[i]}${doneList[i] ? ' 完了' : i === currentIdx ? ' 次の作業' : ''}`}
+            aria-label={`${i + 1}. ${SHORT_LABELS[i]}${doneList[i] ? ' 記録あり' : i === currentIdx ? ' 次の作業' : ''}`}
             aria-current={i === currentIdx ? 'step' : undefined} aria-pressed={i === sel}
-            className={`flex-1 min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-[10px] text-[10px] ${i === sel ? 'ring-1 ring-[#351E28]' : ''} ${doneList[i] ? 'bg-[#D7EFFF] text-[#33566F]' : i === currentIdx ? 'bg-[#E9F056] text-[#666C14]' : 'text-[#84787D]'}`}>
+            className={`flex-1 min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-[10px] text-[10px] ${i === sel ? 'ring-1 ring-[#351E28]' : ''} ${doneList[i] ? 'bg-[#D7EFFF] text-[#33566F]' : i === currentIdx ? 'bg-[#EFEFEA] text-[#351E28]' : 'text-[#84787D]'}`}>
             <span className="fc-num font-extrabold">{doneList[i] ? '✓' : i + 1}</span><span>{SHORT_LABELS[i]}</span>
           </button>)}
         </div>
       </div>
 
       {/* 選択中ステップの詳細 */}
-      <div
+      <div id="case-step-work" tabIndex={-1}
         className={`bg-white rounded-[16px] border mb-3 ${
           selCurrent ? 'border-[#E9F056] border-[1.5px]' : 'border-[#E2E1DA]'
         }`}
@@ -365,7 +376,7 @@ export function DealFlow({
             <span className="rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">今ここ</span>
           )}
           {selDone && (
-            <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">完了</span>
+            <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">記録あり</span>
           )}
           <span className="flex-1" />
           <span className="w-full sm:w-auto text-[12px] text-[#84787D] font-body sm:ml-auto">
@@ -393,13 +404,13 @@ export function DealFlow({
         </div>
       </div>
 
-      {/* 線の外の道具箱: 通信・履歴 */}      {/* 線の外の道具箱: 通信・履歴 */}
-      <UtilitySection title={`通信の記録 (${communications.length})`}>
-        <DealCommunicationTab dealId={deal.id} initial={communications} />
-      </UtilitySection>
       <UtilitySection title={`変更履歴 (${statusHistory.length})`}>
         <HistoryList rows={statusHistory} />
       </UtilitySection>
+      <UtilitySection title={`過去書類 (${documents.length})`}><DocList docs={documents} /><Link href={`/deals/${deal.id}/documents`} className="min-h-[44px] inline-flex items-center text-[12px] underline">帳票履歴を開く</Link></UtilitySection>
+      </div>
+      {contactsOpen && <aside id="case-contact-records" aria-label="案件の連絡記録" className="xl:w-[300px] xl:shrink-0 rounded-card border border-[#E2E1DA] bg-white p-3 self-start min-w-0 max-w-full"><h2 className="text-[15px] font-bold mb-1">連絡記録</h2><p className="text-[11px] text-[#84787D] mb-3">メール・電話などの記録。相手への送信やチャット受信は行いません。</p><DealCommunicationTab dealId={deal.id} initial={communications} /></aside>}
+      </div>
     </div>
   )
 }
@@ -580,6 +591,7 @@ function StepSpecs({
   quotes,
   designFiles,
   catalog,
+  onEditorChange,
 }: {
   deal: FlowDeal
   products: DealProduct[]
@@ -587,104 +599,16 @@ function StepSpecs({
   quotes: BuilderQuote[]
   designFiles: DesignFileRow[]
   catalog: CatalogNode[]
+  onEditorChange: (editing: boolean) => void
 }) {
-  const [wizardTarget, setWizardTarget] = useState<
-    { id: string; category_l1: string | null } | null | 'new'
-  >(null)
-
-  const emptyProducts = products.filter((p) => !variants.some((v) => v.product_id === p.id))
-  const filledProducts = products.filter((p) => variants.some((v) => v.product_id === p.id))
-
   return (
     <div className="space-y-4">
-      <p className="text-[12px] font-body text-[#84787D]">
-        商品ごとに 大分類 → 中分類 → 小分類 → 詳細 → 数量 を選ぶだけで仕様が固まります。
-        細かい項目は選択式、書ききれないことは下の備考・添付へ。
-      </p>
-
-      {/* 新規案件ウィザードで作った「これから仕様を選ぶ」枠 — Cool Blue面で「ここを入力」を目立たせる */}
-      {emptyProducts.length > 0 && (
-        <div className="space-y-2">
-          {emptyProducts.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center gap-3 rounded-[12px] bg-[#D7EFFF] px-4 py-3.5"
-            >
-              <span className="fc-num text-[10.5px] text-[#33566F]">#{p.product_no}</span>
-              <div className="min-w-0">
-                <p className="text-[14px] font-extrabold text-[#33566F]">
-                  {p.description}
-                  <span className="rounded-full bg-white text-[#33566F] text-[10px] font-bold px-2 py-[2px] ml-2 align-middle">
-                    仕様待ち
-                  </span>
-                </p>
-                <p className="text-[11px] text-[#33566F] mt-0.5">
-                  ここを入力してください — サイズ・素材・色数・数量を選ぶだけです
-                </p>
-              </div>
-              <span className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setWizardTarget({ id: p.id, category_l1: p.category_l1 || p.description })}
-                className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95 whitespace-nowrap"
-              >
-                仕様を選ぶ →
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 仕様が入った商品: 1行=1バリエの表(セルはその場で編集、数量は + で追加) */}
-      {filledProducts.length > 0 && (
-        <SpecTable
-          dealId={deal.id}
-          products={filledProducts}
-          variants={variants}
-          quotes={quotes}
-        />
-      )}
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setWizardTarget('new')}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95"
-        >
-          + 商品を追加(カテゴリから選ぶ)
-        </button>
-        <Link
-          href={`/deals?selected=${deal.id}`}
-          className="text-[11.5px] text-[#33566F] font-bold no-underline hover:underline"
-        >
-          全50項目を表で編集(グリッド) →
-        </Link>
-      </div>
-
-      {/* 備考・補足資料 */}
-      <div className="rounded-[12px] border border-[#E2E1DA] bg-white p-4 space-y-3">
-        <p className="text-[12px] font-bold text-[#351E28]">
-          備考・補足資料
-          <span className="text-[10.5px] font-normal text-[#84787D] ml-2">
-            選択肢で書ききれなかったことは文章・写真・ファイルでどうぞ
-          </span>
-        </p>
-        <InlineCell
-          value={deal.memo}
-          onSave={async (v) => updateDealField(deal.id, 'memo', v || null)}
-          placeholder="補足メモ — クリックで編集"
-        />
+      <CaseProducts dealId={deal.id} products={products} variants={variants} quotes={quotes} catalog={catalog} onEditorChange={onEditorChange} />
+      <details className="rounded-card border border-[#E2E1DA] p-3">
+        <summary className="min-h-[44px] flex items-center text-[12px] font-bold cursor-pointer">補足メモ・参考資料</summary>
+        <InlineCell value={deal.memo} onSave={async v => updateDealField(deal.id, 'memo', v || null)} placeholder="補足メモを入力" />
         <AttachmentGallery dealId={deal.id} initial={designFiles} />
-      </div>
-
-      {wizardTarget !== null && (
-        <ProductWizard
-          dealId={deal.id}
-          catalog={catalog}
-          targetProduct={wizardTarget === 'new' ? null : wizardTarget}
-          onClose={() => setWizardTarget(null)}
-        />
-      )}
+      </details>
     </div>
   )
 }
@@ -1104,10 +1028,12 @@ function StepQuoteDoc({
   deal,
   docs,
   statusIdx,
+  canIssue,
 }: {
   deal: FlowDeal
   docs: FlowDocument[]
   statusIdx: number
+  canIssue: boolean
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   return (
@@ -1117,13 +1043,14 @@ function StepQuoteDoc({
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95"
+          disabled={!canIssue}
+          className="disabled:opacity-40 min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 hover:brightness-95"
         >
           見積書をつくる
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx < 1 && (
-          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="quote_confirmed" label="承認された → 見積確定へ" primary />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="quote_confirmed" label="承認された → 見積確定へ" disabled={!canIssue || docs.length === 0} />
         )}
       </div>
       <Hint>
@@ -1138,10 +1065,12 @@ function StepInvoice({
   deal,
   docs,
   statusIdx,
+  canIssue,
 }: {
   deal: FlowDeal
   docs: FlowDocument[]
   statusIdx: number
+  canIssue: boolean
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   return (
@@ -1151,15 +1080,17 @@ function StepInvoice({
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95"
+          disabled={!canIssue}
+          className="disabled:opacity-40 min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 hover:brightness-95"
         >
           請求書をつくる
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx === 1 && (
-          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" primary />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" disabled={!canIssue || docs.length === 0} />
         )}
       </div>
+      {!canIssue && <p className="mt-3 text-[12px]">請求の元になる採用見積・金額を確認してください。<Link href={`/deals/${deal.id}?step=6`} className="underline ml-2">採用見積を確認</Link></p>}
       {modalOpen && <DocumentModal dealId={deal.id} initialType="invoice" onClose={() => setModalOpen(false)} />}
     </div>
   )

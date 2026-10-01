@@ -2,214 +2,26 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useTransition } from 'react'
-import { X, FileText, ExternalLink, Send } from 'lucide-react'
-import { MiniPipeline } from './mini-pipeline'
-import { WaitingOnBadge } from './waiting-on-badge'
-import { NextStepGuide, buildGuideCounts } from './next-step-guide'
-import { PaneTabs } from './pane-tabs'
-import { DocumentModal } from '@/components/documents/document-modal'
-import { RfqCreateModal } from './rfq-create-modal'
-import { useState } from 'react'
-import { advanceSimpleStatus } from '@/lib/actions/deals'
 import { useUi } from '@/components/ui/ui-store'
-import {
-  type SimpleStatus,
-  SIMPLE_STATUS_CONFIG,
-  SIMPLE_STATUS_ORDER,
-} from '@/lib/types'
+import { SIMPLE_STATUS_CONFIG } from '@/lib/types'
+import { caseAction, approvedAmount, waitingLabel, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
+import { buildGuideCounts } from './next-step-guide'
+import { formatJPY, formatDate } from '@/lib/utils/format'
 import type { DealPaneData } from '@/lib/actions/deal-pane-types'
 
-interface Props {
-  data: DealPaneData
+/** The grid preview is read-only. Transactions are performed in the full case workspace. */
+export function DealPane({ data }: { data: DealPaneData }) {
+  const router = useRouter(), pathname = usePathname(), params = useSearchParams()
+  const { setPaneOpen } = useUi()
+  const counts = buildGuideCounts({ products: data.products, variants: data.variants as never, quotes: data.quotes as never, documents: data.documents, rfqs: data.rfqCount })
+  const amount = approvedAmount(data.quotes as Array<{ status?: string | null; total_billing_tax_jpy?: unknown }>)
+  const action = caseAction(data.deal.simple_status, { ...counts, missingAmounts: amount.missing, invalidApprovedQuotes: invalidDocumentQuotes(data.quotes as Array<{ status?: string | null; quantity?: unknown; total_billing_jpy?: unknown }>), quotationDocs: counts.quoteDocs })
+  const close = () => { const p = new URLSearchParams(params.toString()); p.delete('selected'); setPaneOpen(false); router.push(pathname + (p.size ? '?' + p.toString() : ''), { scroll: false }) }
+  return <aside aria-label="案件の概要" className="w-full lg:w-[360px] lg:shrink-0 border-l border-[#E2E1DA] bg-white p-4 space-y-4">
+    <div className="flex justify-between gap-3"><div><p className="text-[11px] text-[#84787D]">{data.deal.deal_code}</p><h2 className="text-[15px] font-bold">{data.deal.deal_name || '案件名未設定'}</h2><p className="text-[12px] text-[#84787D]">{data.deal.client_name_text || '取引先未設定'}</p></div><button type="button" onClick={close} className="min-h-[44px] text-[12px] underline">閉じる</button></div>
+    <dl className="grid grid-cols-2 gap-3 text-[12px]"><div><dt className="text-[#84787D]">現在の工程</dt><dd className="font-bold">{SIMPLE_STATUS_CONFIG[data.deal.simple_status]?.label}</dd></div><div><dt className="text-[#84787D]">待ち先</dt><dd>{waitingLabel(data.deal.waiting_on)}</dd></div><div><dt className="text-[#84787D]">希望納期</dt><dd>{data.deal.desired_delivery_date ? formatDate(data.deal.desired_delivery_date) : '未設定'}</dd></div><div><dt className="text-[#84787D]">担当</dt><dd>{data.deal.sales_user?.display_name || '未設定'}</dd></div><div><dt className="text-[#84787D]">採用額（税込）</dt><dd>{amount.label || formatJPY(amount.total)}</dd></div></dl>
+    <div><p className="text-[11px] text-[#84787D]">次の対応</p><p className="text-[13px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
+    <Link href={`/deals/${data.deal.id}?step=${action.step}`} className="inline-flex min-h-[44px] items-center rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold">案件の作業画面を開く</Link>
+  </aside>
 }
-
-export function DealPane({ data }: Props) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const { toast, setPaneOpen } = useUi()
-  const [docModalOpen, setDocModalOpen] = useState(false)
-  const [rfqModalOpen, setRfqModalOpen] = useState(false)
-  const [pending, startTransition] = useTransition()
-
-  const close = () => {
-    // Clear selection AND collapse the pane
-    const p = new URLSearchParams(searchParams.toString())
-    p.delete('selected')
-    setPaneOpen(false)
-    router.push(p.toString() ? `${pathname}?${p.toString()}` : pathname, { scroll: false })
-  }
-
-  const advance = () => {
-    if (pending) return
-    startTransition(async () => {
-      const r = await advanceSimpleStatus(data.deal.id)
-      if (r.success) {
-        toast('ステータスを次へ進めました')
-        router.refresh()
-      } else {
-        toast(r.error || '進められません', 'warn')
-      }
-    })
-  }
-
-  const currentIdx = SIMPLE_STATUS_ORDER.indexOf(data.deal.simple_status)
-  const isLast = currentIdx === SIMPLE_STATUS_ORDER.length - 1
-  const nextLabel = !isLast
-    ? SIMPLE_STATUS_CONFIG[SIMPLE_STATUS_ORDER[currentIdx + 1]].label
-    : ''
-
-  // Color seed for thumbnail (hash deal name)
-  const thumb = thumbColor(data.deal.deal_name || data.deal.deal_code)
-
-  return (
-    <div className="w-[420px] border-l border-[#E2E1DA] bg-white flex flex-col flex-shrink-0 overflow-hidden h-full">
-      {/* Header */}
-      <div className="px-4 pt-3.5 pb-3 border-b border-[#E2E1DA] flex items-start gap-2.5">
-        <div
-          className="w-[42px] h-[42px] rounded-[12px] flex-shrink-0 flex items-center justify-center text-[14px] font-display font-semibold text-[#351E28]"
-          style={{ background: thumb }}
-        >
-          {(data.deal.deal_name || data.deal.deal_code).charAt(0)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-display text-[10px] text-[#84787D] tracking-[0.04em] tabular-nums">
-            {data.deal.deal_code}
-          </p>
-          <p className="text-[13.5px] font-semibold leading-tight mt-0.5 truncate">
-            {data.deal.deal_name || '(案件名未設定)'}
-          </p>
-          <p className="text-[10px] text-[#84787D] mt-1 truncate">
-            {data.deal.client_name_text || '(クライアント未設定)'}
-          </p>
-        </div>
-        <Link
-          href={`/deals/${data.deal.id}`}
-          className="w-6 h-6 rounded-[8px] text-[#84787D] cursor-pointer flex items-center justify-center hover:bg-[#FBFAF6] transition-colors no-underline"
-          title="詳細ページで開く"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
-        <button
-          type="button"
-          onClick={close}
-          className="w-6 h-6 rounded-[8px] border-none bg-transparent text-[#84787D] cursor-pointer flex items-center justify-center text-[16px] hover:bg-[#FBFAF6] transition-colors"
-          title="閉じる"
-          aria-label="閉じる"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Mini pipeline + ボール */}
-      <div className="px-4 py-2.5 border-b border-[#E2E1DA] bg-[#FBFAF6] flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <MiniPipeline dealId={data.deal.id} current={data.deal.simple_status} />
-        </div>
-        <WaitingOnBadge dealId={data.deal.id} value={data.deal.waiting_on} size="sm" />
-      </div>
-
-      {/* 次の一歩ガイド */}
-      <div className="px-3 pt-3">
-        <NextStepGuide
-          dealId={data.deal.id}
-          status={data.deal.simple_status}
-          waitingOn={data.deal.waiting_on}
-          counts={buildGuideCounts({
-            products: data.products,
-            variants: data.variants as never,
-            quotes: data.quotes as never,
-            documents: data.documents,
-            rfqs: data.rfqCount,
-          })}
-          compact
-        />
-      </div>
-
-      {/* Sprint 7-5: パネル専用タブ (履歴 / 通信 / 添付 / 帳票) のみ。
-          基本情報・商品・見積はスプレッド本体で編集するためパネルからは外す (仕様書 §2-4)。*/}
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-        <PaneTabs
-          dealId={data.deal.id}
-          statusHistory={data.statusHistory as never}
-          communications={data.communications as never}
-          designFiles={data.designFiles as never}
-          onOpenDocumentModal={() => setDocModalOpen(true)}
-        />
-      </div>
-
-      {/* Footer — actions */}
-      <div className="px-3.5 py-2.5 border-t border-[#E2E1DA] bg-[#FBFAF6] flex gap-2 flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => setDocModalOpen(true)}
-          className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#E2E1DA] bg-white text-[#351E28] inline-flex items-center justify-center gap-1 hover:bg-[#FBFAF6] transition-colors"
-        >
-          <FileText className="w-3 h-3" />
-          帳票
-        </button>
-        {/* Sprint 8-6: 見積依頼 (RFQ) ボタン */}
-        <button
-          type="button"
-          onClick={() => setRfqModalOpen(true)}
-          className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#E2E1DA] bg-white text-[#351E28] inline-flex items-center justify-center gap-1 hover:bg-[#FBFAF6] transition-colors"
-        >
-          <Send className="w-3 h-3" />
-          見積依頼
-        </button>
-        {!isLast ? (
-          <button
-            type="button"
-            onClick={advance}
-            disabled={pending}
-            className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] cursor-pointer border border-[#351E28] bg-[#351E28] text-[#C9A2B8] font-medium hover:brightness-95 disabled:opacity-50 transition-colors"
-          >
-            {pending ? '更新中…' : `→ ${nextLabel}`}
-          </button>
-        ) : (
-          <span className="flex-1 px-2 py-2 rounded-[8px] text-[10.5px] text-center bg-[rgba(233,240,86,0.28)] text-[#666C14] font-medium">
-            納品完了
-          </span>
-        )}
-      </div>
-
-      {docModalOpen && (
-        <DocumentModal dealId={data.deal.id} onClose={() => setDocModalOpen(false)} />
-      )}
-      {rfqModalOpen && (
-        <RfqCreateModal
-          dealId={data.deal.id}
-          products={data.products as never}
-          onClose={() => setRfqModalOpen(false)}
-        />
-      )}
-    </div>
-  )
-}
-
-export function DealPaneEmpty() {
-  return (
-    <div className="w-[420px] border-l border-[#E2E1DA] bg-white flex flex-col items-center justify-center gap-3 text-center px-7 text-[#AEB8A0] text-[11px] flex-shrink-0 h-full">
-      <div className="w-[60px] h-[60px] rounded-full bg-[#FBFAF6] flex items-center justify-center text-[28px] text-[#E2E1DA] font-display">
-        ◯
-      </div>
-      <p className="font-display text-[13px] text-[#84787D] font-semibold">案件を選択</p>
-      <p className="text-[10.5px] text-[#84787D] leading-relaxed max-w-[240px]">
-        左の表から案件をクリックすると、詳細・履歴・添付・通信がここに表示されます。
-      </p>
-    </div>
-  )
-}
-
-function thumbColor(seed: string): string {
-  const palette = [
-    '#FFD8C2', '#FFD8C2', 'rgba(233,240,86,0.28)', '#D7EFFF',
-    '#D7EFFF', '#FBFAF6', 'rgba(233,240,86,0.28)', '#FBFAF6',
-  ]
-  let h = 0
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  }
-  return palette[h % palette.length]
-}
+export function DealPaneEmpty() { return null }

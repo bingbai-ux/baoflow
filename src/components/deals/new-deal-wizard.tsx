@@ -5,7 +5,8 @@
 //       希望納期 / 担当スタッフ。案件名は自動生成 (プレビュー表示、後から編集可)。
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { safeCaseReturn } from '@/lib/deals/case-workspace'
 import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { createDealFromWizard } from '@/lib/actions/deal-wizard'
 import { useUi } from '@/components/ui/ui-store'
@@ -37,6 +38,8 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
   const recovery = useWorkflowRequest('deal/new', 'deal')
   const { recovered, complete: completeRecovery } = recovery
   const router = useRouter()
+  const params = useSearchParams()
+  const from = safeCaseReturn(params.get('from'))
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
 
@@ -100,7 +103,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         recovery.complete()
         if (r.error) toast(r.error, 'warn')
         else toast(`案件を作成しました(${r.dealCode})`)
-        router.push(`/deals/${r.dealId}`)
+        router.push(`/deals/${r.dealId}?step=2&from=${encodeURIComponent(from)}`)
       } else {
         setError(r.error || '作成に失敗しました')
       }
@@ -108,7 +111,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
     })
 
   return (
-    <div className="max-w-[640px] bg-white rounded-[16px] border border-[#E2E1DA] p-6 space-y-5 mb-8">
+    <div className="max-w-[920px] bg-white rounded-[16px] border border-[#E2E1DA] p-6 space-y-5 mb-8">
       {recovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{recovery.error}</p>}
       {recovery.unfinished && !recovery.recovered && <p className="text-[12px]">前回の保存結果が未確認です。同じ入力で再試行できます。<button type="button" className="underline ml-2" onClick={recovery.complete}>一覧を確認済み・新しい入力を始める</button></p>}
       {/* 1. クライアント */}
@@ -205,9 +208,9 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
           })}
           {items
             .filter((x) => !itemPresets.includes(x))
-            .map((name) => (
+            .map((name, i) => (
               <button
-                key={name}
+                key={name + i}
                 type="button"
                 onClick={() => toggleItem(name)}
                 className="rounded-full px-3.5 py-2 text-[12.5px] font-bold border bg-[#351E28] text-[#C9A2B8] border-[#351E28]"
@@ -258,6 +261,8 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         </section>
       </div>
 
+      {items.length > 0 && <section aria-label="作成する商品枠" className="rounded-card border border-[#E2E1DA] overflow-hidden"><h2 className="text-[12px] font-bold px-4 py-2 bg-[#FBFAF6]">この案件の商品 {items.length}件</h2><ul className="divide-y divide-[#E2E1DA]">{items.map((item, i) => <li key={item + i} className="flex flex-wrap justify-between items-center px-4 py-2 gap-2 text-[13px]"><span>商品 {i + 1} · {item}</span><span className="text-[11px] text-[#84787D]">仕様・数量は保存後に入力</span><button type="button" aria-label={item + 'の商品枠を外す'} className="min-h-[44px] text-[12px] underline" onClick={() => setItems(xs => xs.filter((_, index) => index !== i))}>外す</button><button type="button" aria-label={`商品${i + 1}と同じ分類の商品を追加`} className="min-h-[44px] text-[12px] underline" onClick={() => setItems(xs => [...xs, item])}>同じ分類を追加</button></li>)}</ul></section>}
+
       {/* 案件名プレビュー */}
       <div className="rounded-[12px] bg-[#FBFAF6] border border-[#E2E1DA] px-4 py-3">
         <p className="text-[10.5px] text-[#84787D] font-body">案件名(自動生成 — 作成後に編集できます)</p>
@@ -280,7 +285,7 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         disabled={!recovery.ready || pending || !clientName || items.length === 0}
         className="w-full rounded-full bg-[#E9F056] text-[#666C14] text-[14px] font-extrabold py-3 disabled:opacity-40 hover:brightness-95"
       >
-        {pending ? '作成中…' : 'この内容で案件をつくる'}
+        {pending ? '作成中…' : '案件を保存して商品仕様へ'}
       </button>
     </div>
   )

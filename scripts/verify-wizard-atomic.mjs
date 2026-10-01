@@ -54,6 +54,17 @@ try {
  await db.exec(`create or replace function is_staff() returns boolean language sql as $$select current_setting('test.staff',true)='true'$$`)
  const codes=(await db.query('select deal_code from deals')).rows.map(r=>r.deal_code)
  assert.equal(new Set(codes).size,codes.length)
+ // UI stage 1 reuses this exact RPC for same-category products and multiple
+ // specification/quantity choices. Verify the real SQL, not the browser mock.
+ const multi=await rpc(id(20),'deal',{...payload,items:['袋','袋']})
+ const productRows=(await db.query('select id from deal_products where deal_id=$1 order by product_no',[multi.dealId])).rows
+ assert.equal(productRows.length,2)
+ let key=21
+ for(const p of productRows)for(let v=0;v<2;v++)await rpc(id(key++),'spec',{deal_id:multi.dealId,product_id:p.id,category_l1:'袋',category_l2:null,category_l3:null,width_mm:100+v*10,height_mm:150,depth_mm:null,material:'PET',print_color_count:null,print_method:null,processing:null,other_notes:null,quantities:[1000,2000,3000]})
+ const variantRows=(await db.query('select v.id,v.product_id,v.variant_label from deal_product_variants v join deal_products p on p.id=v.product_id where p.deal_id=$1',[multi.dealId])).rows
+ assert.equal(variantRows.length,4)
+ for(const p of productRows)assert.deepEqual(variantRows.filter(v=>v.product_id===p.id).map(v=>v.variant_label).sort(),['A','B'])
+ for(const v of variantRows)assert.deepEqual((await db.query('select quantity from deal_quotes where variant_id=$1 order by quantity',[v.id])).rows.map(q=>q.quantity),[1000,2000,3000])
  await db.exec(`set test.staff='false'`);await assert.rejects(rpc(id(11),'deal',payload),/営業・管理者/)
- console.log('PASS: wizard transaction rollback, stable retry, payload mismatch, quantity/ownership/role guards')
+ console.log('PASS: wizard transaction rollback, stable retry, payload mismatch, quantity/ownership/role guards; 2 same-category products × 2 variants × 3 quantities')
 }finally{await db.close()}
