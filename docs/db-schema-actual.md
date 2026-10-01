@@ -823,3 +823,5 @@ shipment_workflow_requests: id UUID, order_id UUID, created_by UUID, operation t
 shipment_mail_receipts: id UUID, plan_id UUID, event_key text UNIQUE, payload JSONB, status text, provider_id text nullable, created_by UUID, created_at/finished_at timestamptz。
 
 第8段ローカル候補 `20261001162000_client_payment_conditions_v1.sql` は新表/カラムなし。既存 client_document_packets.snapshot の payment_conditions に mode / balance_due / upfront_jpy / shipment_required_jpy / total_jpy / rounding を保存する。既存 client_payment_receipts.packet_id / amount_jpy と顧客承認版を参照して発注/発送の必要着金を確認。paid は合意前払条件成立を表し、実全額着金はreceipt合計とpaid_in_fullで別判定する。
+
+第9段ローカル候補 `20261001170000_partial_factory_qc_v1.sql`: factory_qc_reviews.rejection_scope text NOT NULL DEFAULT all CHECK(all,new_quantity) を追加。factory_qc_submissions.quantity は累計完工数量。factory_purchase_orders.id/quantity、factory_production_starts.order_id、shipment_plans.order_id/quantity、inbound_shipments.id/purchase_order_id/status、inbound_shipment_items.id/shipment_id/expected_quantity を参照して承認累計と配送/倉庫予約量を照合する。新tableなし、上書き/削除禁止を維持。
