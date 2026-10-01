@@ -75,9 +75,15 @@ export function QuoteBuilder({
   variants: VariantHead[]
   quotes: BuilderQuote[]
 }) {
+  const [productFilter, setProductFilter] = useState('')
+  const [quantityFilter, setQuantityFilter] = useState('')
+  const [factoryFilter, setFactoryFilter] = useState('')
+  const variantProducts = new Map(variants.map(v => [v.id, v.product_id]))
+  const visibleQuotes = quotes.filter(q => (!productFilter || (q.variant_id && variantProducts.get(q.variant_id) === productFilter)) && (!quantityFilter || String(q.quantity) === quantityFilter) && (!factoryFilter || q.factory_id === factoryFilter))
+  const factories = [...new Map(quotes.filter(q => q.factory_id).map(q => [q.factory_id!, q.factory?.factory_name || '工場名未登録'])).entries()]
   const byVariant = new Map<string, BuilderQuote[]>()
   const dealLevelQuotes: BuilderQuote[] = []
-  for (const q of quotes) {
+  for (const q of visibleQuotes) {
     if (!q.variant_id) {
       dealLevelQuotes.push(q)
       continue
@@ -107,7 +113,7 @@ export function QuoteBuilder({
           <p className="text-[12.5px] text-[#84787D] font-body mt-1">
             {deal.client_name_text || '—'} · <span className="fc-num">{deal.deal_code}</span> ·
             数量パターンごとの原価と売値を横並びで比較し、「この価格で採用」で確定します。
-            単価・送料の入力は案件一覧のグリッド(価格ビュー)からもできます。
+            商品・数量・工場を絞って比較し、回答条件と費用の内訳を確認してください。
           </p>
         </div>
         {/* 数値データ = Cool Blue 面(D79) */}
@@ -122,6 +128,14 @@ export function QuoteBuilder({
         </div>
       </div>
 
+      <details className="mb-4 rounded-card border border-[#E2E1DA] bg-white p-3 text-[12px]"><summary className="min-h-11 cursor-pointer font-bold">商品・数量・工場で絞込 · {visibleQuotes.length} / {quotes.length}件</summary><div role="group" aria-label="見積比較の絞込" className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+        <label>商品<select className="block w-full mt-1 min-h-11 rounded-input bg-[#EFEFEA] px-3" value={productFilter} onChange={e=>setProductFilter(e.target.value)}><option value="">すべての商品</option>{products.map(p=><option key={p.id} value={p.id}>{p.product_no}. {p.description || '商品名未設定'}</option>)}</select></label>
+        <label>比較数量<select className="block w-full mt-1 min-h-11 rounded-input bg-[#EFEFEA] px-3" value={quantityFilter} onChange={e=>setQuantityFilter(e.target.value)}><option value="">すべての数量</option>{[...new Set(quotes.map(q=>q.quantity).filter((n):n is number=>n!=null))].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n.toLocaleString()} 個</option>)}</select></label>
+        <label>回答工場<select className="block w-full mt-1 min-h-11 rounded-input bg-[#EFEFEA] px-3" value={factoryFilter} onChange={e=>setFactoryFilter(e.target.value)}><option value="">すべての工場</option>{factories.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
+        <p role="status">比較対象 {visibleQuotes.length}件 / 全{quotes.length}件</p>{(productFilter || quantityFilter || factoryFilter) && <button type="button" className="min-h-11 underline text-left" onClick={()=>{setProductFilter('');setQuantityFilter('');setFactoryFilter('')}}>絞込を解除</button>}
+      </div></details>
+      {!visibleQuotes.length && quotes.length>0 && <p className="mb-4 text-[13px]">条件に合う見積がありません。絞込を解除するか、対象の工場回答を確認してください。</p>}
+
       {variants.length === 0 && dealLevelQuotes.length === 0 && (
         <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
           商品・バリエーションがまだありません。
@@ -134,7 +148,7 @@ export function QuoteBuilder({
           <h2 className="font-display font-bold text-[15px] text-[#351E28] mb-1.5">
             案件全体の見積
             <span className="text-[11px] font-body font-normal text-[#84787D] ml-2">
-              商品に紐づいていない見積(旧形式・そのまま採用できます)
+              仕様未紐付けの旧見積。閲覧・再発行を保持し、新規発注には使用できません。
             </span>
           </h2>
           <QuoteTable deal={deal} quotes={dealLevelQuotes} />
@@ -142,6 +156,7 @@ export function QuoteBuilder({
       )}
 
       {products.map((p) => {
+        if (productFilter && p.id !== productFilter) return null
         const vs = variantsByProduct.get(p.id) || []
         if (vs.length === 0) return null
         return (
@@ -151,7 +166,7 @@ export function QuoteBuilder({
               {p.description || '(商品名未設定)'}
             </h2>
             {vs.map((v) => (
-              <VariantQuoteTable key={v.id} deal={deal} variant={v} quotes={byVariant.get(v.id) || []} />
+              (!quantityFilter && !factoryFilter || byVariant.has(v.id)) && <VariantQuoteTable key={v.id} deal={deal} variant={v} quotes={byVariant.get(v.id) || []} />
             ))}
           </div>
         )
@@ -175,13 +190,13 @@ export function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQu
   return (
     <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-[11.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          <thead>
+        <table className="block md:table w-full text-[12px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <thead className="hidden md:table-header-group">
             <tr className="bg-[#FBFAF6] text-[#84787D] text-[10.5px] font-bold border-b border-[#E2E1DA]">
               <th className="text-left px-3 py-1.5 whitespace-nowrap">パターン</th>
               <th className="text-right px-3 py-1.5">数量</th>
               <th className="text-right px-3 py-1.5">工場単価$</th>
-              <th className="text-right px-3 py-1.5">送料計$</th>
+              <th className="text-right px-3 py-1.5">算定送料$</th>
               <th className="text-right px-3 py-1.5">原価計$</th>
               <th className="text-right px-3 py-1.5">為替</th>
               <th className="text-right px-3 py-1.5">掛率(原価÷売値)</th>
@@ -191,7 +206,7 @@ export function QuoteTable({ deal, quotes }: { deal: DealHead; quotes: BuilderQu
               <th className="text-right px-3 py-1.5 w-[120px]"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block md:table-row-group">
             {quotes.map((q, i) => (
               <QuoteRow key={q.id} deal={deal} q={q} index={i} />
             ))}
@@ -230,13 +245,13 @@ export function VariantQuoteTable({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[11.5px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            <thead>
+          <table className="block md:table w-full text-[12px] font-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <thead className="hidden md:table-header-group">
               <tr className="bg-[#FBFAF6] text-[#84787D] text-[10.5px] font-bold border-b border-[#E2E1DA]">
                 <th className="text-left px-3 py-1.5 whitespace-nowrap">パターン</th>
                 <th className="text-right px-3 py-1.5">数量</th>
                 <th className="text-right px-3 py-1.5">工場単価$</th>
-                <th className="text-right px-3 py-1.5">送料計$</th>
+                <th className="text-right px-3 py-1.5">算定送料$</th>
                 <th className="text-right px-3 py-1.5">原価計$</th>
                 <th className="text-right px-3 py-1.5">為替</th>
                 <th className="text-right px-3 py-1.5">掛率(原価÷売値)</th>
@@ -246,7 +261,7 @@ export function VariantQuoteTable({
                 <th className="text-right px-3 py-1.5 w-[120px]"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block md:table-row-group">
               {quotes.map((q, i) => (
                 <QuoteRow key={q.id} deal={deal} q={q} index={i} />
               ))}
@@ -266,10 +281,7 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
 
   const adoptionIssue = quoteAdoptionIssue(q)
   const approvedRow = q.status === 'approved'
-  const freight =
-    (Number(q.factory_calculated_freight_usd) || 0) +
-    (Number(q.domestic_china_freight_usd) || 0) +
-    (Number(q.china_freight_usd) || 0)
+  const freight = q.china_freight_usd
   const margin = q.cost_ratio != null ? Math.round((1 - Number(q.cost_ratio)) * 1000) / 10 : null
 
   const commitRatio = (val: string) => {
@@ -303,20 +315,22 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
   }
 
   return (
-    <tr className={`border-b border-[#EFEFEA] last:border-b-0 ${approvedRow ? 'bg-[rgba(233,240,86,0.28)]' : index % 2 ? 'bg-[#FBFAF6]' : 'bg-white'}`}>
-      <td className="px-3 py-2 whitespace-nowrap">
+    <tr className={`grid grid-cols-2 md:table-row gap-y-2 p-3 md:p-0 border-b border-[#EFEFEA] last:border-b-0 ${approvedRow ? 'bg-[rgba(233,240,86,0.28)]' : index % 2 ? 'bg-[#FBFAF6]' : 'bg-white'}`}>
+      <td className="col-span-2 md:table-cell px-3 py-2 whitespace-nowrap">
         <span className="text-[10.5px] text-[#84787D] fc-num">v{q.version ?? '—'}</span>
         {q.factory_id && <span className="block text-[10px] text-[#84787D]">{q.factory?.factory_name || '工場回答'}</span>}
         {approvedRow && (
           <span className="ml-1.5 rounded-full bg-[#E9F056] text-[#666C14] text-[10px] font-bold px-2 py-[2px]">採用</span>
         )}
+        <QuoteBreakdown quote={q} />
       </td>
-      <td className="px-3 py-2 text-right fc-num font-bold text-[#351E28]">{num(q.quantity)}</td>
-      <td className="px-3 py-2 text-right fc-num">{num(q.factory_unit_price_usd, 3)}</td>
-      <td className="px-3 py-2 text-right fc-num">{freight > 0 ? num(freight, 2) : '—'}</td>
-      <td className="px-3 py-2 text-right fc-num">{num(q.total_cost_usd, 2)}</td>
-      <td className="px-3 py-2 text-right fc-num">{num(q.exchange_rate, 2)}</td>
+      <td className="px-3 py-2 text-right fc-num font-bold text-[#351E28]"><span className="block md:hidden text-[11px] font-normal">数量（個）</span>{num(q.quantity)}</td>
+      <td className="px-3 py-2 text-right fc-num"><span className="block md:hidden text-[11px]">工場単価（USD/個）</span>{num(q.factory_unit_price_usd, 3)}</td>
+      <td className="px-3 py-2 text-right fc-num"><span className="block md:hidden text-[11px]">算定送料（USD・国内別）</span>{num(freight, 2)}</td>
+      <td className="px-3 py-2 text-right fc-num"><span className="block md:hidden text-[11px]">原価計（USD）</span>{num(q.total_cost_usd, 2)}</td>
+      <td className="px-3 py-2 text-right fc-num"><span className="block md:hidden text-[11px]">保存レート（JPY/USD）</span>{num(q.exchange_rate, 2)}</td>
       <td className="px-3 py-2 text-right">
+        <span className="block md:hidden text-[11px]">掛率（原価÷売値）</span>
         <input
           aria-label={`見積v${q.version ?? index + 1}の掛率（原価÷売値）`}
           type="number"
@@ -335,17 +349,20 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
         />
       </td>
       <td className="px-3 py-2 text-right fc-num text-[#351E28] font-bold">
+        <span className="block md:hidden text-[11px] font-normal">売単価（税抜JPY/個）</span>
         {q.selling_price_jpy != null ? formatJPY(Number(q.selling_price_jpy)) : '—'}
       </td>
       <td className="px-3 py-2 text-right fc-num text-[#351E28] font-bold">
+        <span className="block md:hidden text-[11px] font-normal">税込合計（JPY）</span>
         {q.total_billing_tax_jpy != null ? formatJPY(Number(q.total_billing_tax_jpy)) : '—'}
       </td>
       <td className={`px-3 py-2 text-right fc-num font-bold ${
         margin == null ? 'text-[#84787D]' : margin < 15 ? 'text-[#B03616]' : 'text-[#666C14]'
       }`}>
+        <span className="block md:hidden text-[11px] font-normal">掛率からの粗利率</span>
         {margin == null ? '—' : `${margin.toFixed(1)}%`}
       </td>
-      <td className="px-3 py-2 text-right whitespace-nowrap">
+      <td className="col-span-2 md:table-cell px-3 py-2 text-right whitespace-nowrap">
         {q.factory_response && !q.total_cost_usd && <button type="button" disabled={pending} className="block mb-1 rounded-full border border-[#351E28] px-3 py-1.5 text-[11px]" onClick={() => startTransition(async () => {
           const r = await updateQuoteField(q.id, 'quantity', String(q.quantity))
           if (r.success) { toast('工場回答のカートン条件から原価・売値を計算しました'); router.refresh() }
@@ -368,4 +385,15 @@ function QuoteRow({ deal, q, index }: { deal: DealHead; q: BuilderQuote; index: 
       </td>
     </tr>
   )
+}
+
+function QuoteBreakdown({quote:q}:{quote:BuilderQuote}) {
+  const line=q.factory_response?.line
+  const value=(key:string,unit:string)=>line?.[key]!=null?`${String(line[key])} ${unit}`:'未回答'
+  const fees:[string,number|null][]=[['版代',q.plate_fee_usd],['色指定費',q.pantone_color_fee_usd],['中国国内送料',q.domestic_china_freight_usd],['算定送料',q.china_freight_usd],['工場提示送料',q.factory_calculated_freight_usd],['サンプル製作費（旧保存値）',q.sample_cost_usd],['サンプル送料（旧保存値）',q.sample_shipping_usd],['その他費用（旧一括値）',q.other_fees_usd]]
+  return <details className="mt-2 whitespace-normal text-[12px] max-w-[340px]"><summary className="min-h-11 cursor-pointer font-bold">回答条件・費用内訳</summary><div className="space-y-2 py-2">
+    <p>梱包: {value('pcs_per_carton','個/CTN')} · {value('carton_w_cm','cm')} × {value('carton_h_cm','cm')} × {value('carton_d_cm','cm')}</p><p>重量: {value('gross_weight_kg','kg/CTN')} · 工場製造納期: {value('production_lead_days','日')}（輸送日数を含みません）</p>
+    <dl>{fees.map(([name,n])=><div key={name} className="flex justify-between gap-3"><dt>{name}</dt><dd className="fc-num">{n==null?'未登録':`${num(n,2)} USD`}</dd></div>)}</dl><p>工場提示送料は算定送料と別記録です。包含・重複を確認せず両方を合算しません。表の算定送料は国内送料を含まない保存値です。</p>
+    <p>為替: {q.exchange_rate==null?'未登録':`${num(q.exchange_rate,4)} JPY/USD（保存値）`}。取得元・取得時刻はこの旧見積では未記録です。</p><p>送料の適用料金表・有効日・税／DDP・追加料金・輸送日数は要確認。保存額を確定見積とは扱わず、見積発行前に確認してください。</p><p>売単価は円切上げ。その他費用の明細化・サンプル独立請求・改訂版の最新為替固定は後続実装で、ここでは既存値を再分類しません。</p>
+  </div></details>
 }
