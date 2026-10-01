@@ -150,7 +150,7 @@ export async function fetchDocumentBundle(
   ] = await Promise.all([
     supabase
       .from('deals')
-      .select('id, deal_code, deal_name, client_name_text, desired_delivery_date')
+      .select('id, deal_code, deal_name, client_id, client_name_text, desired_delivery_date')
       .eq('id', dealId)
       .single(),
     supabase

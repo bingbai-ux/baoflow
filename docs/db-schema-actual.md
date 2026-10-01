@@ -773,3 +773,16 @@
 - sample_mail_receipts: invoice_id, attempt_id, created_by, payload, status, provider_id, created_at, finished_at。
 
 全表RLS、authenticated SELECT/staff限定、直接write/TRUNCATEなし。型・nullable・check・FKの正本は候補migration。preview_sample_invoice、sample_command、claim_sample_email、finish_sample_emailはstaff専用RPC。
+
+### 第4段 顧客承認・実着金（ローカル候補・本番未適用）
+
+正本 `20261001121648_client_settlement_v1.sql`。既存列は変えず、新表7つを追加する。
+- client_document_packets: id/document_id/deal_id/client_id、document_type、snapshot（顧客向け原価除外版）、approval_packet_id、status、cancel_reason/cancelled_at、created_by/created_at。
+- client_document_links: id、packet_id、token、expires_at、revoked_at、created_by/created_at。staff SELECTのみ。顧客は認証済み自社scopeのRPCでのみ検証する。
+- client_document_responses: packet_id、decision、note、created_by/created_at。
+- client_payment_reports: id、packet_id、created_by、amount_jpy bigint、paid_on date、reference、status、review_note、created_at。
+- client_payment_receipts: id、report_id、packet_id、amount_jpy bigint、received_on date、bank_reference unique、confirmed_by/created_at。staff SELECTのみ。
+- client_finance_requests: id、created_by、operation、payload、result、created_at。本人SELECTのみ。
+- client_document_mail_receipts: packet_id、attempt_id、payload、status、created_by、provider_id、created_at/finished_at。
+
+全表RLS、直接write/TRUNCATEなし。顧客SELECTは自社packet・自分のreport/requestだけ。顧客context RPCはclient本人の自社有効版のみ。公開token単独では認証不可。顧客回答/申告とstaff実着金/工程反映を別commandにする。issued documentsの未来snapshotには既存deals.client_idを含める（legacy補完なし）。

@@ -327,7 +327,7 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
             <Row label="商品小計 (税抜)" value={formatJPY(subtotal)} />
             {feesTotal > 0 && <Row label="別途費用" value={formatJPY(feesTotal)} />}
             <Row label="課税対象 (税抜)" value={formatJPY(taxableSubtotal)} />
-            <Row label="消費税 (10%)" value={formatJPY(tax)} />
+            <Row label="保存済み消費税" value={formatJPY(tax)} />
           </div>
           <div className="border-t-2 border-[#351E28] mt-2 pt-2">
             <Row

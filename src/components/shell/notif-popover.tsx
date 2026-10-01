@@ -10,19 +10,22 @@ export function NotifPopover() {
   const router = useRouter()
   const { notifOpen, closeNotif } = useUi()
   const [items, setItems] = useState<NotifItem[] | null>(null)
+  const [error,setError]=useState(false)
+  const [retry,setRetry]=useState(0)
   const popRef = useRef<HTMLDivElement>(null)
 
   // 開いた瞬間に取得(毎ページの事前フェッチをやめ、表示速度を優先)
   useEffect(() => {
     if (!notifOpen) return
     let alive = true
+    setItems(null);setError(false)
     listNotifications().then((r) => {
       if (alive) setItems(r)
-    })
+    }).catch(()=>{if(alive)setError(true)})
     return () => {
       alive = false
     }
-  }, [notifOpen])
+  }, [notifOpen,retry])
 
   // Click outside to close
   useEffect(() => {
@@ -48,19 +51,19 @@ export function NotifPopover() {
   return (
     <div
       ref={popRef}
-      className="fixed top-[48px] right-4 w-[380px] bg-white border border-[#E2E1DA] rounded-[12px] shadow-[0_16px_40px_rgba(53,30,40,0.18)] z-[500] overflow-hidden"
+      className="fixed top-[48px] right-4 w-[380px] max-w-[calc(100vw-32px)] bg-white border border-[#E2E1DA] rounded-[12px] shadow-[0_16px_40px_rgba(53,30,40,0.18)] z-[500] overflow-hidden"
     >
       <div className="px-4 py-3 border-b border-[#E2E1DA] flex items-center justify-between">
         <div className="font-display text-[13px] font-semibold">通知{items ? ` (${items.length})` : ''}</div>
         <button
-          onClick={() => setItems([])}
-          className="text-[11px] text-[#84787D] hover:text-[#351E28]"
+          onClick={closeNotif}
+          className="min-h-11 px-3 text-[11px] text-[#84787D] hover:text-[#351E28]"
         >
-          すべて既読
+          閉じる
         </button>
       </div>
       <div className="max-h-[420px] overflow-auto">
-        {items === null ? (
+        {error?<div role="alert" className="p-4 text-[12px]">通知を確認できません。<button className="min-h-11 px-3 underline" onClick={()=>setRetry(n=>n+1)}>再試行する</button></div>:items === null ? (
           <div className="p-8 text-center text-[#84787D] text-[12px]">読み込み中…</div>
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-[#84787D] text-[12px]">通知はありません</div>

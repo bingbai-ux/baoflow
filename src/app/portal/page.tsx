@@ -59,6 +59,7 @@ export default async function PortalHome() {
   return (
     <PortalShell {...shell} wide>
       <Link href="/portal/invoices" className="underline inline-flex items-center min-h-[44px] text-[13px]">保管料請求書を確認</Link>
+      <Link href="/portal/documents" className="underline inline-flex items-center min-h-[44px] text-[13px] ml-4">見積承認・請求を確認</Link>
       <ClientPortal
         clientName={client?.short_name || client?.company_name || 'お客'}
         items={inv.items}
