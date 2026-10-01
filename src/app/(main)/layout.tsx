@@ -13,7 +13,7 @@ export default function MainLayout({
   // CmdK / 通知のデータは「開いた瞬間」にクライアント側から取得する。
   // 以前はここで毎ページ事前フェッチしており、全ページの表示を遅くしていた。
   return (
-    <UiProvider>
+    <UiProvider mailReady={Boolean(process.env.RESEND_API_KEY && process.env.RFQ_MAIL_FROM)}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-[#351E28]">本文に移動する</a>
       <div className="flex flex-col lg:flex-row h-[100dvh] w-full bg-[#EFEFEA] overflow-hidden">
         {/* useSearchParams (タブ判定) を使うため Suspense が必要 */}

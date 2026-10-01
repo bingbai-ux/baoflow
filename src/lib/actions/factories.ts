@@ -66,7 +66,8 @@ function parseFormData(input: FactoryInput | FormData): FactoryInput {
 
 export async function listFactories(): Promise<Factory[]> {
   const supabase = await createSupabase()
-  const { data } = await supabase.from('factories').select('*').order('factory_name', { ascending: true })
+  const { data, error } = await supabase.from('factories').select('*').order('factory_name', { ascending: true })
+  if (error) throw new Error('工場一覧を取得できませんでした')
   return (data || []) as Factory[]
 }
 

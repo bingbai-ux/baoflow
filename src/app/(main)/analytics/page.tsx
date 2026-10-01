@@ -15,7 +15,7 @@ export default async function AnalyticsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: deals }, { data: quotes }] = await Promise.all([
+  const [{ data: deals, error: dealsError }, { data: quotes, error: quotesError }] = await Promise.all([
     supabase
       .from('deals')
       .select('id, deal_code, deal_name, client_name_text, simple_status, created_at, archived_at'),
@@ -24,6 +24,8 @@ export default async function AnalyticsPage() {
       .select('deal_id, total_billing_tax_jpy, status, updated_at')
       .eq('status', 'approved'),
   ])
+
+  if (dealsError || quotesError) throw new Error('Analytics data could not be loaded')
 
   const dealMap = new Map((deals || []).map((d) => [d.id, d]))
 
@@ -78,7 +80,7 @@ export default async function AnalyticsPage() {
       <div className="py-[18px]">
         <h1 className="font-display text-[21px] font-extrabold text-[#351E28]">売上分析</h1>
         <p className="text-[12.5px] text-[#84787D] font-body mt-1">
-          採用見積(税込)ベースの概況です。累計{' '}
+          採用見積（税込）の概況です。実際の入金額ではありません。累計{' '}
           <span className="fc-num font-bold text-[#351E28]">{formatJPY(grandTotal)}</span>
         </p>
       </div>

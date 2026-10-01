@@ -229,7 +229,7 @@ export function ClientRegistrationForm({ token }: { token: string }) {
             <div
               key={idx}
               className="bg-white border rounded-[12px] p-3"
-              style={{ borderColor: 'rgba(229,163,46,0.2)' }}
+              style={{ borderColor: '#E2E1DA' }}
             >
               <div className="flex items-center gap-2 mb-2">
                 <span
@@ -325,7 +325,7 @@ export function ClientRegistrationForm({ token }: { token: string }) {
         className="w-full py-3 rounded-full font-medium font-body text-[14px] disabled:opacity-50 transition-colors"
         style={{ background: pending ? '#EFEFEA' : '#E9F056', color: pending ? '#AEB8A0' : '#666C14' }}
       >
-        {pending ? '送信中…' : '送信する'}
+        {pending ? '送信中…' : 'この会社情報を登録する'}
       </button>
     </form>
   )
@@ -348,7 +348,7 @@ function Section({
   return (
     <section
       className="bg-white border rounded-[12px] p-5"
-      style={{ borderColor: 'rgba(229,163,46,0.15)' }}
+      style={{ borderColor: '#E2E1DA' }}
     >
       <div className="flex items-center gap-2 mb-3">
         <h2 className="font-display text-[14px] font-semibold text-[#351E28]">{title}</h2>

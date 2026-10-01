@@ -1,6 +1,5 @@
 // Sprint 8-2 (§0.5-2): 外部公開フォーム用レイアウト。
-// 認証なし・サイドバーなし・(bao) ブランド (オレンジ + クリーム背景)。
-// CLAUDE.md のモノクロ + 緑デザインから意図的に離れて、外部に対する温かみを演出。
+// 認証なし・サイドバーなし。社内と同じF&Cトークンを使う。
 
 import type { Metadata } from 'next'
 
@@ -19,9 +18,10 @@ export default function ExternalLayout({ children }: { children: React.ReactNode
         color: '#351E28',
       }}
     >
+      <a href="#external-content" className="sr-only focus:not-sr-only">本文へ移動</a>
       <header
         className="border-b"
-        style={{ borderColor: 'rgba(229,163,46,0.2)', background: '#FBFAF6' }}
+        style={{ borderColor: '#E2E1DA', background: '#FBFAF6' }}
       >
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -31,7 +31,7 @@ export default function ExternalLayout({ children }: { children: React.ReactNode
           </span>
         </div>
       </header>
-      <main className="max-w-3xl mx-auto px-6 py-8">{children}</main>
+      <main id="external-content" className="max-w-3xl mx-auto px-4 sm:px-6 py-5">{children}</main>
       <footer className="max-w-3xl mx-auto px-6 py-6 mt-8 text-[10px] text-[#84787D]">
         <p>このフォームは BAO Flow を通じて発行されました。送信内容は (bao) のスタッフのみが確認します。</p>
       </footer>

@@ -3,7 +3,7 @@
 // Sprint 12: 出荷依頼の管理 (スタッフ / ロジポータル共用)。
 // requested → 確認 → 出荷(出庫仕訳) → 納品完了。却下も可。
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   confirmShipmentRequest,
@@ -15,6 +15,7 @@ import {
 import { REQUEST_STATUS_LABEL, REQUEST_STATUS_BADGE } from '@/lib/utils/shipment-status'
 import { useUi } from '@/components/ui/ui-store'
 import { formatDate } from '@/lib/utils/format'
+import {SearchField,matchesSearch} from '@/components/ui/search-field'
 
 interface Props {
   requests: ShipmentRequestRow[]
@@ -22,17 +23,20 @@ interface Props {
 }
 
 export function RequestsSection({ requests, mode }: Props) {
-  const active = requests.filter((r) => r.status === 'requested' || r.status === 'confirmed' || r.status === 'shipped')
-  const done = requests.filter((r) => r.status === 'delivered' || r.status === 'cancelled')
+  const [search,setSearch]=useState('')
+  const visible=requests.filter(r=>matchesSearch(search,[r.request_no,r.client?.company_name,r.destination_name,...r.items.map(i=>i.item?.item_name)]))
+  const active = visible.filter((r) => r.status === 'requested' || r.status === 'confirmed' || r.status === 'shipped')
+  const done = visible.filter((r) => r.status === 'delivered' || r.status === 'cancelled')
 
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-[#84787D] font-body">
-        クライアントからの出荷依頼です。内容を確認して出荷すると在庫から自動で引き落とされます。
+        {mode==='staff'?'依頼内容と在庫を確認して承認してください。承認後は倉庫が出荷・納品を記録します。':'承認済みの依頼を出荷し、到着後に納品完了を記録してください。営業承認待ちの依頼は操作できません。'}
       </p>
+      {requests.length>0&&<SearchField label="依頼番号・商品・届け先で検索" value={search} onChange={setSearch} count={visible.length}/>}
       {active.length === 0 && (
         <p className="text-[12px] text-[#84787D] font-body bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-5">
-          進行中の出荷依頼はありません。
+          {search?'一致する出荷依頼はありません。検索を解除してください。':'進行中の出荷依頼はありません。'}
         </p>
       )}
       {active.map((r) => (
@@ -116,16 +120,17 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
             href={`/print/request/${r.id}`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[11px] font-bold px-3 py-2 no-underline hover:bg-[#FBFAF6]"
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[11px] font-bold px-3 min-h-[44px] inline-flex items-center no-underline hover:bg-[#FBFAF6]"
           >
             出荷指示書 →
           </a>
+          {r.status === 'requested' && mode === 'logistics' && <p className="text-[12px] text-[#84787D]">営業の承認待ちです。承認後に出荷を記録できます。</p>}
           {r.status === 'requested' && mode === 'staff' && (
             <button
               type="button"
               onClick={() => run(confirmShipmentRequest, '依頼を確認済みにしました')}
               disabled={pending}
-              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
+              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 min-h-[44px] disabled:opacity-40 hover:brightness-95"
             >
               内容OK → 確認済みにする
             </button>
@@ -135,7 +140,7 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
               type="button"
               onClick={() => run(shipShipmentRequest, '出荷しました(在庫から引き落とし)')}
               disabled={pending}
-              className="rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-extrabold px-4 py-2 disabled:opacity-40 hover:brightness-95"
+              className="rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-extrabold px-4 min-h-[44px] disabled:opacity-40 hover:brightness-95"
             >
               出荷した → 在庫から引き落とす
             </button>
@@ -145,7 +150,7 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
               type="button"
               onClick={() => run(deliverShipmentRequest, '納品完了にしました')}
               disabled={pending}
-              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
+              className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 min-h-[44px] disabled:opacity-40 hover:brightness-95"
             >
               届いた → 納品完了
             </button>
@@ -155,7 +160,7 @@ function RequestCard({ request: r, mode }: { request: ShipmentRequestRow; mode: 
               type="button"
               onClick={() => run(cancelShipmentRequest, '依頼をキャンセルしました')}
               disabled={pending}
-              className="rounded-full bg-white border border-[#FF5C34] text-[#B03616] text-[11px] font-bold px-3 py-2 disabled:opacity-40"
+              className="rounded-full bg-white border border-[#FF5C34] text-[#B03616] text-[11px] font-bold px-3 min-h-[44px] inline-flex items-center disabled:opacity-40"
             >
               却下
             </button>

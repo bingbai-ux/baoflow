@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bao-logo.png" alt="(bao)" className="h-[44px] w-auto mx-auto" />
         </div>
-        <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: 'rgba(229,163,46,0.25)' }}>
+        <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: '#E2E1DA' }}>
           <h1 className="text-[17px] font-bold font-display text-center mb-2">パスワード再設定</h1>
           {sent ? (
             <p className="text-[13px] leading-relaxed text-center">
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
               </p>
               <form onSubmit={submit} className="flex flex-col gap-4">
                 <input
-                  type="email"
+                  type="email" aria-label="メールアドレス" autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -54,12 +54,12 @@ export default function ForgotPasswordPage() {
                   className="w-full bg-[#EFEFEA] rounded-[12px] px-[14px] py-[10px] text-[13px] border border-transparent outline-none focus:border-[#E2E1DA]"
                 />
                 {error && (
-                  <p className="text-[12px] py-2 px-3 rounded-[12px] bg-[#FFD8C2] text-[#B03616]">{error}</p>
+                  <p role="alert" className="text-[12px] py-2 px-3 rounded-[12px] bg-[#FFD8C2] text-[#B03616]">{error}</p>
                 )}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#E9F056] text-[#666C14] rounded-full py-[10px] text-[13px] font-extrabold hover:brightness-95 disabled:opacity-50"
+                  className="w-full min-h-[44px] bg-[#E9F056] text-[#666C14] rounded-full py-[10px] text-[13px] font-extrabold hover:brightness-95 disabled:opacity-50"
                 >
                   {loading ? '送信中…' : '再設定リンクを送る'}
                 </button>

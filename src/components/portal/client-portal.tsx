@@ -1,10 +1,11 @@
 'use client'
 
 // Sprint 12: クライアントポータル。
-// 自社の在庫をリアルタイム閲覧 / 発注 (出荷依頼) / 発注履歴 / 入庫予定 / 発送履歴。
+// 自社の在庫をリアルタイム閲覧 / 発注 (出荷依頼) / 出荷依頼履歴 / 入庫予定 / 発送履歴。
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { SectionNavigation, useSectionNavigation } from '@/components/ui/section-navigation'
 import { createShipmentRequest, type ShipmentRequestRow } from '@/lib/actions/shipment-requests'
 import { REQUEST_STATUS_LABEL, REQUEST_STATUS_BADGE } from '@/lib/utils/shipment-status'
 import type { InventoryItemRow, OutboundHistoryRow } from '@/lib/actions/inventory'
@@ -12,6 +13,8 @@ import type { InboundShipmentRow } from '@/lib/actions/inbound'
 import type { PortalDeal } from '@/lib/actions/portal-data'
 import { ShippingHistory } from '@/components/inventory/shipping-history'
 import { formatDate } from '@/lib/utils/format'
+import {SearchField,matchesSearch} from '@/components/ui/search-field'
+import {useUi} from '@/components/ui/ui-store'
 import { SIMPLE_STATUS_CONFIG, SIMPLE_STATUS_ORDER, type SimpleStatus } from '@/lib/types'
 
 interface Props {
@@ -29,13 +32,14 @@ const inputCls =
   'bg-[#EFEFEA] rounded-[12px] px-3 py-2 text-[13px] font-body text-[#351E28] border border-transparent outline-none focus:border-[#B03616] w-full'
 
 export function ClientPortal({ clientName, items, requests, inbound, outbound, deals }: Props) {
-  const [tab, setTab] = useState<Tab>('stock')
+  const {toast}=useUi()
+  const [tab, setTab] = useSectionNavigation<Tab>(['stock', 'order', 'history', 'shipping', 'deals'], 'stock')
   const inTransit = inbound.filter((s) => s.status === 'in_transit')
 
   const TABS: Array<{ id: Tab; label: string }> = [
     { id: 'stock', label: `在庫 (${items.length})` },
-    { id: 'order', label: '発注する' },
-    { id: 'history', label: `発注履歴 (${requests.length})` },
+    { id: 'order', label: '出荷を依頼' },
+    { id: 'history', label: `出荷依頼履歴 (${requests.length})` },
     { id: 'shipping', label: `発送履歴 (${outbound.length})` },
     { id: 'deals', label: `案件の進捗 (${deals.length})` },
   ]
@@ -43,9 +47,9 @@ export function ClientPortal({ clientName, items, requests, inbound, outbound, d
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-[20px] font-bold">{clientName} さまの保管在庫</h1>
+        <h1 className="font-display text-[20px] font-bold">{clientName} さま</h1>
         <p className="text-[12px] text-[#84787D] mt-0.5">
-          在庫はリアルタイムです。出荷してほしいときは「発注する」からご依頼ください。
+          表示時点の保管在庫です。最新情報は再読込して確認できます。
           {inTransit.length > 0 && (
             <span className="ml-2 rounded-full bg-[#D7EFFF] text-[#33566F] text-[10.5px] font-bold px-2 py-[2px]">
               入庫予定 {inTransit.length}件 輸送中
@@ -54,25 +58,10 @@ export function ClientPortal({ clientName, items, requests, inbound, outbound, d
         </p>
       </div>
 
-      <div className="flex gap-1.5 flex-wrap">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold border ${
-              tab === t.id
-                ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
-                : 'bg-white text-[#351E28] border-[#E2E1DA]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SectionNavigation label="お客様の表示" items={TABS} value={tab} onChange={setTab} />
 
       {tab === 'stock' && <StockTab items={items} inbound={inTransit} />}
-      {tab === 'order' && <OrderTab items={items} onDone={() => setTab('history')} />}
+      {tab === 'order' && <OrderTab items={items} onDone={() => {setTab('history');toast('出荷依頼を保存しました。営業の承認をお待ちください。')}} />}
       {tab === 'history' && <HistoryTab requests={requests} />}
       {tab === 'shipping' && <ShippingHistory txs={outbound} />}
       {tab === 'deals' && <DealsTab deals={deals} />}
@@ -132,8 +121,12 @@ function DealsTab({ deals }: { deals: PortalDeal[] }) {
 }
 
 function StockTab({ items, inbound }: { items: InventoryItemRow[]; inbound: InboundShipmentRow[] }) {
+  const [search,setSearch]=useState('')
+  const visible=items.filter(i=>matchesSearch(search,[i.item_name,i.item_code,i.warehouse_name,i.location_note]))
   return (
     <div className="space-y-3">
+      {items.length>0&&<SearchField label="商品・品番・保管場所で検索" value={search} onChange={setSearch} count={visible.length}/>}
+      {items.length>0&&visible.length===0&&<p className="text-[12px]">一致する在庫がありません。検索を解除してください。</p>}
       {items.length === 0 ? (
         <p className="text-[12.5px] text-[#84787D] bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-6">
           お預かり中の在庫はまだありません。
@@ -151,7 +144,7 @@ function StockTab({ items, inbound }: { items: InventoryItemRow[]; inbound: Inbo
               </tr>
             </thead>
             <tbody>
-              {items.map((i, idx) => (
+              {visible.map((i, idx) => (
                 <tr key={i.id} className={`border-b border-[#EFEFEA] last:border-b-0 ${idx % 2 ? 'bg-[#FBFAF6]' : ''}`}>
                   <td className="px-4 py-2 font-bold text-[#351E28]">
                     <span className="flex items-center gap-2.5">
@@ -315,13 +308,15 @@ function OrderTab({ items, onDone }: { items: InventoryItemRow[]; onDone: () => 
         </label>
 
         {msg && (
-          <p className={`text-[12px] rounded-[12px] px-3 py-2 ${msg.ok ? 'bg-[#E9F056] text-[#666C14]' : 'bg-[#FFD8C2] text-[#B03616]'}`}>
+          <p role={msg.ok?'status':'alert'} className={`text-[12px] rounded-[12px] px-3 py-2 ${msg.ok ? 'bg-[#E9F056] text-[#666C14]' : 'bg-[#FFD8C2] text-[#B03616]'}`}>
             {msg.text}
           </p>
         )}
 
+        <p id="shipment-requirement" role="status" className="text-[12px] text-[#84787D]">{selected.length===0?'商品ごとの出荷数量を入力してください。':!destName.trim()?'届け先名を入力してください。':'依頼後は営業が内容を確認し、承認後に倉庫が出荷します。'}</p>
         <button
           type="button"
+          aria-describedby="shipment-requirement"
           onClick={submit}
           disabled={pending || selected.length === 0 || !destName.trim()}
           className="w-full rounded-full bg-[#E9F056] text-[#666C14] text-[13px] font-extrabold py-2.5 disabled:opacity-40 hover:brightness-95"
@@ -329,8 +324,8 @@ function OrderTab({ items, onDone }: { items: InventoryItemRow[]; onDone: () => 
           {pending
             ? '送信中…'
             : selected.length === 0
-              ? '発注数を入力してください'
-              : `${selected.length}品目をこの内容で発注する`}
+              ? '出荷数量を入力してください'
+              : `${selected.length}品目をこの内容で出荷を依頼`}
         </button>
       </div>
     </div>
@@ -338,15 +333,19 @@ function OrderTab({ items, onDone }: { items: InventoryItemRow[]; onDone: () => 
 }
 
 function HistoryTab({ requests }: { requests: ShipmentRequestRow[] }) {
+  const [search,setSearch]=useState('')
+  const visible=requests.filter(r=>matchesSearch(search,[r.request_no,r.destination_name,...r.items.map(i=>i.item?.item_name)]))
   if (requests.length === 0)
     return (
       <p className="text-[12.5px] text-[#84787D] bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-6">
-        まだ発注履歴がありません。
+        まだ出荷依頼履歴がありません。
       </p>
     )
   return (
     <div className="space-y-2">
-      {requests.map((r) => (
+      <SearchField label="依頼番号・商品・届け先で検索" value={search} onChange={setSearch} count={visible.length}/>
+      {visible.length===0&&<p className="text-[12px]">一致する依頼がありません。検索を解除してください。</p>}
+      {visible.map((r) => (
         <div key={r.id} className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="fc-num text-[11px] text-[#84787D]">{r.request_no}</span>

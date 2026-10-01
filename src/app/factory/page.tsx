@@ -47,12 +47,12 @@ export default async function FactoryHome() {
             {factory?.name_cn && <span className="text-[14px] font-normal ml-2">{factory.name_cn}</span>}
           </h1>
           <p className="text-[12px] text-[#84787D] mt-0.5">
-            Quotation requests from (bao). / 来自 (bao) 的询价请求。
+            Reply to open RFQs first; confirmed orders are listed below. / 请先回复待处理询价，已确认订单见下方。
           </p>
         </div>
 
         {!profile?.factory_id ? (
-          <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: 'rgba(229,163,46,0.25)' }}>
+          <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: '#E2E1DA' }}>
             <p className="text-[13px]">
               This account is not linked to a factory yet. Please contact (bao) staff.
               <br />
@@ -61,16 +61,6 @@ export default async function FactoryHome() {
           </div>
         ) : (
           <>
-            <section className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
-              <h2 className="text-[14px] font-bold mb-2">Purchase orders / 工厂订单</h2>
-              {purchaseOrders.error ? <p className="text-[12px] text-[#B03616]">Orders could not be loaded. / 订单暂时无法加载。</p> : purchaseOrders.orders.length === 0 ? <p className="text-[12px] text-[#84787D]">No purchase orders yet. / 暂无订单。</p> : purchaseOrders.orders.map((order) => (
-                <div key={order.id} className="py-3 border-b border-[#E2E1DA] last:border-b-0 text-[12.5px]">
-                  <p className="font-bold">{order.order_no} · {order.snapshot.item_name || 'Product'}</p>
-                  <p>{order.quantity.toLocaleString()} pcs · USD {Number(order.unit_price_usd).toFixed(4)} / pc · {order.status === 'ordered' ? 'Ordered / 已下单' : 'Cancelled / 已取消'}</p>
-                  {order.expected_delivery_date && <p className="text-[11px] text-[#84787D]">Expected delivery / 预计交货: {fmt(order.expected_delivery_date)}</p>}
-                </div>
-              ))}
-            </section>
             <section>
               <h2 className="text-[14px] font-display font-bold mb-2">
                 Open RFQs / 待回复询价 ({open.length})
@@ -105,7 +95,7 @@ export default async function FactoryHome() {
                         {r.form_token && r.form_status === 'pending' ? (
                           <a
                             href={`/external/${r.form_token}`}
-                            className="inline-block rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 no-underline hover:brightness-95"
+                            className="inline-flex items-center min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 no-underline hover:brightness-95"
                           >
                             Submit quotation / 提交报价 →
                           </a>
@@ -121,6 +111,16 @@ export default async function FactoryHome() {
               )}
             </section>
 
+            <section className="bg-white rounded-[16px] border border-[#E2E1DA] p-4">
+              <h2 className="text-[14px] font-bold mb-2">Purchase orders / 工厂订单</h2>
+              {purchaseOrders.error ? <p className="text-[12px] text-[#B03616]">Orders could not be loaded. / 订单暂时无法加载。</p> : purchaseOrders.orders.length === 0 ? <p className="text-[12px] text-[#84787D]">No purchase orders yet. / 暂无订单。</p> : purchaseOrders.orders.map((order) => (
+                <div key={order.id} className="py-3 border-b border-[#E2E1DA] last:border-b-0 text-[12.5px]">
+                  <p className="font-bold">{order.order_no} · {order.snapshot.item_name || 'Product'}</p>
+                  <p>{order.quantity.toLocaleString()} pcs · USD {Number(order.unit_price_usd).toFixed(4)} / pc · {order.status === 'ordered' ? 'Ordered / 已下单' : 'Cancelled / 已取消'}</p>
+                  {order.expected_delivery_date && <p className="text-[11px] text-[#84787D]">Expected delivery / 预计交货: {fmt(order.expected_delivery_date)}</p>}
+                </div>
+              ))}
+            </section>
             {done.length > 0 && (
               <details className="bg-[#FBFAF6] rounded-[16px] border border-[#E2E1DA]">
                 <summary className="px-4 py-2.5 text-[12px] font-bold cursor-pointer">

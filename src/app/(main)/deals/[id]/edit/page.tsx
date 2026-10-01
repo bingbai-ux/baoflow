@@ -17,7 +17,7 @@ export default async function EditDealPage({ params }: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: deal }, { data: profiles }] = await Promise.all([
+  const [{ data: deal, error: dealError }, { data: profiles, error: profilesError }] = await Promise.all([
     supabase
       .from('deals')
       .select('id, deal_name, client_name_text, desired_delivery_date, sales_user_id, memo')
@@ -29,6 +29,7 @@ export default async function EditDealPage({ params }: Props) {
       .order('display_name', { ascending: true }),
   ])
 
+  if (profilesError || (dealError && dealError.code !== 'PGRST116')) throw new Error('Deal edit options could not be loaded')
   if (!deal) notFound()
 
   return (
@@ -42,7 +43,7 @@ export default async function EditDealPage({ params }: Props) {
       </Link>
 
       <div className="py-3">
-        <h1 className="font-display text-[24px] font-semibold text-[#351E28]">案件編集</h1>
+        <h1 className="font-display text-[24px] font-semibold text-[#351E28]">案件の基本情報を編集</h1><p className="mt-1 text-[12px] text-[#84787D]">納期・担当・メモを変更できます。商品仕様は案件詳細の「仕様」で編集してください。</p>
       </div>
 
       <div className="bg-white rounded-[16px] border border-[rgba(53,30,40,0.06)] p-5 mt-2">

@@ -64,7 +64,8 @@ export default async function DealsPage({ searchParams }: Props) {
     )
   }
 
-  const { data: deals } = await dealsQuery
+  const { data: deals, error: dealsError } = await dealsQuery
+  if (dealsError) throw new Error('Deals could not be loaded')
   const dealIds = (deals || []).map((d) => d.id)
 
   // -------------------------------------------------------------------------
@@ -134,10 +135,15 @@ export default async function DealsPage({ searchParams }: Props) {
 
     return (
       <div className="pt-3 pb-6">
+        <h1 className="font-display text-[21px] font-extrabold mb-3">案件を選ぶ</h1>
+        <form action="/deals" method="get" className="flex flex-wrap items-center gap-2 mb-3">
+          <label className="flex-1 max-w-md"><span className="sr-only">案件名・番号・取引先で検索</span><input name="q" type="search" placeholder="案件名・番号・取引先で検索" className="min-h-[44px] w-full bg-[#EFEFEA] rounded-input border border-[#E2E1DA] px-3 text-[13px]"/></label>
+          <button type="submit" className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-4 text-[12px] font-bold">案件を検索</button>
+        </form>
         <div className="flex items-center gap-2 flex-wrap pb-4">
           <Link
             href="/deals/new"
-            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12.5px] font-extrabold px-4 py-2 no-underline hover:brightness-95"
+            className="rounded-full bg-[#E9F056] text-[#666C14] text-[12.5px] min-h-[44px] inline-flex items-center font-extrabold px-4 py-2 no-underline hover:brightness-95"
           >
             + 新規案件
           </Link>

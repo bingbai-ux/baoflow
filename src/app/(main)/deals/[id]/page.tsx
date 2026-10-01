@@ -14,7 +14,7 @@ import { formatJPY, formatDate } from '@/lib/utils/format'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
 // 問い合わせ→仕様→RFQ→工場回答→原価→売値→見積書→入金→入稿→製作→輸送→到着→完了 の
-// 13ステップを縦1本に並べ、各ステップをその場で開いて入力する。
+// 13ステップから1工程を選び、その場で開いて入力する。
 
 interface Props {
   params: Promise<{ id: string }>
@@ -172,37 +172,32 @@ export default async function DealDetailPage({ params }: Props) {
           )}
           <Link
             href={`/deals/${id}/edit`}
-            className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-full px-3.5 py-2 text-[12px] font-medium font-body no-underline whitespace-nowrap hover:bg-[#FBFAF6]"
+            className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-full px-3.5 py-2 min-h-[44px] inline-flex items-center text-[12px] font-medium font-body no-underline whitespace-nowrap hover:bg-[#FBFAF6]"
           >
             編集
           </Link>
         </div>
       </div>
 
-      <section aria-label="案件の状況" className="mb-4 rounded-[16px] border border-[#E2E1DA] bg-white">
-        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-4 py-3">
+      <section aria-label="案件の状況" className="mb-3 rounded-[16px] border border-[#E2E1DA] bg-white">
+        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 px-4 py-2">
           <div>
             <dt className="text-[11px] text-[#84787D]">現在の工程</dt>
-            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{statusCfg.label}</dd>
+            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{statusCfg.label}</dd>
           </div>
           <div>
             <dt className="text-[11px] text-[#84787D]">次に動く人</dt>
-            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{{us: '自分の作業', client: 'クライアントの返事待ち', factory: '工場の返事待ち', none: '返事待ちなし'}[normalizeWaitingOn(deal.waiting_on)]}</dd>
+            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{{us: '自分の作業', client: 'クライアントの返事待ち', factory: '工場の返事待ち', none: '返事待ちなし'}[normalizeWaitingOn(deal.waiting_on)]}</dd>
           </div>
           <div>
             <dt className="text-[11px] text-[#84787D]">希望納期</dt>
-            <dd className="mt-1 text-[14px] font-bold text-[#351E28] tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 納期を設定する</Link>}</dd>
+            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28] tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 納期を設定する</Link>}</dd>
           </div>
           <div>
             <dt className="text-[11px] text-[#84787D]">担当者</dt>
-            <dd className="mt-1 text-[14px] font-bold text-[#351E28]">{flowDeal.sales_user?.display_name || '未設定'}</dd>
+            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 担当を設定</Link>}</dd>
           </div>
         </dl>
-        <p className="border-t border-[#EFEFEA] px-4 py-2 text-[12px] text-[#84787D]">
-          {normalizeWaitingOn(deal.waiting_on) === 'client' || normalizeWaitingOn(deal.waiting_on) === 'factory'
-            ? '返事が来たら、案件名の横の待ち先を「自分の番」に戻して、下の次の作業を進めてください。催促や回答は「通信の記録」に残せます。'
-            : '下の「次の作業」から入力・確認を進めてください。相手に依頼を送ったら、案件名の横の待ち先を切り替えます。'}
-        </p>
       </section>
 
       <DealFlow

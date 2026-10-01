@@ -270,8 +270,12 @@ export function NewDealWizard({ clients, staff, selfId, itemPresets, initialClie
         <p role="alert" className="text-[12px] rounded-[12px] bg-[#FFD8C2] text-[#B03616] px-3 py-2">{error}</p>
       )}
 
+      <p id="deal-create-requirement" role="status" className="text-[12px] text-[#84787D]">
+        {!recovery.ready ? '前回の保存結果を確認しています…' : !clientName ? '1. クライアントを選択または入力してください。' : items.length === 0 ? '3. 作る商品を1つ以上選んでください。' : '作成後は案件の「仕様」でサイズ・素材・印刷を確認します。'}
+      </p>
       <button
         type="button"
+        aria-describedby="deal-create-requirement"
         onClick={submit}
         disabled={!recovery.ready || pending || !clientName || items.length === 0}
         className="w-full rounded-full bg-[#E9F056] text-[#666C14] text-[14px] font-extrabold py-3 disabled:opacity-40 hover:brightness-95"

@@ -288,7 +288,7 @@ const inputCls =
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#FFFFFF] border rounded-[16px] p-5" style={{ borderColor: 'rgba(229,163,46,0.2)' }}>
+    <div className="bg-[#FFFFFF] border rounded-[16px] p-5" style={{ borderColor: '#E2E1DA' }}>
       <h2 className="font-display text-[15px] font-bold mb-3">{title}</h2>
       <div className="space-y-3">{children}</div>
     </div>

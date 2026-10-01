@@ -45,17 +45,19 @@ export default async function ArchivePage({ searchParams }: Props) {
   const ascending = params.sortOrder === 'asc'
   query = query.order(sortBy, { ascending })
 
-  const { data: deals } = await query
+  const { data: deals, error: dealsError } = await query
+  if (dealsError) throw new Error('Archived deals could not be loaded')
 
   // 各案件の採用見積合計
   const dealIds = (deals || []).map((d) => d.id)
   let approvedTotalsByDeal = new Map<string, number>()
   if (dealIds.length > 0) {
-    const { data: quotes } = await supabase
+    const { data: quotes, error: quotesError } = await supabase
       .from('deal_quotes')
       .select('deal_id, total_billing_tax_jpy, status')
       .in('deal_id', dealIds)
       .eq('status', 'approved')
+    if (quotesError) throw new Error('Archived quote totals could not be loaded')
     for (const q of quotes || []) {
       const cur = approvedTotalsByDeal.get(q.deal_id) || 0
       approvedTotalsByDeal.set(q.deal_id, cur + (q.total_billing_tax_jpy || 0))
@@ -68,7 +70,7 @@ export default async function ArchivePage({ searchParams }: Props) {
   }))
 
   return (
-    <div className="px-6 py-5">
+    <div className="py-5">
       <div className="mb-4">
         <h1 className="font-display text-[20px] font-semibold tracking-tight">案件履歴</h1>
         <p className="text-[12px] text-[#84787D] mt-0.5">

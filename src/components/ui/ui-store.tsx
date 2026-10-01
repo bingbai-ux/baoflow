@@ -12,6 +12,7 @@ interface ToastMsg {
 }
 
 interface UiState {
+  mailReady: boolean
   ccy: Currency
   setCcy: (c: Currency) => void
   toasts: ToastMsg[]
@@ -32,7 +33,7 @@ const Ctx = createContext<UiState | null>(null)
 const CCY_KEY = 'baoflow:ccy'
 const PANE_KEY = 'baoflow:paneOpen'
 
-export function UiProvider({ children }: { children: React.ReactNode }) {
+export function UiProvider({ children, mailReady = false }: { children: React.ReactNode; mailReady?: boolean }) {
   const [ccy, setCcyState] = useState<Currency>('JPY')
   const [toasts, setToasts] = useState<ToastMsg[]>([])
   const [cmdkOpen, setCmdkOpen] = useState(false)
@@ -105,6 +106,7 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider
       value={{
+        mailReady,
         ccy,
         setCcy,
         toasts,

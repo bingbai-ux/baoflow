@@ -259,7 +259,7 @@ function Section({
   return (
     <section
       className="bg-white border rounded-[12px] p-5"
-      style={{ borderColor: 'rgba(229,163,46,0.15)' }}
+      style={{ borderColor: '#E2E1DA' }}
     >
       <h2 className="font-display text-[14px] font-semibold text-[#351E28] mb-3">
         {titleEn} <span className="text-[#84787D] font-body font-normal">· {titleCn}</span>

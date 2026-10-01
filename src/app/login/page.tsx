@@ -52,11 +52,12 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           {/* Email */}
           <div>
-            <label className="block text-[12px] text-[#84787D] font-body mb-[6px]">
+            <label htmlFor="staff-email" className="block text-[12px] text-[#84787D] font-body mb-[6px]">
               メールアドレス
             </label>
             <input
               type="email"
+              id="staff-email" autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -67,11 +68,12 @@ export default function LoginPage() {
 
           {/* Password */}
           <div>
-            <label className="block text-[12px] text-[#84787D] font-body mb-[6px]">
+            <label htmlFor="staff-password" className="block text-[12px] text-[#84787D] font-body mb-[6px]">
               パスワード
             </label>
             <input
               type="password"
+              id="staff-password" autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -82,7 +84,7 @@ export default function LoginPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="text-[12px] py-2 px-3 rounded-[12px] bg-[rgba(229,163,46,0.1)] text-[#B03616] font-body">
+            <div role="alert" className="text-[12px] py-2 px-3 rounded-[12px] bg-[#FFD8C2] text-[#B03616] font-body">
               {error}
             </div>
           )}
@@ -91,7 +93,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#E9F056] text-[#666C14] rounded-full px-4 py-[10px] text-[13px] font-extrabold font-body hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
+            className="w-full min-h-[44px] bg-[#E9F056] text-[#666C14] rounded-full px-4 py-[10px] text-[13px] font-extrabold font-body hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
           >
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>

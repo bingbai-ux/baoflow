@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from 'react'
 import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Printer, FileText, Copy, Check } from 'lucide-react'
 import {
   DocumentTemplate,
@@ -192,7 +193,7 @@ export function DocumentIssuer({
             key={t.id}
             type="button"
             onClick={() => { setActive(t.id); setSelectedDoc(null); setNotesEdited(false); setError(null) }}
-            className={`px-4 py-2 rounded-[12px] text-[13px] font-body transition-colors ${
+            className={`min-h-[44px] px-4 py-2 rounded-full text-[13px] font-body transition-colors ${
               active === t.id
                 ? 'bg-[#351E28] text-[#C9A2B8]'
                 : 'bg-white text-[#351E28] border border-[#E2E1DA] hover:bg-[#EFEFEA]'
@@ -268,7 +269,8 @@ export function DocumentIssuer({
           </Field>
         </div>
 
-        <p className="text-[12px] text-[#84787D]">{selectedDoc ? '発行済み帳票を表示中。印刷で同じ内容を再出力できます。' : active !== 'rfq' && !canIssue ? '先に見積を採用してください。未採用の見積は帳票に含めません。' : '採用見積と別途費用から作成します。発行すると内容を保存します。'}</p>
+        <p className="text-[12px] text-[#84787D]">{selectedDoc ? '発行済み帳票を表示中。印刷で同じ内容を再出力できます。' : !canIssue ? (active === 'rfq' ? '先に案件の仕様を登録してください。登録後にRFQを発行できます。' : '先に見積を採用してください。未採用の見積は帳票に含めません。') : '採用見積と別途費用から作成します。発行すると内容を保存します。'}</p>
+        {!canIssue && !selectedDoc && <Link href={`/deals/${deal.id}${active === 'rfq' ? '?step=2' : '/quote-builder'}`} className="inline-flex items-center min-h-[44px] underline text-[12px]">{active === 'rfq' ? '案件の仕様を登録する' : '見積を確認・採用する'}</Link>}
         {recovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{recovery.error}</p>}
         {recovery.unfinished && !recovery.recovered && <button type="button" className="underline text-[12px]" onClick={recovery.complete}>発行履歴を確認済み・新しい発行を始める</button>}
         {selectedDoc && <button type="button" className="rounded-full border border-[#E2E1DA] px-4 py-2 text-[12px]" onClick={() => { setSelectedDoc(null); recovery.complete() }}>新しい帳票を作成する</button>}
@@ -278,7 +280,7 @@ export function DocumentIssuer({
             type="button"
             onClick={handleIssue}
             disabled={!recovery.ready || issuing || !canIssue || !!selectedDoc}
-            className="bg-[#E9F056] text-[#666C14] rounded-full px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
+            className="bg-[#E9F056] text-[#666C14] rounded-full min-h-[44px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1 disabled:opacity-50"
           >
             <FileText className="w-3.5 h-3.5" />
             {issuing ? '発行中…' : 'この内容で発行する'}
@@ -287,7 +289,7 @@ export function DocumentIssuer({
             type="button"
             onClick={handlePrint}
             disabled={!selectedDoc && !canIssue}
-            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-full px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
+            className="bg-white border border-[#E2E1DA] text-[#351E28] rounded-full min-h-[44px] px-4 py-2 text-[13px] font-medium font-body inline-flex items-center gap-1"
           >
             <Printer className="w-3.5 h-3.5" />
             印刷 / PDF として保存

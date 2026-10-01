@@ -116,9 +116,10 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
     <form onSubmit={handleSave} className="space-y-6 max-w-3xl">
       {message && (
         <div
+          role={message.type === 'error' ? 'alert' : 'status'}
           className={`rounded-[12px] px-3 py-2 text-[12px] font-body ${
             message.type === 'success'
-              ? 'bg-[rgba(233,240,86,0.28)] border border-[#E9F056] text-[#666C14]'
+              ? 'bg-[#D7EFFF] border border-[#E2E1DA] text-[#33566F]'
               : 'bg-[#FFD8C2] border border-[#FF5C34] text-[#B03616]'
           }`}
         >
@@ -368,7 +369,7 @@ export function SettingsForm({ initial, profile }: SettingsFormProps) {
         <button
           type="submit"
           disabled={isPending || isFetching}
-          className="bg-[#351E28] text-[#C9A2B8] rounded-full px-6 py-2.5 text-[13px] font-medium font-body disabled:opacity-50 shadow"
+          className="min-h-[44px] bg-[#E9F056] text-[#666C14] rounded-full px-6 py-2.5 text-[13px] font-medium font-body disabled:opacity-50 shadow"
         >
           {isPending ? '保存中...' : 'すべて保存'}
         </button>
