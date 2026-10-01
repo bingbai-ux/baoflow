@@ -18,13 +18,12 @@ interface Props {
  */
 export function DealPaneHost({ data }: Props) {
   const { paneOpen, setPaneOpen } = useUi()
+  const selectedId = data?.deal.id
 
   // Auto-open when a deal is selected
   useEffect(() => {
-    if (data && !paneOpen) {
-      setPaneOpen(true)
-    }
-  }, [data, paneOpen, setPaneOpen])
+    if (selectedId) setPaneOpen(true)
+  }, [selectedId, setPaneOpen])
 
   if (!paneOpen) {
     return (

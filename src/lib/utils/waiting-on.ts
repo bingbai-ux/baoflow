@@ -8,7 +8,7 @@ export const WAITING_ON_CONFIG: Record<
   { label: string; bg: string; ink: string; border?: string }
 > = {
   // 自分の番 = 「今ここ」なので Wasabi 面
-  us: { label: '自分の番', bg: '#E9F056', ink: '#666C14' },
+  us: { label: '営業対応', bg: '#E9F056', ink: '#666C14' },
   // 相手待ち = 情報 → Cool Blue 面
   client: { label: 'クライアント待ち', bg: '#D7EFFF', ink: '#33566F' },
   factory: { label: '工場待ち', bg: '#D7EFFF', ink: '#33566F' },

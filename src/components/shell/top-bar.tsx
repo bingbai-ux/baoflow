@@ -25,11 +25,12 @@ function getMeta(pathname: string) {
 
 export function TopBar() {
   const pathname = usePathname()
-  const { ccy, setCcy, openCmdk, toggleNotif } = useUi()
+  const { openCmdk, toggleNotif, sidebarCollapsed, toggleSidebar } = useUi()
   const meta = getMeta(pathname)
 
   return (
     <div className="no-print min-h-[52px] px-3 sm:px-5 py-1 flex flex-wrap items-center gap-2 lg:gap-3.5 border-b border-[#E2E1DA] bg-[#EFEFEA] flex-shrink-0">
+      <button type="button" onClick={toggleSidebar} aria-expanded={!sidebarCollapsed} className="hidden lg:inline-flex min-h-[44px] items-center rounded-full border border-[#E2E1DA] bg-white px-3 text-[11px]">ナビを{sidebarCollapsed ? '開く' : '閉じる'}</button>
       <div className="min-w-0 truncate font-display text-[17px] font-semibold tracking-tight text-[#351E28]">
         {meta.title}
       </div>
@@ -50,28 +51,6 @@ export function TopBar() {
           ⌘K
         </span>
       </button>
-
-      <select aria-label="金額の表示通貨" value={ccy} onChange={e => setCcy(e.target.value as 'JPY' | 'USD' | 'BOTH')} className="sm:hidden min-h-[44px] max-w-[74px] rounded-full border border-[#E2E1DA] bg-white text-[11px] px-2">
-        <option value="JPY">JPY</option><option value="USD">USD</option><option value="BOTH">両方</option>
-      </select>
-
-      <div role="group" aria-label="金額の表示通貨"
-        className="hidden sm:flex border border-[#E2E1DA] rounded-full overflow-hidden bg-white">
-        {(['JPY', 'USD', 'BOTH'] as const).map((c) => (
-          <button
-            key={c}
-            type="button"
-            aria-pressed={ccy === c}
-            aria-label={c === "BOTH" ? "円と米ドルを表示" : c === "JPY" ? "円で表示" : "米ドルで表示"}
-            onClick={() => setCcy(c)}
-            className={`min-h-[44px] px-2 sm:px-3 py-1.5 text-[11px] font-display font-semibold transition-colors ${
-              ccy === c ? 'bg-[#351E28] text-[#C9A2B8]' : 'bg-transparent text-[#84787D] hover:text-[#351E28]'
-            }`}
-          >
-            {c === 'BOTH' ? '両方' : c}
-          </button>
-        ))}
-      </div>
 
       <button
         onClick={toggleNotif}

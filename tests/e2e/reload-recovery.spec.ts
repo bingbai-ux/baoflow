@@ -29,7 +29,7 @@ test('lost deal response restores the saved case after reload without another cr
  await page.goto('/deals/new')
  await page.getByLabel('クライアント',{exact:true}).selectOption('22222222-2222-4222-8222-222222222222')
  await page.getByRole('button',{name:'パウチ',exact:true}).click()
- const submit=page.getByRole('button',{name:'この内容で案件をつくる'})
+ const submit=page.getByRole('button',{name:'案件を保存して商品仕様へ'})
  await expect(submit).toBeEnabled()
  await loseSaveResponse(page,()=>submit.click())
  await pending(page,'deal/new')

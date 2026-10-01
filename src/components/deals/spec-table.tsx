@@ -24,11 +24,19 @@ interface Props {
   products: DealProduct[]
   variants: DealProductVariant[]
   quotes: BuilderQuote[]
+  hideProductNames?: boolean
 }
 
-export function SpecTable({ dealId, products, variants, quotes }: Props) {
+export function SpecTable({ dealId, products, variants, quotes, hideProductNames = false }: Props) {
   return (
-    <div className="rounded-[12px] border border-[#E2E1DA] bg-white overflow-x-auto">
+    <>
+    <div className="md:hidden space-y-3">{variants.map(v => <section key={v.id} aria-label={`仕様 ${v.variant_label}`} className="rounded-card border border-[#E2E1DA] p-3 space-y-3">
+      <h4 className="text-[13px] font-bold">仕様 {v.variant_label}</h4>
+      <div className="text-[12px]"><p className="text-[#84787D] mb-1">幅 × 高さ × 奥行（mm）</p><SizeCell variant={v} /></div>
+      <div className="grid grid-cols-2 gap-2 text-[12px]"><label><span className="block text-[#84787D]">素材</span><SelectCell variantId={v.id} field="material" value={v.material} presets={MATERIAL_PRESETS} /></label><label><span className="block text-[#84787D]">印刷色数</span><SelectCell variantId={v.id} field="print_color_count" value={v.print_color_count} presets={COLOR_PRESETS} /></label><label className="col-span-2"><span className="block text-[#84787D]">加工</span><SelectCell variantId={v.id} field="processing" value={v.processing} presets={PROCESS_PRESETS} /></label></div>
+      <div className="text-[12px]"><p className="text-[#84787D] mb-1">数量候補（個）</p><QtyCell dealId={dealId} variantId={v.id} quotes={quotes.filter(q => q.variant_id === v.id)} /></div>
+    </section>)}</div>
+    <div className="hidden md:block rounded-[12px] border border-[#E2E1DA] bg-white overflow-x-auto">
       <table className="w-full text-[12px] border-collapse min-w-[760px]">
         <thead>
           <tr className="bg-[#FBFAF6] text-[10.5px] text-[#84787D]">
@@ -51,12 +59,14 @@ export function SpecTable({ dealId, products, variants, quotes }: Props) {
                 product={p}
                 variants={vs}
                 quotes={quotes}
+                hideName={hideProductNames}
               />
             )
           })}
         </tbody>
       </table>
     </div>
+    </>
   )
 }
 
@@ -65,15 +75,17 @@ function ProductRows({
   product,
   variants,
   quotes,
+  hideName,
 }: {
   dealId: string
   product: DealProduct
   variants: DealProductVariant[]
   quotes: BuilderQuote[]
+  hideName: boolean
 }) {
   return (
     <>
-      <tr>
+      {!hideName && <tr>
         <td colSpan={6} className="px-3 py-1.5 bg-[#EFEFEA] border-t border-[#E2E1DA]">
           <span className="fc-num text-[10.5px] text-[#84787D] mr-2">#{product.product_no}</span>
           <span className="text-[12px] font-bold text-[#351E28]">
@@ -82,7 +94,7 @@ function ProductRows({
               .join(' / ') || product.description}
           </span>
         </td>
-      </tr>
+      </tr>}
       {variants.map((v, i) => (
         <VariantRow
           key={v.id}
@@ -194,7 +206,8 @@ function SelectCell({
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
           if (e.key === 'Escape') setCustom(false)
         }}
-        className="w-full bg-white border border-[#351E28] rounded-[8px] px-1.5 py-1 text-[11.5px] outline-none"
+        aria-label="自由入力の仕様"
+        className="min-h-[44px] w-full bg-white border border-[#351E28] rounded-[8px] px-1.5 py-1 text-[11.5px] outline-none"
         placeholder="自由入力"
       />
     )
@@ -208,7 +221,8 @@ function SelectCell({
         if (e.target.value === CUSTOM) setCustom(true)
         else save(e.target.value)
       }}
-      className={`w-full bg-transparent border border-transparent hover:border-[#E2E1DA] rounded-[8px] px-1 py-1 text-[11.5px] cursor-pointer outline-none focus:border-[#351E28] ${
+      aria-label={field === 'material' ? '素材' : field === 'processing' ? '加工' : '印刷色数'}
+      className={`min-h-[44px] w-full bg-transparent border border-transparent hover:border-[#E2E1DA] rounded-[8px] px-1 py-1 text-[11.5px] cursor-pointer outline-none focus:border-[#351E28] ${
         local ? 'text-[#351E28]' : 'text-[#AEB8A0]'
       }`}
     >
@@ -233,6 +247,7 @@ function SizeCell({ variant }: { variant: DealProductVariant }) {
     <input
       type="number"
       min={0}
+      aria-label={field === 'width_mm' ? '幅（mm）' : field === 'height_mm' ? '高さ（mm）' : '奥行（mm）'}
       defaultValue={v ?? ''}
       onBlur={(e) => {
         const next = e.target.value === '' ? null : String(Number(e.target.value))
@@ -243,7 +258,7 @@ function SizeCell({ variant }: { variant: DealProductVariant }) {
           else router.refresh()
         })
       }}
-      className="w-[44px] fc-num text-right bg-transparent border border-transparent hover:border-[#E2E1DA] rounded-[6px] px-1 py-1 text-[11.5px] outline-none focus:border-[#351E28] placeholder:text-[#AEB8A0]"
+      className="min-h-[44px] w-[60px] fc-num text-right bg-transparent border border-transparent hover:border-[#E2E1DA] rounded-[6px] px-1 py-1 text-[11.5px] outline-none focus:border-[#351E28] placeholder:text-[#AEB8A0]"
       placeholder="—"
     />
   )
@@ -330,7 +345,8 @@ function QtyCell({
               if (e.key === 'Enter') addQty()
               if (e.key === 'Escape') setAdding(false)
             }}
-            className="w-[84px] text-right fc-num bg-white rounded-[8px] px-2 py-1 text-[11px] border border-[#351E28] outline-none"
+            aria-label="追加する数量"
+            className="min-h-[44px] w-[84px] text-right fc-num bg-white rounded-[8px] px-2 py-1 text-[11px] border border-[#351E28] outline-none"
             placeholder="数量"
             autoFocus
           />
@@ -338,7 +354,7 @@ function QtyCell({
             type="button"
             onClick={addQty}
             disabled={!recovery.ready || pending || !(Number(qty) > 0)}
-            className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[10px] font-bold px-2.5 py-1 disabled:opacity-40"
+            className="min-h-[44px] rounded-full bg-[#351E28] text-[#C9A2B8] text-[10px] font-bold px-2.5 py-1 disabled:opacity-40"
           >
             追加
           </button>
@@ -356,7 +372,7 @@ function QtyCell({
           onClick={() => setAdding(true)}
           title="枚数違いを追加"
           aria-label="数量を追加"
-          className="w-6 h-6 rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[13px] font-bold leading-none hover:bg-[#FBFAF6] inline-flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[13px] font-bold leading-none hover:bg-[#FBFAF6] inline-flex items-center justify-center"
         >
           +
         </button>

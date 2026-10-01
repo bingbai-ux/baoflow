@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useUi } from '@/components/ui/ui-store'
 
 // F&C Design System: Cassis面のサイドバー(2層構造の濃い面)。
 // 選択中だけ Wasabi。アイコンではなく語で示す。
@@ -35,6 +36,7 @@ interface UserProfile {
 }
 
 export function Sidebar() {
+  const { sidebarCollapsed } = useUi()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab')
@@ -71,7 +73,7 @@ export function Sidebar() {
 
   return (
     <>
-    <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] flex-col px-3 pt-5 pb-4 z-50">
+    <aside className={(sidebarCollapsed ? 'hidden' : 'hidden lg:flex') + ' fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] flex-col px-3 pt-5 pb-4 z-50'}>
       {/* ブランドピル(実ロゴ) */}
       <span className="self-start inline-flex items-center gap-1.5 whitespace-nowrap bg-[#FBFAF6] leading-none px-3.5 py-1.5 rounded-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}

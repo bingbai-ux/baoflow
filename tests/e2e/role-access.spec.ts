@@ -66,26 +66,27 @@ test('deal decision summary and responsive workflow screenshots',async({page})=>
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:900})
     await page.goto(deal)
-    const summary=page.getByRole('region',{name:'案件の状況'})
+    const summary=page.getByLabel('案件の状況')
     const stage='after'
     await expect(summary).toBeVisible()
     {
       await expect(summary).toContainText('希望納期')
       await expect(summary).toContainText('2026/10/15')
       await expect(summary).toContainText('検証担当')
-      await expect(summary).toContainText('自分の作業')
+      await expect(summary).toContainText('営業対応')
     }
-    await page.screenshot({path:`artifacts/ux/deal-summary-${stage}-${width}.png`,fullPage:true})
+    await page.screenshot({path:`tmp/case-workspace/deal-summary-${stage}-${width}.png`,fullPage:true})
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
   }
 })
 
 test('waiting party is chosen directly and reflected in the decision summary',async({page,request})=>{
   await page.goto(deal)
+  await page.getByText('変更',{exact:true}).click()
   await page.getByRole('combobox',{name:'案件の待ち先',exact:true}).selectOption('factory')
-  await expect(page.getByRole('region',{name:'案件の状況'})).toContainText('工場の返事待ち')
+  await expect(page.getByLabel('案件の状況')).toContainText('工場の返答待ち')
   const state=await (await request.get(fixture+'/__state')).json()
   expect(state.deals[0].waiting_on).toBe('factory')
   await page.getByRole('combobox',{name:'案件の待ち先',exact:true}).selectOption('us')
-  await expect(page.getByRole('region',{name:'案件の状況'})).toContainText('自分の作業')
+  await expect(page.getByLabel('案件の状況')).toContainText('営業対応')
 })

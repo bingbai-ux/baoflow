@@ -32,8 +32,8 @@ test('new deal wizard creates a case and opens its product specification step',a
  await page.goto('/deals/new')
  await page.getByLabel('クライアント',{exact:true}).selectOption('22222222-2222-4222-8222-222222222222')
  await page.getByRole('button',{name:'パウチ',exact:true}).click()
- await page.getByRole('button',{name:'この内容で案件をつくる'}).click()
- await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}$/)
+ await page.getByRole('button',{name:'案件を保存して商品仕様へ'}).click()
+ await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}(?:\?.*)?$/)
  await expect(page.getByText('仕様を固める(サイズ・素材・印刷)',{exact:true})).toBeVisible()
  const state=await (await page.request.get('http://127.0.0.1:55440/__state')).json()
  expect(state.deals).toHaveLength(2);expect(state.deal_products).toHaveLength(2)
@@ -68,6 +68,7 @@ test('password recovery page remains public without a session',async({page,conte
 })
 
 test('invoice step opens the invoice issuer and prints its modal',async({page})=>{
+ await page.goto(deal+'/quote-builder');await page.getByRole('button',{name:'この価格で採用',exact:true}).click();await expect(page.getByRole('button',{name:'採用を解除',exact:true})).toBeVisible()
  await page.goto(deal+'?step=8')
  await page.getByRole('button',{name:'請求書をつくる',exact:true}).click()
  await expect(page.getByRole('dialog',{name:'帳票発行'})).toBeVisible()

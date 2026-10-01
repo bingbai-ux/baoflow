@@ -50,7 +50,8 @@ const server=http.createServer(async(req,res)=>{
      if(p.product_id&&!product){send({code:'22023',message:'商品がこの案件に属していません'},400);return}
      if(!product){product={id:randomUUID(),deal_id:p.deal_id,product_no:db.deal_products.filter(x=>x.deal_id===p.deal_id).length+1,is_selected:false};db.deal_products.push(product)}
      Object.assign(product,{description:[p.category_l1,p.category_l2,p.category_l3].filter(Boolean).join(' / '),category_l1:p.category_l1,category_l2:p.category_l2,category_l3:p.category_l3})
-     const variant={id:randomUUID(),product_id:product.id,deal_products:{deal_id:p.deal_id},variant_label:'A',variant_order:0,is_selected:false,...Object.fromEntries(Object.entries(p).filter(([k])=>!['product_id','deal_id','quantities'].includes(k)))}
+     const nextOrder=Math.max(-1,...db.deal_product_variants.filter(v=>v.product_id===product.id).map(v=>v.variant_order||0))+1
+     const variant={id:randomUUID(),product_id:product.id,deal_products:{deal_id:p.deal_id},variant_label:nextOrder<26?String.fromCharCode(65+nextOrder):`仕様 ${nextOrder+1}`,variant_order:nextOrder,is_selected:false,...Object.fromEntries(Object.entries(p).filter(([k])=>!['product_id','deal_id','quantities'].includes(k)))}
      db.deal_product_variants.push(variant)
      p.quantities.forEach((q,i)=>db.deal_quotes.push({id:randomUUID(),deal_id:p.deal_id,variant_id:variant.id,quantity:q,version:i+1,status:'drafting',created_at:now}))
      result={success:true,productId:product.id,variantId:variant.id}

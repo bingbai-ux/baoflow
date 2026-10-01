@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 import { WaitingOnBadge } from '@/components/deals/waiting-on-badge'
 import { DealFlow, type FlowDocument, type FlowHistoryRow } from '@/components/deals/deal-flow'
 import { listDesignFiles } from '@/lib/actions/designs'
@@ -9,7 +8,8 @@ import { listFactoryOrders } from '@/lib/actions/factory-orders'
 import { listFactoriesForRfq } from '@/lib/actions/rfq'
 import { listCatalog } from '@/lib/actions/catalog'
 import { type SimpleStatus, SIMPLE_STATUS_CONFIG } from '@/lib/types'
-import { normalizeWaitingOn } from '@/lib/utils/waiting-on'
+import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
+import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
@@ -125,22 +125,12 @@ export default async function DealDetailPage({ params }: Props) {
     changer: Array.isArray(h.changer) ? h.changer[0] : h.changer,
   }))
 
-  const approvedQuotes = (quotes || []).filter((q) => q.status === 'approved')
-  const approvedTotalTax = approvedQuotes.reduce(
-    (sum, q) => sum + (Number(q.total_billing_tax_jpy) || 0),
-    0
-  )
+  const amount = approvedAmount(quotes || [])
   const statusCfg = SIMPLE_STATUS_CONFIG[(deal.simple_status || 'quoting') as SimpleStatus]
 
   return (
     <>
-      <Link
-        href="/deals"
-        className="inline-flex items-center gap-1 text-[13px] text-[#84787D] font-body no-underline hover:text-[#351E28] mt-4 mb-2"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        案件一覧
-      </Link>
+      <CaseReturnLink />
 
       <div className="flex justify-between items-start py-3 gap-4 flex-wrap">
         <div className="min-w-0">
@@ -152,7 +142,7 @@ export default async function DealDetailPage({ params }: Props) {
             <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[11px] font-bold px-2.5 py-[3px] whitespace-nowrap">
               {statusCfg.label}
             </span>
-            <WaitingOnBadge dealId={deal.id} value={deal.waiting_on} />
+
           </div>
           <p className="text-[13px] text-[#351E28] font-body mt-1 truncate">
             {deal.client_name_text || '(クライアント未設定)'}
@@ -160,16 +150,11 @@ export default async function DealDetailPage({ params }: Props) {
           </p>
         </div>
         <div className="flex gap-3 flex-shrink-0 items-center">
-          {approvedQuotes.length > 0 && (
-            <div className="text-right rounded-[16px] bg-[#D7EFFF] px-4 py-3">
-              <p className="text-[10px] text-[#33566F] font-body">
-                採用見積 {approvedQuotes.length}件 (税込)
-              </p>
-              <p className="text-[18px] font-display font-extrabold text-[#33566F] tabular-nums">
-                {formatJPY(approvedTotalTax)}
-              </p>
-            </div>
-          )}
+          <div className="text-right">
+            <p className="text-[11px] text-[#84787D]">採用額（税込）</p>
+            <p className="text-[18px] font-extrabold tabular-nums">{amount.label || formatJPY(amount.total)}</p>
+            {amount.missing > 0 && <p className="text-[11px] text-[#84787D]">金額未登録 {amount.missing}件 · 登録済み分 {formatJPY(amount.total)}</p>}
+          </div>
           <Link
             href={`/deals/${id}/edit`}
             className="bg-white text-[#351E28] border border-[#E2E1DA] rounded-full px-3.5 py-2 min-h-[44px] inline-flex items-center text-[12px] font-medium font-body no-underline whitespace-nowrap hover:bg-[#FBFAF6]"
@@ -179,26 +164,11 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <section aria-label="案件の状況" className="mb-3 rounded-[16px] border border-[#E2E1DA] bg-white">
-        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 px-4 py-2">
-          <div>
-            <dt className="text-[11px] text-[#84787D]">現在の工程</dt>
-            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{statusCfg.label}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] text-[#84787D]">次に動く人</dt>
-            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{{us: '自分の作業', client: 'クライアントの返事待ち', factory: '工場の返事待ち', none: '返事待ちなし'}[normalizeWaitingOn(deal.waiting_on)]}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] text-[#84787D]">希望納期</dt>
-            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28] tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 納期を設定する</Link>}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] text-[#84787D]">担当者</dt>
-            <dd className="mt-0.5 text-[13px] font-bold text-[#351E28]">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 担当を設定</Link>}</dd>
-          </div>
-        </dl>
-      </section>
+      <dl aria-label="案件の状況" className="flex flex-wrap gap-x-5 gap-y-2 border-b border-[#E2E1DA] pb-3 mb-3 text-[12px]">
+        <div className="flex items-center gap-2"><dt className="text-[#84787D]">待ち先</dt><dd className="font-bold">{waitingLabel(deal.waiting_on)}</dd><dd><details><summary className="cursor-pointer text-[11px] underline">変更</summary><WaitingOnBadge dealId={deal.id} value={deal.waiting_on} /></details></dd></div>
+        <div className="flex items-center gap-2"><dt className="text-[#84787D]">希望納期</dt><dd className="font-bold tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
+        <div className="flex items-center gap-2"><dt className="text-[#84787D]">担当</dt><dd className="font-bold">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
+      </dl>
 
       <DealFlow
         deal={flowDeal as never}

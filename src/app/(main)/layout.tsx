@@ -5,6 +5,7 @@ import { UiProvider } from '@/components/ui/ui-store'
 import { ToastHost } from '@/components/ui/toast-host'
 import { CmdK } from '@/components/shell/cmdk'
 import { NotifPopover } from '@/components/shell/notif-popover'
+import { StaffContent } from '@/components/shell/staff-content'
 export default function MainLayout({
   children,
 }: {
@@ -20,10 +21,10 @@ export default function MainLayout({
         <Suspense fallback={<aside className="hidden lg:block fixed left-0 top-0 h-screen w-[236px] bg-[#351E28] z-50" />}>
           <Sidebar />
         </Suspense>
-        <div className="lg:ml-[236px] flex-1 flex flex-col min-w-0 min-h-0">
+        <StaffContent>
           <TopBar />
           <main id="main-content" className="flex-1 min-h-0 overflow-auto px-3 sm:px-5 pb-6">{children}</main>
-        </div>
+        </StaffContent>
       </div>
       <ToastHost />
       <CmdK />
