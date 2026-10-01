@@ -91,6 +91,7 @@ export interface LogisticsPartnerPayload {
 export interface RfqResponseProductLine {
   product_id: string
   variant_id?: string | null
+  quantity?: number
   unit_price_usd?: number | null
   moq?: number | null
   pcs_per_carton?: number | null

@@ -22,6 +22,7 @@ import {
 } from '@/components/deals/quote-builder'
 import { PendingRfqAnswers } from '@/components/deals/pending-rfq-answers'
 import { RfqCreateModal } from '@/components/deals/rfq-create-modal'
+import { RfqHistory } from '@/components/deals/rfq-history'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { AttachmentGallery } from '@/components/deals/attachment-gallery'
 import { DealCommunicationTab } from '@/components/deals/deal-communication-tab'
@@ -650,6 +651,7 @@ function StepRfq({
         <BallButton dealId={deal.id} to="factory" label="送った → ボールを工場待ちに" />
       </div>
       <PendingRfqAnswers dealId={deal.id} />
+      <RfqHistory dealId={deal.id} />
       <Hint>RFQの作成だけでは工場への送信は完了しません。作成した依頼を工場に共有し、送信後に「工場待ち」に切り替えてください。</Hint>
       {modalOpen && (
         <RfqCreateModal

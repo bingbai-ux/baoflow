@@ -7,7 +7,7 @@
 cwd: /Users/bingbai/Documents/Codex/2026-09-30/task/baoflow-improvements
 branch: codex/ui-workbench-redesign
 基点: 44eb3621c8f8b02d35333fd93b260a03ce3bd33f（公開済み）
-第1段のローカル実装・検証済み。DB・権限・実取引・メール・追加公開の変更なし。
+第1段は本番公開済み。main f5ae38655d54b8eaf3142badbcf4856b20f585ed、Vercel READY。詳細は CODEX_STAGE1_PRODUCTION_20261001.md。DB・権限・実取引・メールの変更なし。第2段は別の未公開差分として検証中。
 祖先〜cwdにAGENTS.mdは見つからず、ルートCLAUDE.mdを確認。新task必須の根拠は確認されていない。工程別handoffは本書を利用する。
 
 ## 第1段の受入結果
@@ -18,7 +18,7 @@ branch: codex/ui-workbench-redesign
 
 対象ブラウザ34件、ソース107件、SQL3スクリプト、lint/typecheck/build合格。代表案件→RFQ→工場回答→採用→請求書→発注→入庫→出荷→納品、ロール差、再読込、取消、検索/戻る、モバイルを確認。SQLでは同分類2商品×2仕様×3数量の原子的保存も確認した。
 
-画面証拠は artifacts/case-workspace/README.md。改善前は公開基点44eb、改善後はlocalhostの合成データ。実顧客画像は含めない。理解時間・操作削減数は未計測。モバイル詳細上部の縦長さは残り、後続段階で工程固有の入力と整理する。第2〜7段の追加実装が完了したとは扱わない。親の画面比較確認前に追加公開しない。
+画面証拠は artifacts/case-workspace/README.md。改善前は公開基点44eb、改善後はlocalhostの合成データ。実顧客画像は含めない。理解時間・操作削減数は未計測。モバイル詳細上部の縦長さは残り、後続段階で工程固有の入力と整理する。第2〜7段の追加実装が完了したとは扱わない。ユーザーの本番反映指示により第1段を公開した。Library添付は利用不能でID未取得。認証済み本番の業務画面確認は未実施。
 
 ## 一本の業務フロー
 

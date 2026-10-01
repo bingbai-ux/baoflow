@@ -24,6 +24,10 @@ interface MaskedVariant {
   print_color_count: string | null
   pcs_per_carton: number | null
   requested_quantities?: number[]
+  print_method?: string | null
+  processing?: string | null
+  color_description?: string | null
+  pantone_colors?: string | null
 }
 
 interface MaskedProduct {
@@ -35,9 +39,11 @@ interface MaskedProduct {
 export function RfqResponseForm({
   token,
   products,
+  schemaVersion = 1,
 }: {
   token: string
   products: MaskedProduct[]
+  schemaVersion?: number
 }) {
   const [pending, startSubmit] = useTransition()
   const [ready, setReady] = useState(false)
@@ -56,7 +62,8 @@ export function RfqResponseForm({
       initLines.push({ product_id: p.id })
     } else {
       for (const v of p.variants) {
-        initLines.push({ product_id: p.id, variant_id: v.id })
+        if (schemaVersion === 2) for (const quantity of v.requested_quantities || []) initLines.push({ product_id: p.id, variant_id: v.id, quantity })
+        else initLines.push({ product_id: p.id, variant_id: v.id })
       }
     }
   }
@@ -122,7 +129,7 @@ export function RfqResponseForm({
 
         <div className="space-y-3">
           {products.map((p) => {
-            const lineCount = Math.max(1, p.variants.length)
+            const lineCount = Math.max(1, schemaVersion === 2 ? p.variants.reduce((n, v) => n + (v.requested_quantities?.length || 0), 0) : p.variants.length)
             const startIdx = cursor
             cursor += lineCount
 
@@ -141,10 +148,10 @@ export function RfqResponseForm({
                   />
                 ) : (
                   <div className="space-y-2.5">
-                    {p.variants.map((v, vi) => {
+                    {(schemaVersion === 2 ? p.variants.flatMap(v => (v.requested_quantities || []).map(quantity => ({ ...v, requested_quantities: [quantity] }))) : p.variants).map((v, vi) => {
                       const idx = startIdx + vi
                       return (
-                        <div key={v.id} className="bg-[#FBFAF6] rounded-[12px] p-2.5">
+                        <div key={`${v.id}/${schemaVersion === 2 ? v.requested_quantities?.[0] : ''}`} className="bg-[#FBFAF6] rounded-[12px] p-2.5">
                           <div className="flex flex-wrap gap-2 text-[10.5px] text-[#351E28] mb-2">
                             <span className="font-semibold">{v.label || '(variant)'}</span>
                             {v.width_mm && (
@@ -156,6 +163,7 @@ export function RfqResponseForm({
                             {!!v.requested_quantities?.length && <span>Quantity / 数量: {v.requested_quantities.map(q => q.toLocaleString()).join(' / ')} pcs</span>}
                             {v.material && <span>· {v.material}</span>}
                             {v.print_color_count && <span>· print {v.print_color_count}</span>}
+                            {[v.print_method, v.processing, v.color_description, v.pantone_colors].filter(Boolean).map((value, i) => <span key={i}>{value}</span>)}
                           </div>
                           <ProductLineInputs
                             line={lines[idx]}

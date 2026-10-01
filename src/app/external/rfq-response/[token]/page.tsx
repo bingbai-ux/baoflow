@@ -45,7 +45,7 @@ export default async function RfqResponsePage({ params }: Props) {
           </p>
         )}
       </div>
-      <RfqResponseForm token={token} products={products} />
+      <RfqResponseForm token={token} products={products} schemaVersion={context.schema_version || 1} />
     </div>
   )
 }

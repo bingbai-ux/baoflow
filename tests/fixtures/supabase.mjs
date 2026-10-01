@@ -74,10 +74,12 @@ const server=http.createServer(async(req,res)=>{
    if(!inv||r?.deal_id!==input.p_deal_id||f?.status!=='submitted'||!db.factories.some(f=>f.id===input.p_factory_id&&f.basic_info_completed)){send({message:'Invalid import'},400);return}
    db.rfq_answer_imports ||= [];const saved=db.rfq_answer_imports.find(i=>i.invitation_id===inv.id)
    if(saved){send({success:true,replayed:true});return}
-   for(const line of f.submission_data.products)for(const quantity of f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities)db.deal_quotes.push({id:randomUUID(),deal_id:r.deal_id,variant_id:line.variant_id,factory_id:input.p_factory_id,quantity,moq:line.moq,factory_unit_price_usd:line.unit_price_usd,status:'drafting',source_type:'rfq_response',factory_response:{line,invitation_id:inv.id}})
+   for(const line of f.submission_data.products)for(const quantity of f.context.schema_version===2?[line.quantity]:f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities)db.deal_quotes.push({id:randomUUID(),deal_id:r.deal_id,variant_id:line.variant_id,factory_id:input.p_factory_id,quantity,moq:line.moq,factory_unit_price_usd:line.unit_price_usd,status:'drafting',source_type:'rfq_response',factory_response:{line,invitation_id:inv.id}})
    inv.factory_id=input.p_factory_id;db.rfq_answer_imports.push({invitation_id:inv.id,factory_id:input.p_factory_id});send({success:true,replayed:false});return
   }
   if(table==='create_rfq_atomic'){try{send(rfqAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
+  if(table==='preview_rfq_v2'){try{send(rfqPreview(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
+  if(table==='create_rfq_v2'){try{send(rfqAtomic({...input,p_product_ids:[...new Set(input.p_selection.map(l=>l.product_id))]}))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='select_quote_atomic') {const q=db.deal_quotes.find(q=>q.id===input.p_quote_id);if(q){db.deal_quotes.filter(x=>x.variant_id===q.variant_id).forEach(x=>x.status='draft');q.status='approved'}send({success:true,deal_id:q?.deal_id});return}
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
@@ -108,13 +110,26 @@ const server=http.createServer(async(req,res)=>{
 server.listen(55440,'127.0.0.1',()=>console.log('Local synthetic Supabase fixture listening on 127.0.0.1:55440'))
 
 // Browser-only synthetic implementation. SQL rollback/authorization is separately exercised in PGlite.
+function rfqPreview(input){
+ if(!['sales','admin'].includes(db.profiles[0]?.role))throw new Error('Staff only')
+ if(!input.p_selection?.length)throw new Error('Select specifications and quantities')
+ const requested_lines=input.p_selection.map(line=>{
+  const p=db.deal_products.find(p=>p.id===line.product_id&&p.deal_id===input.p_deal_id),v=db.deal_product_variants.find(v=>v.id===line.variant_id&&v.product_id===line.product_id)
+  if(!p||!v||!line.quantities.length||line.quantities.some(q=>!db.deal_quotes.some(row=>row.deal_id===input.p_deal_id&&row.variant_id===v.id&&row.quantity===q)))throw new Error('Invalid specification or quantity')
+  return {product_id:p.id,product_description:p.description,product_no:p.product_no,variant_id:v.id,variant_label:v.variant_label,width_mm:v.width_mm??null,height_mm:v.height_mm??null,depth_mm:v.depth_mm??null,material:v.material??null,print_color_count:v.print_color_count??null,print_method:v.print_method??null,color_description:v.color_description??null,pantone_colors:v.pantone_colors??null,processing:v.processing??null,quantities:[...line.quantities].sort((a,b)=>a-b)}
+ })
+ const recipients=[...(input.p_factory_ids||[]).slice().sort().map(id=>{const f=db.factories.find(f=>f.id===id&&f.basic_info_completed);if(!f)throw new Error('Incomplete factory');return {factory_id:id,name:f.factory_name,email:f.contact_email||''}}),...(input.p_pending_factories||[]).map(f=>({factory_id:null,name:f.name,email:f.email||''}))]
+ if(!recipients.length)throw new Error('Select products and factories')
+ return {schema_version:2,deal_id:input.p_deal_id,requested_lines,recipients,response_deadline:input.p_deadline??null,request_message:input.p_message?.trim()||null}
+}
 function rfqAtomic(input) {
  if(!['admin','sales'].includes(db.profiles[0]?.role))throw new Error('Sales or administrator access required')
  const snapshot=structuredClone(db)
  snapshot.rfq_creation_requests ||= [];snapshot.rfq_factory_invitations ||= [];snapshot.external_forms ||= []
- const payload={deal:input.p_deal_id,products:[...input.p_product_ids].sort(),factories:[...input.p_factory_ids].sort(),pending:input.p_pending_factories||[],deadline:input.p_deadline,message:input.p_message?.trim()||null}
+ const payload={deal:input.p_deal_id,products:[...input.p_product_ids].sort(),factories:[...input.p_factory_ids].sort(),pending:input.p_pending_factories||[],deadline:input.p_deadline,message:input.p_message?.trim()||null,...(input.p_selection?{selection:input.p_selection,expected:input.p_expected}:{})}
  const saved=snapshot.rfq_creation_requests.find(r=>r.request_id===input.p_request_id)
  if(saved){if(JSON.stringify(saved.payload)!==JSON.stringify(payload))throw new Error('Request ID was already used with different input');return saved.result}
+ if(input.p_selection&&JSON.stringify(rfqPreview(input))!==JSON.stringify(input.p_expected))throw new Error('Preview changed. Review again')
  if(!input.p_product_ids?.length||(!input.p_factory_ids?.length&&!input.p_pending_factories?.length))throw new Error('Select products and factories')
  if(new Set(input.p_product_ids).size!==input.p_product_ids.length||new Set(input.p_factory_ids).size!==input.p_factory_ids.length)throw new Error('Duplicate selections')
  if(input.p_product_ids.some(id=>!snapshot.deal_products.some(p=>p.id===id&&p.deal_id===input.p_deal_id)))throw new Error('Products do not belong to this deal')
@@ -127,7 +142,8 @@ function rfqAtomic(input) {
   snapshot.rfq_factory_invitations.push(inv)
   if(failure==='rfq_form'&&index===1){failure=null;throw new Error('Local forced second form failure')}
   const requested_lines=snapshot.deal_product_variants.filter(v=>snapshot.deal_products.some(p=>input.p_product_ids.includes(p.id)&&p.id===v.product_id)).map(v=>({...v,variant_id:v.id,product_description:snapshot.deal_products.find(p=>p.id===v.product_id).description,quantities:[...new Set(snapshot.deal_quotes.filter(q=>q.variant_id===v.id&&q.quantity>0).map(q=>q.quantity))]}))
-  const form={context:{requested_lines},id:randomUUID(),form_type:'rfq_response',token:randomUUID().replaceAll('-','')+randomUUID().replaceAll('-',''),related_id:inv.id,status:'pending',created_by:IDs.user,expires_at:new Date(Date.now()+7*86400000).toISOString()}
+  const context=input.p_selection?{schema_version:2,requested_lines:input.p_expected.requested_lines,request_message:input.p_expected.request_message,response_deadline:input.p_expected.response_deadline,recipient:{name:factory.factory_name,email:factory.contact_email||''}}:{requested_lines}
+  const form={context,id:randomUUID(),form_type:'rfq_response',token:randomUUID().replaceAll('-','')+randomUUID().replaceAll('-',''),related_id:inv.id,status:'pending',created_by:IDs.user,expires_at:new Date(Date.now()+7*86400000).toISOString()}
   snapshot.external_forms.push(form);inv.external_form_id=form.id
   return {invitationId:inv.id,factoryId,factoryName:factory.factory_name,formToken:form.token}
  })
@@ -143,14 +159,14 @@ function workflowRpc(name,input) {
  if(name==='ext_rfq_context'){
   const f=db.external_forms?.find(f=>f.token===input.p_token),inv=db.rfq_factory_invitations?.find(i=>i.id===f?.related_id),rfq=db.rfq_requests.find(r=>r.id===inv?.rfq_id)
   if(!f||f.status!=='pending'||!rfq)return {error:'Unavailable form'}
-  return {rfq,products:db.deal_products.filter(p=>rfq.product_ids.includes(p.id)).map(p=>({...p,variants:db.deal_product_variants.filter(v=>v.product_id===p.id).map(v=>({...v,label:v.variant_label,requested_quantities:f.context?.requested_lines?.find(l=>l.variant_id===v.id)?.quantities||[]}))}))}
+  return {schema_version:f.context?.schema_version||1,rfq:f.context?.schema_version===2?{...rfq,request_message:f.context.request_message,response_deadline:f.context.response_deadline}:rfq,products:db.deal_products.filter(p=>rfq.product_ids.includes(p.id)).map(p=>({...p,variants:(f.context?.requested_lines||[]).filter(l=>l.product_id===p.id).map(l=>({...l,id:l.variant_id,label:l.variant_label,requested_quantities:l.quantities}))}))}
  }
  if(name==='ext_submit_rfq'){
   const f=db.external_forms?.find(f=>f.token===input.p_token),inv=db.rfq_factory_invitations?.find(i=>i.id===f?.related_id),rfq=db.rfq_requests.find(r=>r.id===inv?.rfq_id)
   if(!f||!inv||!rfq)throw new Error('Unavailable form')
   if(f.status==='submitted'){if(JSON.stringify(f.submission_data)===JSON.stringify(input.p_payload))return {success:true};throw new Error('Already submitted')}
   if(inv.factory_id)for(const line of input.p_payload.products){
-   const quantities=f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities
+   const quantities=f.context.schema_version===2?[line.quantity]:f.context.requested_lines.find(l=>l.variant_id===line.variant_id).quantities
    for(const quantity of quantities)db.deal_quotes.push({id:randomUUID(),deal_id:rfq.deal_id,variant_id:line.variant_id,factory_id:inv.factory_id,quantity,moq:line.moq,factory_unit_price_usd:line.unit_price_usd,status:'drafting',source_type:'rfq_response',version:db.deal_quotes.length+1,factory_response:{line,invitation_id:inv.id}})
   }
   inv.responded_at=now;f.submitted_at=now;f.status='submitted';f.submission_data=input.p_payload;rfq.status='fully_responded';return {success:true,deal_id:rfq.deal_id}
