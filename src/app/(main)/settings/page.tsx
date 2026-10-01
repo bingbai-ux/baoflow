@@ -51,7 +51,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <InviteLinksSection forms={inviteForms} />
+
 
       <SettingsForm
         initial={initial}
@@ -61,6 +61,7 @@ export default async function SettingsPage() {
           role: profile?.role || null,
         }}
       />
+      <details className="mt-5 rounded-[16px] border border-[#E2E1DA] bg-white"><summary className="min-h-[44px] flex items-center px-4 text-[13px] font-bold cursor-pointer">取引先の登録リンクを管理</summary><div className="p-4"><InviteLinksSection forms={inviteForms} /></div></details>
     </>
   )
 }

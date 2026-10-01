@@ -1,7 +1,7 @@
 'use client'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」画面。
-// ユーザーと確認した13ステップの案件ライフラインを縦1本に並べ、
+// 13工程の一覧と、選択した1工程の作業を表示し、
 // 各ステップをその場で開いて入力・進行できるようにする。
 // タブ分散(基本情報/商品/見積/画像/通信/履歴)をやめ、線の上に統合した。
 //
@@ -167,9 +167,21 @@ export function DealFlow({
   // Sprint 14: 上=横パイプライン / 下=選んだステップの詳細
   const [selected, setSelected] = useState<number | null>(null)
   useEffect(() => {
-    const requested = Number(new URLSearchParams(window.location.search).get('step'))
-    if (Number.isInteger(requested) && requested >= 1 && requested <= 13) setSelected(requested - 1)
+    const readStep = () => {
+      const requested = Number(new URLSearchParams(window.location.search).get('step'))
+      setSelected(Number.isInteger(requested) && requested >= 1 && requested <= 13 ? requested - 1 : null)
+    }
+    readStep()
+    window.addEventListener('popstate', readStep)
+    return () => window.removeEventListener('popstate', readStep)
   }, [deal.id])
+  const viewStep = (value: number | null) => {
+    const url = new URL(window.location.href)
+    if (value == null) url.searchParams.delete('step')
+    else url.searchParams.set('step', String(value + 1))
+    if (url.href !== window.location.href) window.history.pushState(null, '', url)
+    setSelected(value)
+  }
 
   const steps: Array<{
     title: string
@@ -313,60 +325,25 @@ export function DealFlow({
   return (
     <div className="pb-8">
       {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
-      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-[12.5px] text-[#351E28]">次の作業: {SHORT_LABELS[currentIdx]}。ステップの選択だけではステータスは変わりません。</p>
-        <button type="button" onClick={() => setSelected(null)} className="rounded-full border border-[#E2E1DA] bg-white px-4 py-2 text-[12px] font-bold text-[#351E28]">次の作業を開く</button>
+      <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+        <label className="flex items-center gap-2 text-[12px] font-bold min-w-0">
+          工程を表示
+          <select aria-label="表示する工程" value={sel} onChange={e => viewStep(Number(e.target.value))}
+            className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px] max-w-[240px]">
+            {steps.map((st, i) => <option key={st.title} value={i}>{i + 1}. {SHORT_LABELS[i]}{doneList[i] ? ' · 完了' : i === currentIdx ? ' · 次の作業' : ''}</option>)}
+          </select>
+        </label>
+        {!selCurrent && <button type="button" onClick={() => viewStep(null)} className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] px-4 text-[12px] font-bold">次の作業: {SHORT_LABELS[currentIdx]}へ戻る</button>}
       </div>
-      {/* 横パイプライン (過去=Cool Blue / 現在=Wasabi / 未来=Line) */}
-      <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-4 py-3 mb-3 overflow-x-auto">
+      {/* Desktop overview; mobile uses the same single, labelled section selector. */}
+      <div className="hidden lg:block bg-white rounded-[16px] border border-[#E2E1DA] px-3 py-2 mb-3 overflow-x-auto">
         <div ref={stepStrip} className="flex items-start min-w-[900px]">
-          {steps.map((st, i) => {
-            const done = doneList[i]
-            const isCurrent = i === currentIdx
-            const isSelected = i === sel
-            return (
-              <div key={st.title} className="flex-1 flex flex-col items-center relative">
-                {/* つなぎ線 */}
-                {i > 0 && (
-                  <span
-                    className={`absolute left-[-50%] right-[50%] top-[14px] h-[2px] ${
-                      doneList[i - 1] ? 'bg-[#D7EFFF]' : 'bg-[#E2E1DA]'
-                    }`}
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelected(i)}
-                  data-step={i}
-                  aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
-                  aria-current={isCurrent ? "step" : undefined}
-                  aria-pressed={isSelected}
-                  className={`relative z-10 fc-num w-[28px] h-[28px] rounded-full flex items-center justify-center text-[11.5px] font-extrabold transition-shadow ${
-                    done
-                      ? 'bg-[#D7EFFF] text-[#33566F]'
-                      : isCurrent
-                        ? 'bg-[#E9F056] text-[#666C14]'
-                        : 'bg-white border border-[#E2E1DA] text-[#84787D]'
-                  } ${isSelected ? 'ring-2 ring-[#351E28]' : ''}`}
-                >
-                  {done ? '✓' : i + 1}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelected(i)}
-                  data-step={i}
-                  aria-label={`${i + 1}. ${SHORT_LABELS[i]}${done ? " 完了" : isCurrent ? " 次の作業" : ""}`}
-                  aria-current={isCurrent ? "step" : undefined}
-                  aria-pressed={isSelected}
-                  className={`mt-1 text-[10px] leading-tight whitespace-nowrap ${
-                    isSelected ? 'font-extrabold text-[#351E28]' : done ? 'text-[#84787D]' : isCurrent ? 'font-bold text-[#666C14]' : 'text-[#84787D]'
-                  }`}
-                >
-                  {SHORT_LABELS[i]}
-                </button>
-              </div>
-            )
-          })}
+          {steps.map((st, i) => <button key={st.title} type="button" onClick={() => viewStep(i)} data-step={i}
+            aria-label={`${i + 1}. ${SHORT_LABELS[i]}${doneList[i] ? ' 完了' : i === currentIdx ? ' 次の作業' : ''}`}
+            aria-current={i === currentIdx ? 'step' : undefined} aria-pressed={i === sel}
+            className={`flex-1 min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-[10px] text-[10px] ${i === sel ? 'ring-1 ring-[#351E28]' : ''} ${doneList[i] ? 'bg-[#D7EFFF] text-[#33566F]' : i === currentIdx ? 'bg-[#E9F056] text-[#666C14]' : 'text-[#84787D]'}`}>
+            <span className="fc-num font-extrabold">{doneList[i] ? '✓' : i + 1}</span><span>{SHORT_LABELS[i]}</span>
+          </button>)}
         </div>
       </div>
 
@@ -391,27 +368,27 @@ export function DealFlow({
             <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[10px] font-bold px-2 py-[2px]">完了</span>
           )}
           <span className="flex-1" />
-          <span className="hidden sm:inline text-[11px] text-[#84787D] font-body truncate max-w-[340px]">
+          <span className="w-full sm:w-auto text-[12px] text-[#84787D] font-body sm:ml-auto">
             {step.summary}
           </span>
         </div>
-        <div className="px-5 py-4">{step.body}</div>
+        <div className="px-4 sm:px-5 py-4">{step.body}</div>
         <div className="px-5 py-2.5 border-t border-[#EFEFEA] flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setSelected(Math.max(0, sel - 1))}
+            onClick={() => viewStep(Math.max(0, sel - 1))}
             disabled={sel === 0}
-            className="rounded-full bg-white border border-[#E2E1DA] text-[#84787D] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30"
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#84787D] text-[11.5px] font-bold px-3 min-h-[44px] disabled:opacity-30"
           >
-            ← {sel > 0 ? SHORT_LABELS[sel - 1] : ''}
+            ← 前の工程を表示
           </button>
           <button
             type="button"
-            onClick={() => setSelected(Math.min(steps.length - 1, sel + 1))}
+            onClick={() => viewStep(Math.min(steps.length - 1, sel + 1))}
             disabled={sel === steps.length - 1}
-            className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[11.5px] font-bold px-3 py-1.5 disabled:opacity-30 hover:brightness-95"
+            className="rounded-full bg-white border border-[#E2E1DA] text-[#84787D] text-[11.5px] font-bold px-3 min-h-[44px] disabled:opacity-30 hover:brightness-95"
           >
-            {sel < steps.length - 1 ? SHORT_LABELS[sel + 1] : ''} →
+            次の工程を表示 →
           </button>
         </div>
       </div>
@@ -732,11 +709,13 @@ function StepRfq({
         仕様が固まったら、まず工場に原価を聞きます。回答には単価だけでなく
         <b>カートン情報(PCS/CTN・箱サイズ・G.W)</b>も必ずもらってください — 送料計算に必要です。
       </p>
+      {products.length===0&&<p className="text-[12px] mt-2">先に商品仕様を登録してください。<Link className="underline ml-2 min-h-[44px] inline-flex items-center" href={`/deals/${deal.id}?step=2`}>仕様を登録する</Link></p>}
       <div className="mt-2.5 flex items-center gap-2.5 flex-wrap">
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="rounded-full bg-[#351E28] text-[#C9A2B8] text-[12px] font-bold px-4 py-2 hover:brightness-95"
+          disabled={products.length===0}
+          className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
         >
           見積依頼(RFQ)をつくる
         </button>

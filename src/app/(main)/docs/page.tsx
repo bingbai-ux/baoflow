@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils/format'
+import { SearchableCollection } from '@/components/ui/searchable-collection'
 
 // Sprint 10 監査対応: サイドバー「帳票」の行き先が無かった(404)ため新設。
 // 発行済み帳票を案件横断で一覧し、各案件の帳票ページへつなぐ。
@@ -30,6 +31,8 @@ export default async function DocsPage() {
   const {data:bills,error:billingError}=await supabase.from('storage_billing').select('id,invoice_document_id,snapshot')
   const billByDoc=new Map((bills||[]).map(b=>[b.invoice_document_id,b]))
 
+  if (docsError || billingError) throw new Error('Documents could not be loaded')
+
   const rows = (docs || []).map((d) => ({
     ...d,
     deal: Array.isArray(d.deals) ? d.deals[0] : d.deals,
@@ -41,71 +44,38 @@ export default async function DocsPage() {
         <h1 className="font-display text-[21px] font-extrabold text-[#351E28]">帳票</h1>
         <p className="text-[12.5px] text-[#84787D] font-body mt-1">
           発行済みの帳票 <span className="fc-num">{rows.length}件</span>(新しい順・直近100件)。
-          帳票の発行は各案件の「帳票発行」から行います。
+          案件の帳票は各案件から、保管請求は在庫管理から発行します。
         </p>
       </div>
 
       {(docsError||billingError)&&<p role="alert" className="text-[12px] text-[#B03616] mb-3">帳票または保管請求の履歴を取得できません。再読込して確認してください。</p>}
 
-      {rows.length === 0 ? (
-        <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
-          まだ帳票がありません。案件詳細の「帳票発行」から見積書・請求書・納品書・RFQをつくれます。
-        </div>
-      ) : (
-        <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-hidden">
-          <div className="grid grid-cols-[90px_140px_minmax(0,1.5fr)_minmax(0,1fr)_90px_110px] gap-2 px-4 py-2 bg-[#FBFAF6] border-b border-[#E2E1DA] text-[11px] font-bold text-[#84787D]">
-            <span>種別</span>
-            <span>番号</span>
-            <span>案件</span>
-            <span>クライアント</span>
-            <span>発行日</span>
-            <span className="text-right"></span>
-          </div>
-          {rows.map((d) => {
-            const bill=billByDoc.get(d.id)
-            const storagePdf=d.document_type==='storage_invoice'&&bill?.snapshot
-            const t = DOC_TYPE_LABEL[d.document_type || ''] || {
-              label: d.document_type || '—',
-              bg: '#EFEFEA',
-              ink: '#84787D',
-            }
-            return (
-              <div
-                key={d.id}
-                className="grid grid-cols-[90px_140px_minmax(0,1.5fr)_minmax(0,1fr)_90px_110px] gap-2 px-4 py-2.5 items-center border-b border-[#EFEFEA] last:border-b-0 hover:bg-[#FBFAF6]"
-              >
-                <span
-                  className="inline-block w-fit rounded-full px-2.5 py-1 text-[10.5px] font-bold leading-none whitespace-nowrap"
-                  style={{ background: t.bg, color: t.ink }}
-                >
-                  {t.label}
-                </span>
-                <span className="fc-num text-[11.5px] text-[#351E28] truncate">
-                  {d.document_number || '—'}
-                </span>
-                <span className="text-[12px] text-[#351E28] truncate">
-                  {d.deal?.deal_name || (d.document_type==='storage_invoice'?'保管料請求':'(案件名未設定)')}
-                  <span className="fc-num text-[10.5px] text-[#84787D] ml-1.5">{d.deal?.deal_code}</span>
-                </span>
-                <span className="text-[11.5px] text-[#84787D] truncate">
-                  {d.deal?.client_name_text || bill?.snapshot?.client?.name || '—'}
-                </span>
-                <span className="fc-num text-[11px] text-[#84787D]">
-                  {formatDate(d.issued_at || d.created_at)}
-                </span>
-                <span className="text-right">
-                  <Link
-                    href={storagePdf?`/api/storage-invoices/${bill.id}/pdf`:d.deal_id?`/deals/${d.deal_id}/documents`:'/inventory?tab=fees'}
-                    className="no-underline rounded-full bg-white border border-[#E2E1DA] text-[#351E28] text-[10.5px] font-bold px-3 py-1.5 hover:bg-[#FBFAF6] whitespace-nowrap"
-                  >
-                    {storagePdf?'請求書PDF':d.deal_id?'案件の帳票へ':'保管請求履歴へ'}
-                  </Link>
-                </span>
+      {!docsError && !billingError && <SearchableCollection
+        label="帳票番号・案件・クライアントで検索"
+        categories={Object.entries(DOC_TYPE_LABEL).map(([value, type]) => ({ value, label: type.label }))}
+        empty={<div className="bg-white rounded-card border border-[#E2E1DA] p-5 text-[13px] space-y-3">
+          <p>発行済みの帳票はありません。案件を選んで発行するか、倉庫で確定した内容から保管請求書を作成してください。</p>
+          <div className="flex flex-wrap gap-2"><Link href="/deals" className="min-h-[44px] inline-flex items-center rounded-full bg-[#E9F056] text-[#666C14] px-4 font-bold">案件を選ぶ</Link><Link href="/inventory?tab=fees" className="min-h-[44px] inline-flex items-center rounded-full border border-[#E2E1DA] px-4">保管請求書を作成</Link></div>
+        </div>}
+        rows={rows.map(d => {
+          const bill = billByDoc.get(d.id)
+          const storagePdf = d.document_type === 'storage_invoice' && bill?.snapshot
+          const type = DOC_TYPE_LABEL[d.document_type || ''] || { label: d.document_type || '—', bg: '#EFEFEA', ink: '#84787D' }
+          const client = d.deal?.client_name_text || bill?.snapshot?.client?.name || '—'
+          return { id: d.id, category: d.document_type || '', text: [d.document_number, d.deal?.deal_name, d.deal?.deal_code, client, type.label].join(' '), content:
+            <article className="rounded-card border border-[#E2E1DA] bg-white px-4 py-3 flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1 basis-[240px]">
+                <div className="flex flex-wrap items-center gap-2"><span className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: type.bg, color: type.ink }}>{type.label}</span><span className="fc-num text-[12px] break-all">{d.document_number || '番号未設定'}</span></div>
+                <p className="mt-2 text-[13px] font-bold break-words">{d.deal?.deal_name || (d.document_type === 'storage_invoice' ? '保管料請求' : '案件なし')} <span className="fc-num text-[11px] font-normal text-[#84787D]">{d.deal?.deal_code}</span></p>
+                <p className="text-[12px] text-[#84787D]">{client} · 発行 {formatDate(d.issued_at || d.created_at)}</p>
               </div>
-            )
-          })}
-        </div>
-      )}
+              <Link href={storagePdf ? `/api/storage-invoices/${bill.id}/pdf` : d.deal_id ? `/deals/${d.deal_id}/documents` : '/inventory?tab=fees'} className="min-h-[44px] inline-flex items-center rounded-full border border-[#E2E1DA] bg-white px-4 text-[12px] font-bold">
+                {storagePdf ? '請求書PDFを確認' : d.deal_id ? '案件の帳票を確認' : '保管請求履歴を確認'}
+              </Link>
+            </article>
+          }
+        })}
+      />}
     </div>
   )
 }

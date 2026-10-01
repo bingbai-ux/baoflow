@@ -23,11 +23,12 @@ function parseFormData(input: StaffInput | FormData): StaffInput {
 
 export async function listStaff(): Promise<Profile[]> {
   const supabase = await createSupabase()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .in('role', STAFF_ROLES)
     .order('created_at', { ascending: true })
+  if (error) throw new Error('担当者一覧を取得できませんでした')
   return (data || []) as Profile[]
 }
 

@@ -101,6 +101,10 @@ export function StorageFeeSection({
 
   return (
     <div className="space-y-3">
+      <StorageInvoices clients={clients} />
+      <details className="rounded-[16px] border border-[#E2E1DA] bg-[#FBFAF6]">
+        <summary className="min-h-[44px] flex items-center px-4 text-[12px] font-bold cursor-pointer">参考: 現在庫の概算・単価設定・在庫証明書</summary>
+        <div className="space-y-3 p-4">
       {certRecovery.error && <p role="alert" className="text-[#B03616] text-[12px]">{certRecovery.error}</p>}
       {certRecovery.recovered && <div className="text-[12px]">前回発行した在庫証明書: {String(certRecovery.recovered.document_number || '')}
         <a className="underline ml-2" target="_blank" rel="noreferrer" href={`/print/stock/${encodeURIComponent(String((certRecovery.recovered.metadata as Record<string, unknown>)?.client_id || ''))}?no=${encodeURIComponent(String(certRecovery.recovered.document_number || ''))}`}>表示する</a>
@@ -181,7 +185,8 @@ export function StorageFeeSection({
       <p className="text-[10.5px] text-[#84787D] font-body">
         ※ カートン数が未入力の商品は 0 として計算。正式な料金体系(日割り・坪単価等)が決まったら精緻化します。
       </p>
-      <StorageInvoices clients={clients} />
+        </div>
+      </details>
     </div>
   )
 }

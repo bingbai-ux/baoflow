@@ -31,7 +31,7 @@ interface FactoryOpt {
 
 export function RfqCreateModal({ dealId, products, onClose }: Props) {
   const router = useRouter()
-  const { toast } = useUi()
+  const { toast, mailReady } = useUi()
   const [pending, startTransition] = useTransition()
   const recovery = useWorkflowRequest(`rfq/${dealId}`, 'rfq', dealId)
   const { recovered, complete: completeRecovery } = recovery
@@ -157,7 +157,7 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
     return (
       <Modal onClose={close} title="見積依頼を作成しました">
         <p className="text-[12px] text-[#351E28] mb-3">
-          各工場の回答リンクを作成しました。有効期限は7日です。メールはまだ送信していません。リンクをコピーして共有するか、送信ボタンで工場にメールを送れます。
+          各工場の回答リンクを作成しました。有効期限は7日です。メールはまだ送信していません。回答リンクをコピーして工場へ共有してください。
         </p>
         {error && <p role="alert" className="text-[12px] text-[#B03616] mb-3">{error}</p>}
         <div className="space-y-2">
@@ -185,7 +185,8 @@ export function RfqCreateModal({ dealId, products, onClose }: Props) {
                   <span className="text-[10px] text-[#84787D]">手動紐付け要</span>
                 )}
               </div>
-              <button type="button" onClick={() => sendEmail(inv.invitationId)} disabled={!!emailPending || sentIds.has(inv.invitationId)} className="rounded-full border border-[#E2E1DA] px-3 py-2 mt-2 text-[12px] disabled:opacity-50">
+              {!mailReady && <p className="text-[12px] text-[#84787D] mt-2">メール送信の設定が未完了です。回答リンクを共有するか、管理者に設定を依頼してください。</p>}
+              <button type="button" onClick={() => sendEmail(inv.invitationId)} disabled={!mailReady || !!emailPending || sentIds.has(inv.invitationId)} className="rounded-full border border-[#E2E1DA] px-3 py-2 mt-2 text-[12px] disabled:opacity-50">
                 {sentIds.has(inv.invitationId) ? 'メール送信済み' : emailPending === inv.invitationId ? '送信中…' : '工場にメールを送信する'}
               </button>
             </div>

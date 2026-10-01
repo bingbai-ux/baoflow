@@ -16,6 +16,7 @@ import {
 } from '@/lib/actions/inventory'
 import { useUi } from '@/components/ui/ui-store'
 import { formatDate } from '@/lib/utils/format'
+import {SearchField,matchesSearch} from '@/components/ui/search-field'
 
 interface ClientOption {
   id: string
@@ -43,15 +44,17 @@ export function InventoryClient({
   clients: ClientOption[]
   deals: DealOption[]
 }) {
+  const [search, setSearch] = useState('')
+  const visibleItems=items.filter(item=>matchesSearch(search,[item.item_name,clients.find(c=>c.id===item.client_id)?.company_name]))
   const [showNew, setShowNew] = useState(false)
   const totalQty = items.reduce((s, i) => s + i.quantity_on_hand, 0)
   const lowCount = items.filter((i) => i.quantity_on_hand <= 0).length
 
   return (
     <div>
-      <div className="flex items-end justify-between py-[18px] gap-4">
+      <div className="flex flex-wrap items-end justify-between py-3 gap-3">
         <div>
-          <h1 className="font-display text-[21px] font-extrabold text-[#351E28]">在庫</h1>
+          <h2 className="font-display text-[15px] font-extrabold text-[#351E28]">在庫台帳</h2>
           <p className="text-[12.5px] text-[#84787D] font-body mt-1">
             物流倉庫にある商品 <span className="fc-num">{items.length}件</span> · 合計{' '}
             <span className="fc-num">{totalQty.toLocaleString()}点</span>
@@ -74,14 +77,16 @@ export function InventoryClient({
         <NewItemForm clients={clients} deals={deals} onDone={() => setShowNew(false)} />
       )}
 
+      {items.length>0&&<SearchField label="商品・クライアントで検索" value={search} onChange={setSearch} count={visibleItems.length}/>}
+      {items.length>0&&visibleItems.length===0&&<p className="text-[13px] p-4">一致する商品がありません。検索を解除してください。</p>}
       {items.length === 0 && !showNew ? (
         <div className="bg-white rounded-[16px] border border-[#E2E1DA] px-5 py-8 text-[12.5px] text-[#84787D] font-body">
           在庫はまだありません。発注した商品が物流倉庫に届いたら
           「届いた商品を入庫する」から登録してください。
         </div>
       ) : (
-        <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-hidden">
-          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_90px_70px_minmax(0,1fr)_150px] gap-2 px-4 py-2 bg-[#FBFAF6] border-b border-[#E2E1DA] text-[11px] font-bold text-[#84787D]">
+        <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-x-auto">
+          <div className="min-w-[800px] grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_90px_70px_minmax(0,1fr)_150px] gap-2 px-4 py-2 bg-[#FBFAF6] border-b border-[#E2E1DA] text-[11px] font-bold text-[#84787D]">
             <span>商品</span>
             <span>クライアント</span>
             <span>案件</span>
@@ -90,7 +95,7 @@ export function InventoryClient({
             <span>倉庫</span>
             <span className="text-right">操作</span>
           </div>
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <ItemRow key={item.id} item={item} />
           ))}
         </div>
@@ -121,7 +126,7 @@ function ItemRow({ item }: { item: InventoryItemRow }) {
   const empty = item.quantity_on_hand <= 0
 
   return (
-    <div className="border-b border-[#EFEFEA] last:border-b-0">
+    <div className="min-w-[800px] border-b border-[#EFEFEA] last:border-b-0">
       <div
         className={`grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_90px_70px_minmax(0,1fr)_150px] gap-2 px-4 py-2.5 items-center cursor-pointer hover:bg-[#FBFAF6] ${
           empty ? 'bg-[#FFD8C2]' : ''

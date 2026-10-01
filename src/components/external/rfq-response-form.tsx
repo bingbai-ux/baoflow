@@ -98,6 +98,7 @@ export function RfqResponseForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <ExternalFormError message={error} />}
+      {!ready && <p role="status" className="text-[12px] text-[#84787D]">Preparing the reply form… / 正在准备报价表…</p>}
       <fieldset disabled={!ready || pending} className="space-y-5">
 
       {/* 工場連絡先 (任意、回答者の確認用) */}

@@ -30,7 +30,7 @@ export function TopBar() {
 
   return (
     <div className="no-print min-h-[52px] px-3 sm:px-5 py-1 flex flex-wrap items-center gap-2 lg:gap-3.5 border-b border-[#E2E1DA] bg-[#EFEFEA] flex-shrink-0">
-      <div className="w-full sm:w-auto font-display text-[17px] font-semibold tracking-tight text-[#351E28]">
+      <div className="min-w-0 truncate font-display text-[17px] font-semibold tracking-tight text-[#351E28]">
         {meta.title}
       </div>
       <div className="hidden xl:block text-[11px] text-[#84787D] ml-2">{meta.sub}</div>
@@ -51,8 +51,12 @@ export function TopBar() {
         </span>
       </button>
 
+      <select aria-label="金額の表示通貨" value={ccy} onChange={e => setCcy(e.target.value as 'JPY' | 'USD' | 'BOTH')} className="sm:hidden min-h-[44px] max-w-[74px] rounded-full border border-[#E2E1DA] bg-white text-[11px] px-2">
+        <option value="JPY">JPY</option><option value="USD">USD</option><option value="BOTH">両方</option>
+      </select>
+
       <div role="group" aria-label="金額の表示通貨"
-        className="flex border border-[#E2E1DA] rounded-full overflow-hidden bg-white">
+        className="hidden sm:flex border border-[#E2E1DA] rounded-full overflow-hidden bg-white">
         {(['JPY', 'USD', 'BOTH'] as const).map((c) => (
           <button
             key={c}

@@ -57,13 +57,13 @@ export default async function DashboardPage() {
     .single()
 
   const [
-    { data: dealsRaw },
-    { data: quotes },
-    { data: history },
-    { data: clients },
-    { count: openRequests },
-    { count: inTransitInbound },
-    { data: stockItems },
+    { data: dealsRaw, error: dealsError },
+    { data: quotes, error: quotesError },
+    { data: history, error: historyError },
+    { data: clients, error: clientsError },
+    { count: openRequests, error: requestsError },
+    { count: inTransitInbound, error: inboundError },
+    { data: stockItems, error: stockError },
   ] = await Promise.all([
       supabase
         .from('deals')
@@ -96,6 +96,8 @@ export default async function DashboardPage() {
         .select('id, quantity_on_hand, low_stock_threshold')
         .not('low_stock_threshold', 'is', null),
     ])
+
+  if ([dealsError, quotesError, historyError, clientsError, requestsError, inboundError, stockError].some(Boolean)) throw new Error('Dashboard data could not be loaded')
 
   const lowStock = (stockItems || []).filter(
     (i) => i.low_stock_threshold != null && i.quantity_on_hand <= i.low_stock_threshold

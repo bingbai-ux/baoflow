@@ -5,6 +5,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { SectionNavigation, useSectionNavigation } from '@/components/ui/section-navigation'
 import { InboundSection } from '@/components/inventory/inbound-section'
 import { RequestsSection } from '@/components/inventory/requests-section'
 import { ShippingHistory } from '@/components/inventory/shipping-history'
@@ -13,6 +14,7 @@ import type { InventoryItemRow, OutboundHistoryRow } from '@/lib/actions/invento
 import type { InboundShipmentRow } from '@/lib/actions/inbound'
 import type { ShipmentRequestRow } from '@/lib/actions/shipment-requests'
 import { useUi } from '@/components/ui/ui-store'
+import {SearchField,matchesSearch} from '@/components/ui/search-field'
 
 interface ClientOpt {
   id: string
@@ -35,35 +37,28 @@ const inputCls =
 
 export function LogisticsPortal({ shipments, requests, items, clients, outbound }: Props) {
   const inTransit = shipments.filter((s) => s.status === 'in_transit').length
-  const pendingReq = requests.filter((r) => r.status === 'confirmed' || r.status === 'requested').length
-  const [tab, setTab] = useState<Tab>('inbound')
+  const readyReq = requests.filter(r => r.status === 'confirmed').length
+  const waitingReq = requests.filter(r => r.status === 'requested').length
+  const [tab, setTab] = useSectionNavigation<Tab>(['inbound', 'manual', 'requests', 'shipping', 'stock'], 'inbound')
 
   const TABS: Array<{ id: Tab; label: string }> = [
     { id: 'inbound', label: `入庫予定 (${inTransit})` },
     { id: 'manual', label: '手動入庫' },
-    { id: 'requests', label: `出荷依頼 (${pendingReq})` },
+    { id: 'requests', label: `出荷依頼 (${readyReq + waitingReq})` },
     { id: 'shipping', label: '発送履歴' },
     { id: 'stock', label: `在庫一覧 (${items.length})` },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1.5 flex-wrap">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold border ${
-              tab === t.id
-                ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
-                : 'bg-white text-[#351E28] border-[#E2E1DA]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <header>
+        <h1 className="font-display text-[20px] font-bold">入庫・出荷作業</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
+          {readyReq>0&&<button type="button" onClick={() => setTab('requests')} className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] font-bold px-4">承認済み {readyReq}件の出荷を記録</button>}
+          {waitingReq > 0 && <span className="text-[#84787D]">営業の承認待ち {waitingReq}件</span>}
+        </div>
+      </header>
+      <SectionNavigation label="倉庫の表示" items={TABS} value={tab} onChange={setTab} />
 
       {tab === 'inbound' && (
         <InboundSection shipments={shipments} clients={clients} items={items} />
@@ -148,6 +143,7 @@ function ManualInbound({ clients, items }: { clients: ClientOpt[]; items: Invent
       </label>
       <label className="block text-[11px] text-[#84787D]">
         商品(登録済みから選ぶ / 新規)
+        {!clientId&&<span className="block text-[11px] mb-1">先にクライアントを選択してください。</span>}
         <select value={itemId} onChange={(e) => setItemId(e.target.value)} className={inputCls} disabled={!clientId}>
           <option value="">新規商品(下に名前を入力)</option>
           {clientItems.map((i) => (
@@ -191,12 +187,16 @@ function ManualInbound({ clients, items }: { clients: ClientOpt[]; items: Invent
 }
 
 function StockList({ items, clients }: { items: InventoryItemRow[]; clients: ClientOpt[] }) {
+  const [search,setSearch]=useState('')
+  const visible=items.filter(i=>matchesSearch(search,[i.item_name,clients.find(c=>c.id===i.client_id)?.company_name]))
   const nameOf = (id: string | null) => {
     const c = clients.find((x) => x.id === id)
     return c ? c.short_name || c.company_name : '—'
   }
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-x-auto">
+    <div><SearchField label="商品・クライアントで検索" value={search} onChange={setSearch} count={visible.length}/>
+      {visible.length===0&&<p className="text-[12px]">一致する在庫がありません。検索を解除してください。</p>}
+      <div className="bg-white rounded-[16px] border border-[#E2E1DA] overflow-x-auto">
       <table className="w-full text-[11.5px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
         <thead>
           <tr className="bg-[#FBFAF6] text-[#84787D] text-[10.5px] font-bold border-b border-[#E2E1DA]">
@@ -208,7 +208,7 @@ function StockList({ items, clients }: { items: InventoryItemRow[]; clients: Cli
           </tr>
         </thead>
         <tbody>
-          {items.map((i, idx) => (
+          {visible.map((i, idx) => (
             <tr key={i.id} className={`border-b border-[#EFEFEA] last:border-b-0 ${idx % 2 ? 'bg-[#FBFAF6]' : ''}`}>
               <td className="px-4 py-1.5">{nameOf(i.client_id)}</td>
               <td className="px-3 py-1.5 font-bold text-[#351E28]">{i.item_name}</td>
@@ -223,6 +223,6 @@ function StockList({ items, clients }: { items: InventoryItemRow[]; clients: Cli
           ))}
         </tbody>
       </table>
-    </div>
+    </div></div>
   )
 }

@@ -29,11 +29,12 @@ export interface LogisticsPartner {
 
 export async function listLogisticsPartners(): Promise<LogisticsPartner[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('logistics_partners')
     .select('*')
     .order('partner_kind', { ascending: true })
     .order('created_at', { ascending: false })
+  if (error) throw new Error('物流パートナー一覧を取得できませんでした')
   return (data || []) as LogisticsPartner[]
 }
 

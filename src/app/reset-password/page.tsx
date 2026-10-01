@@ -41,13 +41,13 @@ export default function ResetPasswordPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bao-logo.png" alt="(bao)" className="h-[44px] w-auto mx-auto" />
         </div>
-        <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: 'rgba(229,163,46,0.25)' }}>
+        <div className="bg-white rounded-[16px] border p-8" style={{ borderColor: '#E2E1DA' }}>
           <h1 className="text-[17px] font-bold font-display text-center mb-4">新しいパスワードを設定</h1>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div>
               <label className="block text-[12px] text-[#84787D] mb-[6px]">新しいパスワード (8文字以上)</label>
               <input
-                type="password"
+                type="password" aria-label="新しいパスワード" autoComplete="new-password"
                 required
                 minLength={8}
                 value={password}
@@ -58,7 +58,7 @@ export default function ResetPasswordPage() {
             <div>
               <label className="block text-[12px] text-[#84787D] mb-[6px]">もう一度入力</label>
               <input
-                type="password"
+                type="password" aria-label="確認用パスワード" autoComplete="new-password"
                 required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
@@ -66,12 +66,12 @@ export default function ResetPasswordPage() {
               />
             </div>
             {error && (
-              <p className="text-[12px] py-2 px-3 rounded-[12px] bg-[#FFD8C2] text-[#B03616]">{error}</p>
+              <p role="alert" className="text-[12px] py-2 px-3 rounded-[12px] bg-[#FFD8C2] text-[#B03616]">{error}</p>
             )}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#E9F056] text-[#666C14] rounded-full py-[10px] text-[13px] font-extrabold hover:brightness-95 disabled:opacity-50"
+              className="w-full min-h-[44px] bg-[#E9F056] text-[#666C14] rounded-full py-[10px] text-[13px] font-extrabold hover:brightness-95 disabled:opacity-50"
             >
               {loading ? '設定中…' : 'この内容で設定する'}
             </button>

@@ -59,6 +59,7 @@ export function MasterTabs({
   selectedPartner,
 }: Props) {
   const router = useRouter()
+  const hasSelection=Boolean(selectedClient||selectedFactory||selectedStaff||selectedPartner)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
 
@@ -104,8 +105,8 @@ export function MasterTabs({
   return (
     <div className="bg-white border border-[rgba(53,30,40,0.06)] rounded-[16px] overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-3.5 py-2 border-b border-[rgba(53,30,40,0.06)]">
-        <div className="flex items-center gap-0">
+      <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 border-b border-[rgba(53,30,40,0.06)]">
+        <div className="flex flex-wrap items-center gap-0">
           <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')}>
             クライアント <span className="text-[10px] text-[#84787D] ml-1 tabular-nums">{clients.length}</span>
           </TabButton>
@@ -119,14 +120,15 @@ export function MasterTabs({
             物流 <span className="text-[10px] text-[#84787D] ml-1 tabular-nums">{partners.length}</span>
           </TabButton>
         </div>
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#84787D]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="検索..."
-            className="w-full pl-7 pr-2 py-1 text-[11px] font-body bg-[#FBFAF6] border border-[rgba(53,30,40,0.08)] rounded-[8px] focus:outline-none focus:border-[#351E28]"
+            aria-label="アカウント名で検索"
+            placeholder="アカウント名で検索"
+            className="w-full min-h-[44px] pl-7 pr-2 py-1 text-[11px] font-body bg-[#FBFAF6] border border-[rgba(53,30,40,0.08)] rounded-[8px] focus:outline-none focus:border-[#351E28]"
           />
         </div>
         {/* Sprint 8-5: 招待リンク生成ボタン (clients/factories タブのみ、staff タブでは非表示) */}
@@ -141,7 +143,7 @@ export function MasterTabs({
         {newButtonLabel && (
           <button
             onClick={() => setShowNew(true)}
-            className="bg-[#351E28] text-[#C9A2B8] text-[11px] rounded-[8px] px-3 py-1 inline-flex items-center gap-1"
+            className="bg-[#E9F056] text-[#666C14] min-h-[44px] text-[11px] rounded-full px-3 py-1 inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />{newButtonLabel}
           </button>
@@ -151,7 +153,7 @@ export function MasterTabs({
       {/* Split pane */}
       <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] md:divide-x divide-[rgba(53,30,40,0.06)]" style={{ minHeight: 'calc(100vh - 220px)' }}>
         {/* Left list */}
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+        <div className={`${hasSelection?'hidden md:block':''} overflow-y-auto md:max-h-[calc(100vh-220px)]`}>
           {tab === 'clients' &&
             (filteredClients.length === 0 ? (
               <p className="text-[11px] text-[#84787D] p-4 text-center">該当なし</p>
@@ -283,30 +285,31 @@ export function MasterTabs({
         </div>
 
         {/* Right detail */}
-        <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+        <div className="overflow-y-auto p-4 md:max-h-[calc(100vh-220px)]">
+          {hasSelection&&<button type="button" onClick={()=>router.push(`/master?tab=${tab}`)} className="md:hidden min-h-[44px] mb-3 underline text-[12px]">← アカウント一覧へ戻る</button>}
           {tab === 'clients' &&
             (selectedClient ? (
               <ClientDetail client={selectedClient.client} rollup={selectedClient.rollup} />
             ) : (
-              <EmptyDetail message="左のリストからクライアントを選んでください" />
+              <EmptyDetail message="一覧からクライアントを選んでください" />
             ))}
           {tab === 'factories' &&
             (selectedFactory ? (
               <FactoryDetail factory={selectedFactory.factory} rollup={selectedFactory.rollup} />
             ) : (
-              <EmptyDetail message="左のリストから工場を選んでください" />
+              <EmptyDetail message="一覧から工場を選んでください" />
             ))}
           {tab === 'staff' &&
             (selectedStaff ? (
               <StaffDetail staff={selectedStaff.staff} rollup={selectedStaff.rollup} />
             ) : (
-              <EmptyDetail message="左のリストから担当者を選んでください" />
+              <EmptyDetail message="一覧から担当者を選んでください" />
             ))}
           {tab === 'logistics' &&
             (selectedPartner ? (
               <PartnerDetail partner={selectedPartner} />
             ) : (
-              <EmptyDetail message="左のリストからパートナーを選んでください" />
+              <EmptyDetail message="一覧からパートナーを選んでください" />
             ))}
         </div>
       </div>
@@ -329,7 +332,8 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className={`px-3.5 py-2 text-[12px] font-display font-medium border-b-2 -mb-[9px] ${
+      aria-pressed={active}
+      className={`min-h-[44px] px-3.5 py-2 text-[12px] font-display font-medium border-b-2 -mb-[9px] ${
         active ? 'text-[#351E28] border-[#351E28]' : 'text-[#84787D] border-transparent'
       }`}
     >

@@ -4,12 +4,12 @@ import { AlertCircle } from 'lucide-react'
 
 export function ExternalFormError({ message }: { message: string }) {
   return (
-    <div className="bg-white border rounded-[12px] p-8 text-center" style={{ borderColor: 'rgba(229,163,46,0.3)' }}>
+    <div role="alert" className="bg-white border rounded-card p-8 text-center" style={{ borderColor: '#FF5C34' }}>
       <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: '#B03616' }} />
-      <p className="font-display text-[18px] font-semibold mb-2">フォームを表示できません</p>
+      <h1 className="font-display text-[21px] font-bold mb-2">フォームを表示できません</h1>
       <p className="text-[13px] text-[#351E28]">{message}</p>
       <p className="text-[11px] text-[#84787D] mt-4">
-        URL に誤りがある可能性があります。(bao) のご担当者にお問い合わせください。
+        リンクを送った (bao) の担当者に、表示された理由を伝えて新しいリンクを依頼してください。
       </p>
     </div>
   )
@@ -17,13 +17,13 @@ export function ExternalFormError({ message }: { message: string }) {
 
 export function ExternalFormSuccess({ message }: { message: string }) {
   return (
-    <div className="bg-white border rounded-[12px] p-8 text-center" style={{ borderColor: 'rgba(233,240,86,0.3)' }}>
-      <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[rgba(233,240,86,0.28)] text-[#666C14] text-[24px] mb-3">
+    <div className="bg-white border rounded-card p-8 text-center" style={{ borderColor: '#E2E1DA' }}>
+      <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#D7EFFF] text-[#33566F] text-[24px] mb-3">
         ✓
       </span>
-      <p className="font-display text-[18px] font-semibold mb-2">送信ありがとうございました</p>
+      <h2 className="font-display text-[21px] font-bold mb-2">送信ありがとうございました</h2>
       <p className="text-[13px] text-[#351E28]">{message}</p>
-      <p className="text-[11px] text-[#84787D] mt-4">このフォームを閉じても問題ありません。</p>
+      <p className="text-[11px] text-[#84787D] mt-4">担当者が内容を確認します。再送は不要です。このフォームを閉じても問題ありません。</p>
     </div>
   )
 }

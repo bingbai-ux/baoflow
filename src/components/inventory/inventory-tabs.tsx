@@ -3,7 +3,7 @@
 // Sprint 12: 在庫画面のタブ (スタッフ用)。
 // 在庫台帳 / 入庫予定(輸送追跡・検収) / 出荷依頼 / 発送履歴 / 保管料。
 
-import { useState } from 'react'
+import { SectionNavigation, useSectionNavigation } from '@/components/ui/section-navigation'
 import { InventoryClient } from './inventory-client'
 import { InboundSection } from './inbound-section'
 import { RequestsSection } from './requests-section'
@@ -49,7 +49,7 @@ export function InventoryTabs({
   requests,
   outbound,
 }: Props) {
-  const [tab, setTab] = useState<InventoryTab>(initialTab)
+  const [tab, setTab] = useSectionNavigation<InventoryTab>(['stock', 'inbound', 'requests', 'shipping', 'fees'], initialTab)
 
   const inTransit = shipments.filter((s) => s.status === 'in_transit').length
   const openReq = requests.filter((r) => r.status === 'requested' || r.status === 'confirmed').length
@@ -64,26 +64,11 @@ export function InventoryTabs({
 
   return (
     <div>
-      <div className="flex gap-1.5 flex-wrap mt-4 mb-3">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold border ${
-              tab === t.id
-                ? 'bg-[#351E28] text-[#C9A2B8] border-[#351E28]'
-                : 'bg-white text-[#351E28] border-[#E2E1DA] hover:bg-[#FBFAF6]'
-            }`}
-          >
-            {t.label}
-            {t.badge != null && t.badge > 0 && (
-              <span className="fc-num ml-1.5 opacity-80">{t.badge}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
+      <header className="pt-4">
+        <h1 className="font-display text-[21px] font-extrabold">在庫・入出庫・保管請求</h1>
+        <p className="text-[12px] text-[#84787D] mt-1">入庫予定を検収し、出荷依頼を承認した後、倉庫が出荷を記録します。</p>
+      </header>
+      <SectionNavigation label="在庫管理の表示" items={TABS} value={tab} onChange={setTab} />
       {tab === 'stock' && <InventoryClient items={items} clients={clients} deals={deals} />}
       {tab === 'inbound' && (
         <InboundSection

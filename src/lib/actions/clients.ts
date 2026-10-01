@@ -58,10 +58,11 @@ function parseFormData(input: ClientInput | FormData): ClientInput {
 
 export async function listClients(): Promise<Client[]> {
   const supabase = await createSupabase()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('clients')
     .select('*')
     .order('company_name', { ascending: true })
+  if (error) throw new Error('クライアント一覧を取得できませんでした')
   return (data || []) as Client[]
 }
 
