@@ -131,8 +131,9 @@ export default async function DashboardPage() {
     })
     .reduce((s, d) => s + d.approvedTotal, 0)
 
+  const activeDealIds = new Set((dealsRaw || []).map(d=>d.id))
   const approvedQuotes = (quotes || []).filter(
-    (q) => q.status === 'approved' && q.cost_ratio != null
+    (q) => activeDealIds.has(q.deal_id) && q.status === 'approved' && q.cost_ratio != null
   )
   const avgProfit =
     approvedQuotes.length > 0

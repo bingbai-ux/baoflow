@@ -41,3 +41,6 @@ fresh backup復元点・戻し方・以降の本番書込差分照合が未確�
 
 ## 本人確認後回しの追加準備
 海運基本送料calculatorと送信経路配線の点検はCODEX_HAIYUAN_MAIL_PREPARATION.md。Stage2/3および32表・chat RLS/private QC Storageの承認は受領済み。新migration/権限追加0。fresh backup確認前の本番変更なし。
+
+## 旧6件の扱い決定
+ユーザー削除許可と親の範囲指定により、指定6件は履歴を残す既存archiveで通常業務から除外する。原仕様への推測移行は不要。ローカル除外/集計/発注拒否/標準解除の受入完了、CODEX_LEGACY_SIX_ARCHIVE_ACCEPTANCE.md参照。本番archiveはfresh backup確認後であり未実施。

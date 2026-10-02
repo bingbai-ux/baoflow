@@ -29,6 +29,8 @@ const server=http.createServer(async(req,res)=>{
  const table=url.pathname.split('/').pop()
  if(failure===table){failure=null;send({code:'XX000',message:'Local simulated database failure'},500);return}
  if(url.pathname.includes('/rpc/')){
+  if(table==='archive_deal_safely'){if(!['sales','admin'].includes(db.profiles[0].role)){send({message:'Sales only'},403);return}const d=db.deals.find(x=>x.id===input.p_deal_id);if(!d){send({message:'Not found'},404);return}Object.assign(d,{archived_at:input.p_archive?now:null,archived_by:input.p_archive?IDs.user:null,archive_reason:input.p_archive?input.p_reason:null,archive_note:input.p_note});send(null);return}
+
   if(table==='shipment_context'){send(db.fixture_shipment_context?.find(x=>x.order.id===input.p_order_id)||null);return}
   if(['list_case_chats','case_chat_targets','client_sample_invoices'].includes(table)){send([]);return}
   if(table==='staff_client_finance_summary'){send([]);return}

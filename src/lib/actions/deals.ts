@@ -718,6 +718,8 @@ async function setArchiveState(dealId: string, archive: boolean, reason: Archive
     : error.message }
   revalidatePath('/deals')
   revalidatePath('/archive')
+  revalidatePath('/')
+  revalidatePath('/analytics')
   revalidatePath(`/deals/${dealId}`)
   return { success: true }
 }

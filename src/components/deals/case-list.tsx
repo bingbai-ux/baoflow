@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import {ArchiveDealModal} from './archive-deal-modal'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { SIMPLE_STATUS_CONFIG, type SimpleStatus } from '@/lib/types'
@@ -25,6 +26,7 @@ export function CaseList({ rows, selfId, today }: { rows: CaseListRow[]; selfId:
   const from = '/deals' + (params.toString() ? '?' + params.toString() : '')
   const preview = rows.find(r => r.id === params.get('selected'))
   const [search, setSearch] = useState(q)
+  const [archiveTarget,setArchiveTarget]=useState<CaseListRow|null>(null)
   useEffect(() => { setSearch(q) }, [q])
   const update = (values: Record<string, string>) => {
     const p = new URLSearchParams(params.toString())
@@ -87,6 +89,7 @@ export function CaseList({ rows, selfId, today }: { rows: CaseListRow[]; selfId:
       </div>)}
       {!filtered.length && <div className="p-8 text-center text-[13px]">{rows.length ? '条件に一致する案件がありません。絞り込みを変更してください。' : 'まだ案件がありません。新規案件から始めてください。'}</div>}
     </div>
-    {preview && <section aria-label="案件の概要" className="rounded-card border border-[#E2E1DA] bg-white p-4"><div className="flex justify-between gap-3"><h2 className="text-[15px] font-bold">{preview.deal_name || preview.deal_code}</h2><button type="button" onClick={() => update({ selected: '' })} className={button}>概要を閉じる</button></div><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px] my-3"><div><dt className="text-[#84787D]">現在の工程</dt><dd>{SIMPLE_STATUS_CONFIG[preview.simple_status]?.label}</dd></div><div><dt className="text-[#84787D]">担当・待ち先</dt><dd>{preview.owner || '未設定'} / {waitingLabel(preview.waiting_on)}</dd></div><div><dt className="text-[#84787D]">希望納期</dt><dd>{preview.desired_delivery_date ? formatDate(preview.desired_delivery_date) : '未設定'}</dd></div><div><dt className="text-[#84787D]">採用額（税込）</dt><dd>{amountText(preview)}</dd></div></dl><p className="text-[12px] text-[#84787D] mb-3">{preview.action.reason}</p><Link href={href(preview)} onClick={() => remember(preview.id)} className={button}>作業画面を開く</Link></section>}
+    {archiveTarget&&<ArchiveDealModal dealId={archiveTarget.id} dealName={archiveTarget.deal_name||archiveTarget.deal_code} initialReason="other" onClose={()=>setArchiveTarget(null)} onArchived={()=>{setArchiveTarget(null);update({selected:''});router.refresh()}}/>}
+    {preview && <section aria-label="案件の概要" className="rounded-card border border-[#E2E1DA] bg-white p-4"><div className="flex justify-between gap-3"><h2 className="text-[15px] font-bold">{preview.deal_name || preview.deal_code}</h2><button type="button" onClick={() => update({ selected: '' })} className={button}>概要を閉じる</button></div><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px] my-3"><div><dt className="text-[#84787D]">現在の工程</dt><dd>{SIMPLE_STATUS_CONFIG[preview.simple_status]?.label}</dd></div><div><dt className="text-[#84787D]">担当・待ち先</dt><dd>{preview.owner || '未設定'} / {waitingLabel(preview.waiting_on)}</dd></div><div><dt className="text-[#84787D]">希望納期</dt><dd>{preview.desired_delivery_date ? formatDate(preview.desired_delivery_date) : '未設定'}</dd></div><div><dt className="text-[#84787D]">採用額（税込）</dt><dd>{amountText(preview)}</dd></div></dl><p className="text-[12px] text-[#84787D] mb-3">{preview.action.reason}</p><Link href={href(preview)} onClick={() => remember(preview.id)} className={button}>作業画面を開く</Link><button type="button" className={button+" ml-2"} onClick={()=>setArchiveTarget(preview)}>アーカイブ・復元可能</button></section>}
   </div>
 }

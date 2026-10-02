@@ -1,0 +1,20 @@
+{
+  "sql_focused_pass": 3,
+  "browser_pass": 1,
+  "preserves": [
+    "quotes",
+    "specifications",
+    "shared clients/factories",
+    "statuses",
+    "history"
+  ],
+  "standard_restore": "archive UI -> existing archive_deal_safely(false)",
+  "active_target_production_before": 6,
+  "active_target_production_after": "not executed",
+  "permanent_delete": false,
+  "production_changed": false,
+  "new_permissions": false,
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS"
+}
