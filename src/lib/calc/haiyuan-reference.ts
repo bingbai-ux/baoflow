@@ -19,3 +19,10 @@ export function kaigenFoodFiling(itemsForOneFactory:number){
  const amountJpy=Math.ceil(itemsForOneFactory/7)*5000+(itemsForOneFactory-1)*1000
  return Number.isSafeInteger(amountJpy)?amountJpy:null
 }
+
+/** Supplier reply: rounding only, after logistics confirms chargeable weights. */
+export function haiyuanRoundedWeight(weights: number[], route: 'dq' | 'sea-ddp' | 'air-ddp') {
+ if (!['dq','sea-ddp','air-ddp'].includes(route) || !weights.length || weights.some(w => !Number.isFinite(w) || w <= 0)) return null
+ const rounded = route === 'dq' ? Math.ceil(weights.reduce((sum,w)=>sum+w,0)) : weights.reduce((sum,w)=>sum+Math.ceil(w),0)
+ return Number.isSafeInteger(rounded) ? rounded : null
+}

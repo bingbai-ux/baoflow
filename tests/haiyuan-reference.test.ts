@@ -7,3 +7,13 @@ test('base remains unrounded and never includes guessed extras',()=>{const r=hai
 
 test('DQ boundaries and real-time account exemption are distinct from freight',()=>{for(const [n,fee] of [[1,3000],[30,3000],[31,4000],[40,4000],[41,5000],[50,5000],[80,8000],[81,9000],[90,9000],[91,10000]])assert.equal(kaigenDqFees(n,false)?.declarationJpy,fee);assert.equal(kaigenDqFees(1,false)?.taxAdvanceJpy,1400);assert.equal(kaigenDqFees(1,true)?.taxAdvanceJpy,0);assert.equal(kaigenDqFees(0,false),null)})
 test('food filing crosses 7-item boundary per factory with no inferred tax',()=>{for(const [n,fee] of [[1,5000],[2,6000],[5,9000],[7,11000],[8,17000],[10,19000],[14,23000],[15,29000]])assert.equal(kaigenFoodFiling(n),fee);assert.equal(kaigenFoodFiling(0),null);assert.equal(kaigenFoodFiling(2.5),null);assert.equal(kaigenFoodFiling(4)!+kaigenFoodFiling(4)!,16000)})
+
+import {haiyuanRoundedWeight} from '../src/lib/calc/haiyuan-reference'
+test('supplier rounding distinguishes ticket from boxes without guessing chargeable weight',()=>{
+ assert.equal(haiyuanRoundedWeight([75.05,75.05],'dq'),151)
+ assert.equal(haiyuanRoundedWeight([12.1,12.1],'sea-ddp'),26)
+ assert.equal(haiyuanRoundedWeight([12.1],'air-ddp'),13)
+ assert.equal(haiyuanRoundedWeight([12,12],'air-ddp'),24)
+ for(const weights of [[],[0],[-1],[NaN],[Infinity],[Number.MAX_VALUE]])assert.equal(haiyuanRoundedWeight(weights,'dq'),null)
+ assert.equal(haiyuanRoundedWeight([12],'unknown' as any),null)
+})

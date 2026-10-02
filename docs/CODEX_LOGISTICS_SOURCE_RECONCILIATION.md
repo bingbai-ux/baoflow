@@ -36,3 +36,17 @@
 可逆移行案：同じstrict seed fingerprintをguardし、独立legacy商品/variantへ旧値だけをコピー、出自未確認のlineageを保存。旧quote/旧仕様/旧PDFは更新せず、新発注は確認済み新価格版を作成する。現行受取先・金融条件を推測しない。取り消し時は生成したlegacyレコードの参照・後続利用0を確認して非使用へ戻し、原履歴を削除しない。この案はまだDML/migration化・適用していない。直接quote.variant_idを書換える自動backfillはしない。
 
 対象calc5 PASS（DQ30/31/40/41/80/81/90/91、食品7/8/14/15含む）、390px browser2 distinct PASS（手数料・費目不変・旧仕様読取/履歴不変、配送HTTP200/公式リンク/無write）、lint/typecheck/build PASS。14 migration bytesと権限/DB変更0。Mac切断時の未起動コマンドを二重実行せず、clean基点から再開した。
+
+## 2026-10-02 supplier reply / original workbook reconciliation
+
+Previously supplied `报价表.xlsx` was materialized from Library `libfile_ab0e26761f748191a53812979d8a095e` (152370 bytes; SHA256 `7c9c1880309c893e0d6a44e5d6533d33171881b35eebdc77be6b3886d66298c1`). All three sheets were read: 海运包税 / DQ快船 / 空运包税. Workbook modified metadata is 2026-07-14; sea tariff explicitly effective 2025-06-15. This does not establish that the same-name attachment visible in the reply is byte-identical.
+
+Both supplier screenshots were materialized and visually inspected (IMG_2792.png, 584879 bytes; IMG_2793.png, 558688 bytes). Reply establishes DQ whole-ticket ceiling and sea/air DDP per-box ceiling. UI implements only rounding of logistics-confirmed chargeable weights; it does not infer dimensional comparison order or alter saved freight. Ordinary/sensitive cargo separation remains the default; sufficient documents require supplier confirmation of any exception. Food inspection certificates and Japanese food filing are distinct. Self-filed food filing does not imply all fees/taxes/inspection duties waived.
+
+Sea ordinary/sensitive/special rates are 20/24/33 CNY; special cargo requires quotation. DQ 7.5/KG and air 28/33/KG have no explicit currency on their sheets and are not auto-applied. Unresolved: Sagawa +1 vs +1.5, DQ delivery included vs additional, document-based DQ exception versus older prohibited-food wording, exact scope of self-filing fee waiver. These require individual quotation rather than blocking drafting. No inquiry sent.
+
+Yiwu and Shenzhen receiving addresses were verified from original screenshots; Yiwu terminal glyph `6号巾` remains uncorrected and must be confirmed before dispatch. Raw contacts/addresses remain in private local source files, not the client bundle. Supplier screenshot sender is not assumed identical to Japanese customs contact. Screenshot times have no date. Official website tracking is manual; no API permission inferred.
+
+User explicitly deferred size-limit automation. Size exceptions remain dispatch-time quotation; weight, dimensional-weight reference and rounding remain active. No size-boundary gate or new database/permission changes introduced.
+
+Validation: six focused calculation tests; one actual fixture browser mobile journey (ticket 151kg, boxes 26kg, saved freight unchanged, no price revision writes); lint/typecheck passed. Screenshot: `artifacts/supplier-rounding-390.png`. Production remains behind fresh backup verification; this is local acceptance only.
