@@ -1,0 +1,8 @@
+'use client'
+import {useState} from 'react'
+import {haiyuanSeaBase} from '@/lib/calc/haiyuan-reference'
+export function HaiyuanReference(){
+ const [kg,setKg]=useState(''),[cbm,setCbm]=useState(''),[category,setCategory]=useState<'ordinary'|'sensitive'>('ordinary')
+ const result=haiyuanSeaBase(Number(kg),Number(cbm),category),control='min-h-11 w-full min-w-0 rounded-input bg-[#EFEFEA] px-3'
+ return <details className="rounded-card border border-[#E2E1DA] p-3"><summary className="min-h-11 cursor-pointer font-bold">海源・海運の基本送料を確認</summary><p className="text-xs my-3">2025-06-15料金表の基本部分だけ。1票にまとめる全商品の実重量・容積を合算してください。混載区分・追加料・端数・特殊貨物・佐川加算は海源の個別見積で確認します。</p><div className="grid gap-3 sm:grid-cols-3"><label>1票の実重量（kg）<input className={control} type="number" min="0" step="any" value={kg} onChange={e=>setKg(e.target.value)}/></label><label>1票の容積（CBM）<input className={control} type="number" min="0" step="any" value={cbm} onChange={e=>setCbm(e.target.value)}/></label><label>票全体の区分<select aria-label="票全体の区分" className={control} value={category} onChange={e=>setCategory(e.target.value as typeof category)}><option value="ordinary">普通貨物・20 CNY/kg</option><option value="sensitive">敏感貨物・24 CNY/kg</option></select></label></div>{result?<p role="status" aria-label="海運基本送料の計算結果" className="mt-3 rounded-input bg-[#D7EFFF] text-[#33566F] p-3">基本部分 {result.baseCny.toLocaleString('ja-JP',{maximumFractionDigits:6})} CNY（端数処理前）／課金重量 {result.billableKg.toLocaleString('ja-JP',{maximumFractionDigits:6})} kg。max（実重量, CBM×167, 21 kg）。送料総額は未確定です。</p>:<p className="mt-3 text-xs">正の実重量と容積を入力すると基本部分を計算します。</p>}<p className="mt-3 text-xs">air／DQ・食品検査費・国内送料には適用しません。見積費目には自動転記しません。海源が確認した総額をCNY費目へ入力し、FXとともに価格版を確認してください。</p></details>
+}

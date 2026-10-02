@@ -7,7 +7,7 @@
 | 案件一覧・担当/期限・次操作・検索/戻る・モバイル | Stage1 UI/34browser、107source、代表業務 | Stage1公開済み | 現行本番認証画面の再監査未了 |
 | 複数商品・仕様・数量候補・大中小分類 | 既存product_catalogとwizardのcategory_l1/l2/l3使用。原子的複数商品SQL受入 | Stage1公開済み | 正式taxonomyの全分類/最新資料整合は未確定。形状を推測しない |
 | RFQ・登録済み工場・pending回答取込・採用候補 | Stage2実Auth/PostgRESTと採用preview | Stage2未公開 | 旧見積6件のvariant根拠なし。勝手な紐付けなし |
-| 価格版・掛率/費目・固定FX | Stage3価格改訂版とSQL/画面受入。Stage12日次参考FX取得/基準日時/担当確認とUSD/JPY/CNY費目、SQL/native受入 | 未公開 | 海源正式送料表と工場RFQのCNY単価化は未対応。日次参考FXと銀行決済は区別 |
+| 価格版・掛率/費目・固定FX | Stage3価格改訂版とSQL/画面受入。Stage12日次参考FX取得/基準日時/担当確認とUSD/JPY/CNY費目、SQL/native受入 | 未公開 | 海源2025-06-15海運基本部分の票単位calculatorを追加。未確定追加料/端数を含む総送料自動確定と工場RFQのCNY単価化は未対応。日次参考FXと銀行決済は区別 |
 | サンプル費・請求・実着金/発注 | sample ledger8表、SQL/native/PDF/Mailpit | 未公開 | Stage12で発行時確定した自社宛の請求/PDFを追加、他社・工場・物流拒否。旧宛先欠損は推測公開しない |
 | 顧客見積回答→請求→実着金 | Stage4/8。全額/半金/後払、条件版・実着金区別、再読込復帰、PDF/Mailpit native | 未公開 | 本番メール設定/実到達合格は未確認。実取引先テストしない |
 | 訂正・リンク更新・同版再送・銀行実施済み返金 | Stage10/11: 訂正・再共有・実施済み返金と発注前再交渉。SQL15/mail7/案件ガイド2、native受入。履歴削除なし、net着金判定 | 未公開 | 顧客再承認した新価格と差引着金を一度だけ引継ぐnative合格。発注済み再契約/相殺は対象外 |
@@ -38,3 +38,6 @@ fresh backup復元点・戻し方・以降の本番書込差分照合が未確�
 
 ## Stage12追加
 新業務RPC7＋RLS helper1、新台帳1、既存chat2表の広い直接writeを閉鎖、自社サンプル請求RPC、CNY費目の固定換算。新Storage/credential/default ACL変更0。受入・公開権限/復旧と未完必須項目はCODEX_CHAT_SAMPLE_FX_STAGE12_RELEASE_GATE.md。本番変更なし。
+
+## 本人確認後回しの追加準備
+海運基本送料calculatorと送信経路配線の点検はCODEX_HAIYUAN_MAIL_PREPARATION.md。Stage2/3および32表・chat RLS/private QC Storageの承認は受領済み。新migration/権限追加0。fresh backup確認前の本番変更なし。
