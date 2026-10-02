@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {haiyuanSeaBase} from '../src/lib/calc/haiyuan-reference'
+import {haiyuanSeaBase,kaigenDqFees,kaigenFoodFiling} from '../src/lib/calc/haiyuan-reference'
 test('sea ticket base uses 21kg minimum, CBM167 and actual weight; category rates are distinct',()=>{assert.equal(haiyuanSeaBase(1,.01,'ordinary')?.baseCny,420);assert.equal(haiyuanSeaBase(1,.01,'sensitive')?.baseCny,504);assert.equal(haiyuanSeaBase(200,1,'ordinary')?.baseCny,4000);assert.equal(haiyuanSeaBase(1,1,'ordinary')?.baseCny,3340)})
 test('one ticket is charged once; invalid/unknown totals are not silently zero',()=>{assert.equal(haiyuanSeaBase(2,.02,'ordinary')?.baseCny,420);for(const v of [0,-1,NaN,Infinity]){assert.equal(haiyuanSeaBase(v,1,'ordinary'),null);assert.equal(haiyuanSeaBase(1,v,'ordinary'),null)}assert.equal(haiyuanSeaBase(1,1,'mixed' as any),null);assert.equal(haiyuanSeaBase(Number.MAX_VALUE,1,'ordinary'),null)})
 test('base remains unrounded and never includes guessed extras',()=>{const r=haiyuanSeaBase(21.123456,0.1,'ordinary')!;assert.equal(r.baseCny,21.123456*20);assert.equal(r.sourceDate,'2025-06-15');assert.equal('totalFreight' in r,false)})
+
+test('DQ boundaries and real-time account exemption are distinct from freight',()=>{for(const [n,fee] of [[1,3000],[30,3000],[31,4000],[40,4000],[41,5000],[50,5000],[80,8000],[81,9000],[90,9000],[91,10000]])assert.equal(kaigenDqFees(n,false)?.declarationJpy,fee);assert.equal(kaigenDqFees(1,false)?.taxAdvanceJpy,1400);assert.equal(kaigenDqFees(1,true)?.taxAdvanceJpy,0);assert.equal(kaigenDqFees(0,false),null)})
+test('food filing crosses 7-item boundary per factory with no inferred tax',()=>{for(const [n,fee] of [[1,5000],[2,6000],[5,9000],[7,11000],[8,17000],[10,19000],[14,23000],[15,29000]])assert.equal(kaigenFoodFiling(n),fee);assert.equal(kaigenFoodFiling(0),null);assert.equal(kaigenFoodFiling(2.5),null);assert.equal(kaigenFoodFiling(4)!+kaigenFoodFiling(4)!,16000)})
