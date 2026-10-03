@@ -27,6 +27,7 @@ export default async function AccountInvitePage({ params }: Props) {
       error={info.error}
       portalRole={info.portalRole}
       orgName={info.orgName}
+      recipientEmail={info.recipientEmail}
       loggedInEmail={user?.email || null}
     />
   )
