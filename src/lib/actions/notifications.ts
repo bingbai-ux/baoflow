@@ -20,6 +20,15 @@ export async function listNotifications(): Promise<NotifItem[]> {
     .neq('simple_status', 'delivered')
 
   const items: NotifItem[] = []
+  const {data:{user}}=await supabase.auth.getUser()
+  const profile=user?await supabase.from('profiles').select('role').eq('id',user.id).maybeSingle():null
+  if(profile?.data&&['sales','admin'].includes(profile.data.role)){
+    const {data:reports,error}=await supabase.from('client_payment_reports').select('id,packet_id,amount_jpy,paid_on').eq('status','pending').order('created_at').limit(10)
+    if(error)throw new Error('入金申告通知を確認できません。再試行してください')
+    const ids=(reports||[]).map(r=>r.packet_id),packets=ids.length?await supabase.from('client_document_packets').select('id,deal_id,status').in('id',ids):{data:[],error:null}
+    if(packets.error)throw new Error('入金申告の対象を確認できません')
+    for(const r of reports||[]){const p=packets.data?.find(p=>p.id===r.packet_id&&p.status==='active');if(p)items.push({id:`client-payment-${r.id}`,kind:'paid',icon:'入',title:'入金申告・BAO実着金確認待ち',body:`${r.paid_on} · 申告額 ¥${Number(r.amount_jpy).toLocaleString('ja-JP')} — 銀行明細を確認してください`,when:'確認待ち',dealId:p.deal_id,href:`/deals/${p.deal_id}/settlement`})}
+  }
 
   for (const d of deals || []) {
     // Urgent: delivery within 14 days

@@ -56,7 +56,7 @@ export default async function DocumentsPage({ params }: Props) {
     supabase
       .from('deal_quotes')
       .select(
-        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, cost_ratio'
+        'id, spec_id, variant_id, version, quantity, moq, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status, cost_ratio, pricing_snapshot'
       )
       .eq('deal_id', id)
       .order('version', { ascending: false }),

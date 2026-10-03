@@ -61,7 +61,7 @@ test('search returns a clear empty result and reset; warehouse waiting work has 
  await expect(page.getByRole('button',{name:'出荷した → 在庫から引き落とす',exact:true})).toHaveCount(0)
 })
 
-test('every active route renders at desktop and mobile widths using synthetic records only',async({page,context,request})=>{
+test('active staff/external routes and role lists render at desktop and mobile widths using synthetic records only',async({page,context,request})=>{
  test.setTimeout(180000)
  const client='22222222-2222-4222-8222-222222222222',req='99999999-9999-4999-8999-999999999999'
  await request.post(fixture+'/rest/v1/shipment_requests',{data:{id:req,client_id:client,request_no:'SO-SYNTHETIC',status:'confirmed',destination_name:'検証用届け先'}})
@@ -70,21 +70,21 @@ test('every active route renders at desktop and mobile widths using synthetic re
  for(const [i,type] of types.entries())await request.post(fixture+'/rest/v1/external_forms',{data:{id:`a0000000-0000-4000-8000-00000000000${i}`,token:tokens[i],form_type:type,status:'pending',expires_at:new Date(Date.now()+604800000).toISOString(),related_id:req,context:type==='account_invite'?{portal_role:'client',client_id:client,label:'合成検証用カフェ'}:{requested_lines:[{variant_id:'55555555-5555-4555-8555-555555555555',quantities:[1000]}]}}})
  await request.post(fixture+'/rest/v1/rfq_requests',{data:{id:req,deal_id:deal.split('/').pop(),rfq_number:'RFQ-SYNTHETIC',product_ids:['44444444-4444-4444-8444-444444444444'],response_deadline:'2026-10-15'}})
  await request.post(fixture+'/rest/v1/rfq_factory_invitations',{data:{id:req,rfq_id:req,external_form_id:'a0000000-0000-4000-8000-000000000004'}})
- const routes=['/','/deals','/deals?q=synthetic', '/deals/new',deal,deal+'/edit',deal+'/quote-builder',deal+'/documents','/inventory','/inventory?tab=inbound','/inventory?tab=requests','/inventory?tab=shipping','/inventory?tab=fees','/master','/master?tab=factories','/master?tab=staff','/master?tab=logistics','/master?tab=clients&id='+client,'/docs','/analytics','/archive','/settings','/print/request/'+req,'/print/stock/'+client,'/account-invite/'+tokens[5],'/external/'+tokens[0],...['client-registration','factory-registration','logistics-registration','shipping-registration','rfq-response'].map((type,i)=>'/external/'+type+'/'+tokens[i]),'/external/'+'f'.repeat(64)]
- await mkdir('tmp/ui-clarity/routes',{recursive:true})
+ const routes=['/','/deals','/deals?q=synthetic', '/deals/new',deal,deal+'/edit',deal+'/quote-builder',deal+'/documents',deal+'/samples',deal+'/settlement',deal+'/production',deal+'/shipping','/inventory','/inventory?tab=inbound','/inventory?tab=requests','/inventory?tab=shipping','/inventory?tab=fees','/master','/master?tab=factories','/master?tab=staff','/master?tab=logistics','/master?tab=clients&id='+client,'/docs','/analytics','/archive','/settings','/print/request/'+req,'/print/stock/'+client,'/account-invite/'+tokens[5],'/external/'+tokens[0],...['client-registration','factory-registration','logistics-registration','shipping-registration','rfq-response'].map((type,i)=>'/external/'+type+'/'+tokens[i]),'/external/'+'f'.repeat(64)]
+ await mkdir('tmp/ui-clarity/routes',{recursive:true});await mkdir('artifacts/ui-final-stage12',{recursive:true})
  for(const [index,url] of routes.entries())for(const width of [1280,390]){
   await page.setViewportSize({width,height:900});expect((await page.goto(url))?.status(),url).toBe(200)
   await expect(page.locator('body')).not.toContainText('Application error')
   await expect(page.locator('body')).not.toContainText('画面を読み込めませんでした')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),url+' mobile overflow').toBe(true)
-  await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`tmp/ui-clarity/routes/${index}-${width}.png`,fullPage:true})
+  await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`tmp/ui-clarity/routes/${index}-${width}.png`,fullPage:true});if(width===390&&[deal,deal+'/settlement','/inventory'].includes(url))await page.screenshot({path:`artifacts/ui-final-stage12/staff-${url===deal?'case':url.endsWith('settlement')?'settlement':'inventory'}-390.png`,fullPage:true})
  }
- for(const [role,urls] of [['client',['/portal','/portal?tab=order','/portal?tab=history','/portal?tab=shipping','/portal?tab=deals','/portal/invoices']],['factory',['/factory']],['logistics',['/logistics','/logistics?tab=manual','/logistics?tab=requests','/logistics?tab=shipping','/logistics?tab=stock']]] as const){
+ for(const [role,urls] of [['client',['/portal','/portal?tab=order','/portal?tab=history','/portal?tab=shipping','/portal?tab=deals','/portal/invoices','/portal/documents','/portal/shipments','/portal/samples','/portal/messages']],['factory',['/factory','/factory/messages']],['logistics',['/logistics','/logistics?tab=manual','/logistics?tab=requests','/logistics?tab=shipping','/logistics?tab=stock','/logistics/shipments','/logistics/messages']]] as const){
   await request.post(fixture+'/__role',{data:{role}})
   for(const [index,url] of urls.entries()){
    await page.setViewportSize({width:390,height:900});expect((await page.goto(url))?.status(),url).toBe(200)
    await expect(page.locator('body')).not.toContainText('Application error');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),url+' overflow').toBe(true)
-   await page.screenshot({path:`tmp/ui-clarity/routes/${role}-${index}-390.png`,fullPage:true})
+   await page.screenshot({path:`tmp/ui-clarity/routes/${role}-${index}-390.png`,fullPage:true});if(index===0)await page.screenshot({path:`artifacts/ui-final-stage12/${role}-390.png`,fullPage:true})
   }
  }
  await context.clearCookies()
@@ -100,4 +100,13 @@ test('failed overview, analytics, archive and account lists offer recovery inste
   await page.getByRole('button',{name:'もう一度読み込む',exact:true}).click()
   await expect(page.getByRole('heading',{name:'画面を読み込めませんでした',exact:true})).toHaveCount(0)
  }
+})
+
+test('factory order search and status filter explain empty results and restore the next action',async({page,request})=>{
+ const factory='77777777-7777-4777-8777-777777777777'
+ for(const [i,status] of ['ordered','cancelled'].entries())await request.post(fixture+'/rest/v1/factory_purchase_orders',{data:{id:`b0000000-0000-4000-8000-00000000000${i}`,factory_id:factory,deal_id:deal.split('/').pop(),order_no:`PO-SYNTH-${i}`,quantity:100,unit_price_usd:1,status,snapshot:{item_name:`Synthetic order ${i}`}}})
+ await request.post(fixture+'/__role',{data:{role:'factory'}});await page.goto('/factory');const list=page.getByRole('region',{name:'発注番号・商品で検索 / 搜索订单'})
+ await expect(list.getByRole('link',{name:'最終条件・着金・製造開始を確認 / 确认条件及生产'})).toHaveCount(1)
+ await expect(list).toContainText('取消済みです。');await list.getByRole('searchbox').fill('no matching order');await expect(list).toContainText('一致する項目がありません。');await list.getByRole('button',{name:'絞り込みを解除'}).click()
+ await list.getByRole('combobox').selectOption('ordered');await expect(list.getByRole('link')).toHaveCount(1);await expect(list).toContainText('PO-SYNTH-0');await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
 })

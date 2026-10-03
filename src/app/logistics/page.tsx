@@ -1,3 +1,4 @@
+import Link from 'next/link'
 // Sprint 12: ロジ会社(倉庫)ポータル本実装。
 // 入庫予定の追跡・検収 / 手動入庫 / 出荷依頼の処理 / 発送履歴 / 在庫一覧。
 // role='logistics' のみ (middleware + RLS logistics_access)。
@@ -35,6 +36,10 @@ export default async function LogisticsHome() {
       loginPath="/logistics/login"
       userLabel={profile?.display_name || profile?.email || null}
     >
+      <nav aria-label="案件・請求の確認" className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[13px]">
+      <Link href="/logistics/messages" className="underline min-h-11 inline-flex items-center">営業との案件別会話</Link>
+      <Link href="/logistics/shipments" className="underline min-h-11 inline-flex items-center">担当輸送・食品検査を確認</Link>
+      </nav>
       <LogisticsPortal
         shipments={inb.shipments}
         requests={reqs.requests}

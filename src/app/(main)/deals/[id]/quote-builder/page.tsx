@@ -38,7 +38,7 @@ export default async function QuoteBuilderPage({
     supabase
       .from('deal_quotes')
       .select(
-        'id, deal_id, variant_id, factory_id, factory_response, factory:factories(factory_name), version, quantity, moq, factory_unit_price_usd, factory_calculated_freight_usd, domestic_china_freight_usd, china_freight_usd, plate_fee_usd, pantone_color_fee_usd, sample_cost_usd, sample_shipping_usd, other_fees_usd, exchange_rate, cost_ratio, unit_cost_usd, total_cost_usd, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status'
+        'id, deal_id, variant_id, factory_id, factory_response, pricing_snapshot, factory:factories(factory_name), version, quantity, moq, factory_unit_price_usd, factory_calculated_freight_usd, domestic_china_freight_usd, china_freight_usd, plate_fee_usd, pantone_color_fee_usd, sample_cost_usd, sample_shipping_usd, other_fees_usd, exchange_rate, cost_ratio, unit_cost_usd, total_cost_usd, selling_price_jpy, total_billing_jpy, total_billing_tax_jpy, status'
       )
       .eq('deal_id', id)
       .order('quantity'),

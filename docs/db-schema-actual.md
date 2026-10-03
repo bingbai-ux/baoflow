@@ -723,6 +723,8 @@
 
 `id` (uuid, not null), `deal_id` (uuid, not null), `factory_id` (uuid, nullable), `version` (integer, not null), `quantity` (integer, nullable), `factory_unit_price_usd` (numeric, nullable), `plate_fee_usd` (numeric, nullable), `other_fees_usd` (numeric, nullable), `total_cost_usd` (numeric, nullable), `unit_cost_usd` (numeric, nullable), `cost_ratio` (numeric, nullable), `exchange_rate` (numeric, nullable), `selling_price_usd` (numeric, nullable), `selling_price_jpy` (numeric, nullable), `total_billing_jpy` (numeric, nullable), `total_billing_tax_jpy` (numeric, nullable), `moq` (integer, nullable), `status` (USER-DEFINED, nullable), `source_type` (text, nullable), `source_file_url` (text, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `spec_id` (uuid, nullable), `variant_id` (uuid, nullable), `shipping_weight_kg` (numeric, nullable), `volumetric_weight_kg` (numeric, nullable), `actual_weight_total_kg` (numeric, nullable), `china_freight_yuan` (numeric, nullable), `china_freight_usd` (numeric, nullable), `domestic_china_freight_usd` (numeric, nullable), `pantone_color_fee_usd` (numeric, nullable), `food_inspection_fee_yuan` (numeric, nullable), `sample_cost_usd` (numeric, nullable), `sample_shipping_usd` (numeric, nullable), `yuan_to_usd_rate` (numeric, nullable), `incoterm` (text, nullable), `packing_info_text` (text, nullable), `sample_production_days` (integer, nullable), `sample_shipping_days` (integer, nullable), `factory_calculated_freight_usd` (numeric, nullable), `factory_response` (jsonb, nullable)。
 
+2026-10-01 第3段ローカル候補（本番未適用）: deal_quotes.pricing_snapshot jsonb nullable。quote_status実enumはdrafting/presented/approved/rejected/revising。quote_pricing_requests: request_id uuid PK、created_by uuid、deal_id uuid、payload jsonb、quote_id uuid、created_at timestamptz。quote_cost_lines: id uuid PK、quote_id uuid、line_key/kind/name/currency text、amount/amount_usd numeric。新migrationとCODEX_PRICING_STAGE3_RELEASE_GATE.md参照。
+
 ### deals (候補source schema)
 
 `id` (uuid, not null), `deal_code` (text, not null), `deal_name` (text, nullable), `client_id` (uuid, nullable), `sales_user_id` (uuid, nullable), `master_status` (USER-DEFINED, not null), `win_probability` (USER-DEFINED, nullable), `deal_group_id` (uuid, nullable), `parent_deal_id` (uuid, nullable), `delivery_type` (USER-DEFINED, nullable), `ai_mode` (USER-DEFINED, nullable), `last_activity_at` (timestamp with time zone, nullable), `created_at` (timestamp with time zone, not null), `updated_at` (timestamp with time zone, not null), `simple_status` (USER-DEFINED, not null), `visibility` (text, not null), `client_name_text` (text, nullable), `desired_delivery_date` (date, nullable), `memo` (text, nullable), `use_client_master` (boolean, not null), `shipping_method_1` (text, nullable), `contract_number` (text, nullable), `contract_signed_at` (timestamp with time zone, nullable), `column_widths` (jsonb, not null), `archived_at` (timestamp with time zone, nullable), `archived_by` (uuid, nullable), `archive_reason` (text, nullable), `archive_note` (text, nullable), `tags` (ARRAY, not null), `waiting_on` (text, not null), `brand_text` (text, nullable)。
@@ -756,3 +758,90 @@
 `document_id` uuid PK/FK documents、`actor_id` uuid not null FK profiles、`attempt_id` uuid not null unique、`status` text not null（attempting/accepted/unknown/rejected）、`provider_message_id` text nullable、`started_at` timestamptz not null、`finished_at` timestamptz nullable。staff SELECTのみ、直接書込撤回。staff限定 `issue_storage_invoice` / `claim_storage_invoice_email` / `finish_storage_invoice_email` は原子的発行・永久送信予約・同actor結果確定を担う。051 SQLを正典とし、既存取引の推測補完はしない。
 
 本番反映：2026-09-30、038〜051 sourceをworkflow_release_038_051/version20260930150639で一括適用。052は内部8RPCのanon個別EXECUTE撤回のみ。受入記録/本番migration履歴を照合する。将来internal owner table default ACLは変更していない。
+
+## 未適用ローカル候補：sample_ledger_v1（20261001111822）
+
+本番schemaではない。新導線はmigration承認/適用後だけ公開する。既存deal_samples/deal_sample_summaryは変更しない。
+
+- sample_rounds: id, deal_id, product_id, variant_id, factory_id, round_number, quantity, due_date, note, status, created_by, created_at。
+- sample_estimates: id, round_id, kind, carrier, amount, currency, basis, created_by, created_at。概算だけを保持し請求対象外。
+- sample_costs: id, round_id, kind, carrier, estimate, amount, currency, fx, customer_charge_jpy, basis, confirmed_by, confirmed_at, voided_at, void_reason。
+- sample_payments: id, round_id, amount, currency, paid_on, reference, created_by, created_at。
+- sample_invoices: id, deal_id, document_number, snapshot, status, previous_invoice_id, cancellation_reason, cancelled_at, created_by, created_at。
+- sample_invoice_lines: id, invoice_id, cost_id, released_at。有効割当cost_idに部分unique。
+- sample_requests: id, created_by, deal_id, operation, payload, result, created_at。本人staff SELECTのみ。
+- sample_mail_receipts: invoice_id, attempt_id, created_by, payload, status, provider_id, created_at, finished_at。
+
+全表RLS、authenticated SELECT/staff限定、直接write/TRUNCATEなし。型・nullable・check・FKの正本は候補migration。preview_sample_invoice、sample_command、claim_sample_email、finish_sample_emailはstaff専用RPC。
+
+### 第4段 顧客承認・実着金（ローカル候補・本番未適用）
+
+正本 `20261001121648_client_settlement_v1.sql`。既存列は変えず、新表7つを追加する。
+- client_document_packets: id/document_id/deal_id/client_id、document_type、snapshot（顧客向け原価除外版）、approval_packet_id、status、cancel_reason/cancelled_at、created_by/created_at。
+- client_document_links: id、packet_id、token、expires_at、revoked_at、created_by/created_at。staff SELECTのみ。顧客は認証済み自社scopeのRPCでのみ検証する。
+- client_document_responses: packet_id、decision、note、created_by/created_at。
+- client_payment_reports: id、packet_id、created_by、amount_jpy bigint、paid_on date、reference、status、review_note、created_at。
+- client_payment_receipts: id、report_id、packet_id、amount_jpy bigint、received_on date、bank_reference unique、confirmed_by/created_at。staff SELECTのみ。
+- client_finance_requests: id、created_by、operation、payload、result、created_at。本人SELECTのみ。
+- client_document_mail_receipts: packet_id、attempt_id、payload、status、created_by、provider_id、created_at/finished_at。
+
+全表RLS、直接write/TRUNCATEなし。顧客SELECTは自社packet・自分のreport/requestだけ。顧客context RPCはclient本人の自社有効版のみ。公開token単独では認証不可。顧客回答/申告とstaff実着金/工程反映を別commandにする。issued documentsの未来snapshotには既存deals.client_idを含める（legacy補完なし）。
+
+### 第5段 工場最終条件・支払記録・着金確認（ローカル候補）
+
+`20261001130755_factory_production_v1.sql`が型/FK/checkの正本。本番未適用。
+- factory_final_terms: id/order_id/version、total_usd numeric(20,4)、payment_mode、upfront_usd numeric(20,4)、balance_due、lead_days、bank_snapshot（factories.bank_info原文/更新日時/source/factory_id）、note、created_by/created_at。
+- factory_terms_agreements: order_id PK、terms_id、bank_evidence、note、approved_by/approved_at。staff SELECTのみ。factory contextでは同意版ID/時刻だけ返す。
+- factory_transfer_reports: id/order_id/terms_id、amount_usd numeric(20,4)、sent_on、reference unique、created_by/created_at。
+- factory_bank_acknowledgments: id/report_id/order_id、amount_usd numeric(20,4)、received_on、bank_reference、created_by/created_at。order_id+bank_reference unique。
+- factory_production_starts: order_id PK、terms_id、started_on、expected_completion_on、note、created_by/created_at。
+- factory_workflow_requests: id、order_id、created_by、operation、payload、result、created_at。本人staff/本人自社factory操作のSELECTのみ。
+
+全表immutable/RLS/直接write・TRUNCATEなし。staffとfactory自社に限定（agreement内部照合情報はstaffのみ）。factory_order_context、factory_workflow_commandはauthenticated EXECUTE/実行時roleとfactory_id照合、anon/PUBLICなし。既存PO銀行情報を推測補完しない。既存USD PO総額の変更は新採用見積/発注へ戻し、支払条件で原価を無言変更しない。
+
+### 第6段 QC（ローカル候補・本番未適用）
+
+`20261001134525_factory_qc_v1.sql`が正本。
+- factory_qc_assets: id UUID（保存要求と同一）、order_id、kind、object_path unique、mime、byte_size bigint、sha256、created_by/created_at。
+- factory_qc_submissions: id/order_id/version、completed_on、quantity（全PO数量）、asset_ids UUID[]、note、created_by/created_at。
+- factory_qc_reviews: id/order_id/submission_id unique、decision、note、created_by/created_at。
+- factory_qc_requests: id/order_id/created_by、operation、payload、result、created_at。本人staff/本人factory操作のみSELECT。
+
+全表immutable/RLS/直接write・TRUNCATEなし、staffと自社factoryのみ。factory_qc_context/commandはauthenticated実行時scopeチェック、匿名/PUBLICなし。新private bucket factory-qc（PNG/JPEG/MP4、50MiB以下、order UUID/asset UUIDの保存先）。factory自社・製造開始済みのINSERTだけ、staff/factory自社SELECT、UPDATE/DELETEなし。画像/動画閲覧はauth/RLS/ファイルhash照合後の60秒署名URL。既存public deal-imagesを変更しない。
+
+localhostで実確認したstorage.objects列はid UUID、bucket_id/name text、owner UUID、created_at/updated_at/last_accessed_at timestamptz、metadata jsonb、path_tokens ARRAY、version text、owner_id text、user_metadata jsonb、archived_at timestamptz、is_delete_marker/is_versioned boolean。登録はStorage API保存済みのowner_id/metadata.mimetype・size/user_metadata.sha256を照合する。SQLでobject metadata行を作らない。
+
+## 第7段ローカル候補：輸出配送（本番未適用）
+
+既存PO id/deal_id/factory_id/quantity/status/snapshot.variant_id、profiles id/role/client_id/display_name、deal_products shipping_address_full/shipping_recipient_name/shipping_phone、clients default_delivery_address/company_name/email、logistics_partners id/partner_kind/company_name/address/is_active/contact_email、system_settings company_info_phase1を使用する。既存inboundはBAO倉庫入庫台帳なので輸出台帳へ流用しない。
+
+新shipment_plans: id UUID, order_id/deal_id/client_id/factory_id UUID, quantity integer, logistics_actor_id/partner_id UUID, snapshot JSONB, created_by UUID, created_at timestamptz。
+shipment_milestones: id/plan_id/created_by UUID, kind/source/note/tracking_number text, occurred_at/created_at timestamptz。
+shipment_customer_receipts: id/plan_id/created_by UUID, quantity integer, received_on date, note text, created_at timestamptz。
+shipment_delivery_documents: id/plan_id UUID, document_number text UNIQUE, snapshot JSONB, created_by UUID, created_at timestamptz。
+shipment_workflow_requests: id UUID, order_id UUID, created_by UUID, operation text, payload/result JSONB, created_at timestamptz。
+shipment_mail_receipts: id UUID, plan_id UUID, event_key text UNIQUE, payload JSONB, status text, provider_id text nullable, created_by UUID, created_at/finished_at timestamptz。
+
+第8段ローカル候補 `20261001162000_client_payment_conditions_v1.sql` は新表/カラムなし。既存 client_document_packets.snapshot の payment_conditions に mode / balance_due / upfront_jpy / shipment_required_jpy / total_jpy / rounding を保存する。既存 client_payment_receipts.packet_id / amount_jpy と顧客承認版を参照して発注/発送の必要着金を確認。paid は合意前払条件成立を表し、実全額着金はreceipt合計とpaid_in_fullで別判定する。
+
+第9段ローカル候補 `20261001170000_partial_factory_qc_v1.sql`: factory_qc_reviews.rejection_scope text NOT NULL DEFAULT all CHECK(all,new_quantity) を追加。factory_qc_submissions.quantity は累計完工数量。factory_purchase_orders.id/quantity、factory_production_starts.order_id、shipment_plans.order_id/quantity、inbound_shipments.id/purchase_order_id/status、inbound_shipment_items.id/shipment_id/expected_quantity を参照して承認累計と配送/倉庫予約量を照合する。新tableなし、上書き/削除禁止を維持。
+
+## Stage10 訂正・再共有候補（本番未適用）
+`20261001180000_client_document_corrections_v1.sql` は新表/カラムなし。
+client_document_packets.snapshot に payment_origin_packet_ids / replaces_packet_id / reissue_kind を保存。
+client_finance_requests.operation は record_refund / reserve_document_resend / finish_document_resend を追加し、payload の packet_id / amount_jpy / refunded_on / bank_reference / reason / mail_payload / attempt_id と result の refund_jpy / net_jpy / previous_attempt_id / status / provider_id を使用。銀行事実・再送予約は既存の不変リクエスト履歴へ追記。
+同じUUIDの再送予約は初回だけ claimed=true、再実行は claimed=false。外部送信を再実行する根拠に保存済みresultを使わない。
+
+## Stage11 再価格承認候補（本番未適用）
+新表/カラムなし。client_document_packets.snapshot に reprices_invoice_id / payment_carry_jpy を追加し、reissue_kind=customer_reapproved_price の新請求へ既存系列のpayment_origin_packet_idsを保存。client_finance_requests.operation=reissue_priced_invoice、payloadのapproval_packet_id / payment_allocation_confirmedを使用。respond_quoteのpayloadにpayment_carry_confirmed、publish_documentにreprice_invoice_id / reprice_confirmed / reasonを追加。staff_client_finance_summaryに document_type/status/current_price/decision/upfront_jpy を既存データから投影。client_finance_contextにcurrent_priceを投影する。元の着金・旧版・顧客回答は更新/削除しない。
+
+## Stage12 local candidate (not production applied)
+- sample_invoices adds client_id (frozen actual recipient at insert; no legacy backfill); snapshot.client_id. client_sample_invoices strips lines.cost_id and internal cancellation_reason.
+- chat_rooms adds peer_role (client/factory/logistics), peer_id. chat_messages adds sequence.
+- case_chat_reads: room_id, user_id, last_sequence. Own cursor via RPC only.
+- Existing profiles: id/role/client_id/factory_id/display_name; current RFQ invitations/sample rounds/ordered factory POs/assigned shipment plans define chat counterparties. No inferred recipient.
+
+- quote_cost_lines.currency accepts CNY in Stage12 candidate; pricing_snapshot.fx.cny_jpy_rate freezes JPY per CNY, conversion amount*CNYJPY/USDJPY. USD/JPY existing paths remain unchanged. No new FX table.
+
+## Final release scope review (local candidate)
+- shipment_workflow_requests unchanged columns: id, order_id, created_by, operation, payload, result, created_at. Owner SELECT also checks current role and frozen plan client/logistics or factory order identity through shipment_request_visible; no new table/column.

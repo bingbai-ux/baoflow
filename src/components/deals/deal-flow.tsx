@@ -1,4 +1,5 @@
 'use client'
+import {CaseChat} from '@/components/chat/case-chat'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」画面。
 // 13工程の一覧と、選択した1工程の作業を表示し、
@@ -22,6 +23,7 @@ import {
 } from '@/components/deals/quote-builder'
 import { PendingRfqAnswers } from '@/components/deals/pending-rfq-answers'
 import { RfqCreateModal } from '@/components/deals/rfq-create-modal'
+import { RfqHistory } from '@/components/deals/rfq-history'
 import { DocumentModal } from '@/components/documents/document-modal'
 import { AttachmentGallery } from '@/components/deals/attachment-gallery'
 import { DealCommunicationTab } from '@/components/deals/deal-communication-tab'
@@ -89,6 +91,8 @@ export interface FlowHistoryRow {
 }
 
 interface DealFlowProps {
+  financeHold?:{label:string;reason:string;step:number}
+
   deal: FlowDeal
   products: DealProduct[]
   // Sprint 14: 仕様ウィザード用の分類カタログ
@@ -129,6 +133,7 @@ export function DealFlow({
   factories,
   statusHistory,
   communications,
+  financeHold,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -163,7 +168,7 @@ export function DealFlow({
     false, // 13 完了(最終)
   ]
   const amount = approvedAmount(quotes)
-  const action = caseAction(deal.simple_status, { products: products.length, variants: variants.length, incompleteProducts: products.filter(p => !variants.some(v => v.product_id === p.id)).length, missingQuantities: variants.filter(v => !quotes.some(q => q.variant_id === v.id && Number.isInteger(Number(q.quantity)) && Number(q.quantity) > 0)).length, rfqs: rfqCount, pricedQuotes, approvedQuotes: amount.count, missingAmounts: amount.missing, invalidApprovedQuotes: invalidDocumentQuotes(quotes), quotationDocs: quoteDocs.length, invoiceDocs: invoiceDocs.length })
+  const action = financeHold || caseAction(deal.simple_status, { products: products.length, variants: variants.length, incompleteProducts: products.filter(p => !variants.some(v => v.product_id === p.id)).length, missingQuantities: variants.filter(v => !quotes.some(q => q.variant_id === v.id && Number.isInteger(Number(q.quantity)) && Number(q.quantity) > 0)).length, rfqs: rfqCount, pricedQuotes, approvedQuotes: amount.count, missingAmounts: amount.missing, invalidApprovedQuotes: invalidDocumentQuotes(quotes), quotationDocs: quoteDocs.length, invoiceDocs: invoiceDocs.length })
   const currentIdx = action.step - 1
   const [contactsOpen, setContactsOpen] = useState(false)
   const [specEditing, setSpecEditing] = useState(false)
@@ -332,7 +337,7 @@ export function DealFlow({
     <div className="pb-8">
       <section aria-label="次の対応" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E1DA] pb-3">
         <div><p className="text-[11px] text-[#84787D]">次の対応</p><p className="text-[15px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
-        <div className="flex gap-2 flex-wrap"><button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{action.label}</button><button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
+        <div className="flex gap-2 flex-wrap">{financeHold?<Link className="min-h-[44px] inline-flex items-center rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold" href={`/deals/${deal.id}/settlement`}>{action.label}</Link>:<button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{action.label}</button>}<button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">会話・連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
       </section>
       <div className="flex flex-col xl:flex-row gap-4"><div className="min-w-0 flex-1">
       {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
@@ -408,7 +413,7 @@ export function DealFlow({
       </UtilitySection>
       <UtilitySection title={`過去書類 (${documents.length})`}><DocList docs={documents} /><Link href={`/deals/${deal.id}/documents`} className="min-h-[44px] inline-flex items-center text-[12px] underline">帳票履歴を開く</Link></UtilitySection>
       </div>
-      {contactsOpen && <aside id="case-contact-records" aria-label="案件の連絡記録" className="xl:w-[300px] xl:shrink-0 rounded-card border border-[#E2E1DA] bg-white p-3 self-start min-w-0 max-w-full"><h2 className="text-[15px] font-bold mb-1">連絡記録</h2><p className="text-[11px] text-[#84787D] mb-3">メール・電話などの記録。相手への送信やチャット受信は行いません。</p><DealCommunicationTab dealId={deal.id} initial={communications} /></aside>}
+      {contactsOpen && <aside id="case-contact-records" aria-label="案件の連絡記録" className="xl:w-[300px] xl:shrink-0 rounded-card border border-[#E2E1DA] bg-white p-3 self-start min-w-0 max-w-full"><CaseChat key={deal.id} dealId={deal.id}/><details className="mt-4 border-t border-[#E2E1DA]"><summary className="min-h-11 flex items-center text-xs cursor-pointer">メール・電話の連絡記録</summary><p className="text-[11px] text-[#84787D] mb-3">社内記録です。会話相手には送信しません。</p><DealCommunicationTab dealId={deal.id} initial={communications} /></details></aside>}
       </div>
     </div>
   )
@@ -650,6 +655,7 @@ function StepRfq({
         <BallButton dealId={deal.id} to="factory" label="送った → ボールを工場待ちに" />
       </div>
       <PendingRfqAnswers dealId={deal.id} />
+      <RfqHistory dealId={deal.id} />
       <Hint>RFQの作成だけでは工場への送信は完了しません。作成した依頼を工場に共有し、送信後に「工場待ち」に切り替えてください。</Hint>
       {modalOpen && (
         <RfqCreateModal
@@ -1086,7 +1092,7 @@ function StepInvoice({
         </button>
         <BallButton dealId={deal.id} to="client" label="送った → クライアント待ちに" />
         {statusIdx === 1 && (
-          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="入金を確認した → 入金完了へ" disabled={!canIssue || docs.length === 0} />
+          <AdvanceButton expected={deal.simple_status} dealId={deal.id} to="paid" label="支払条件を確認した → 発注準備へ" disabled={!canIssue || docs.length === 0} />
         )}
       </div>
       {!canIssue && <p className="mt-3 text-[12px]">請求の元になる採用見積・金額を確認してください。<Link href={`/deals/${deal.id}?step=6`} className="underline ml-2">採用見積を確認</Link></p>}
@@ -1111,7 +1117,7 @@ function StepDataCheck({
   return (
     <div>
       <p className="text-[12px] font-body text-[#351E28] mb-2">
-        入金を確認したら工場へ前払い(Wise/Alibaba)。並行して最終入稿データをここに集め、工場と最終確認します。
+        顧客との支払条件と必要な実着金を確認したら、工場との合意条件に従って手動支払を行います。並行して最終入稿データをここに集め、工場と最終確認します。
       </p>
       <AttachmentGallery dealId={deal.id} initial={designFiles} />
       <div className="mt-2.5 flex items-center gap-2.5 flex-wrap">

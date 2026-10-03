@@ -41,7 +41,7 @@ function actionHarness(role='sales'){
  const exports:any={}
  const compiled=ts.transpileModule(readFileSync(new URL('../src/lib/actions/workflow-recovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
  runInNewContext(compiled,{exports,require:(name:string)=>name.includes('supabase/server')?{createClient:async()=>client}:{requireSalesAccess:async()=>['sales','admin'].includes(role)?null:'営業・管理者のみ'},console})
- return {recover:exports.recoverWorkflowRequest,setActor:(v:string)=>actor=v,setFailure:()=>failure=true,queries:()=>queries}
+ return {correct:exports.canCorrectRejectedWorkflowRequest,recover:exports.recoverWorkflowRequest,setActor:(v:string)=>actor=v,setFailure:()=>failure=true,queries:()=>queries}
 }
 test('saved specification, RFQ and document results restore only to the same actor and deal',async()=>{
  const h=actionHarness()
@@ -56,4 +56,16 @@ test('role denial, operation mismatch and uncertain lookup do not silently start
  const denied=actionHarness('client');assert.ok((await denied.recover('deal',request)).error);assert.equal(denied.queries(),0)
  const h=actionHarness();assert.equal((await h.recover('quantity',request,'deal')).result,null)
  h.setFailure();assert.match((await h.recover('spec',request,'deal')).error,/確認できません/)
+})
+
+test('correction needs a definite SQL rollback and successful own-request absence; unknown and saved results stay guarded',async()=>{
+ const h=actionHarness()
+ assert.equal(await h.correct('spec',request,'deal','P0001'),false)
+ const absent='20000000-0000-4000-8000-000000000002'
+ for(const code of ['P0001','22007','23514','42501','40001','40P01'])assert.equal(await h.correct('spec',absent,'deal',code),true)
+ const count=h.queries()
+ for(const code of [undefined,'08006','PGRST000','57014','XX000'])assert.equal(await h.correct('spec',absent,'deal',code),false)
+ assert.equal(h.queries(),count)
+ h.setFailure();assert.equal(await h.correct('spec',absent,'deal','P0001'),false)
+ assert.equal(await actionHarness('client').correct('spec',absent,'deal','P0001'),false)
 })

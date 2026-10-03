@@ -18,7 +18,7 @@ export default async function AnalyticsPage() {
   const [{ data: deals, error: dealsError }, { data: quotes, error: quotesError }] = await Promise.all([
     supabase
       .from('deals')
-      .select('id, deal_code, deal_name, client_name_text, simple_status, created_at, archived_at'),
+      .select('id, deal_code, deal_name, client_name_text, simple_status, created_at, archived_at').is('archived_at',null),
     supabase
       .from('deal_quotes')
       .select('deal_id, total_billing_tax_jpy, status, updated_at')
@@ -45,13 +45,14 @@ export default async function AnalyticsPage() {
   let grandTotal = 0
 
   for (const q of quotes || []) {
+    const deal = dealMap.get(q.deal_id)
+    if (!deal || deal.archived_at) continue
     const amt = Number(q.total_billing_tax_jpy) || 0
     if (amt <= 0) continue
     grandTotal += amt
     const mkey = (q.updated_at || '').slice(0, 7)
     const m = months.find((x) => x.key === mkey)
     if (m) m.total += amt
-    const deal = dealMap.get(q.deal_id)
     if (deal) {
       const cname = deal.client_name_text || '(未設定)'
       byClient.set(cname, (byClient.get(cname) || 0) + amt)

@@ -1,0 +1,241 @@
+{
+  "migrations": [
+    {
+      "file": "20261001091055_rfq_selection_preview_v2.sql",
+      "sha256": "97390211807a7b2f28d721128b3dc25d105b3f039ff81ea71b9885130f5c5c85",
+      "approval": "stage2_or_3_approved",
+      "new_tables": []
+    },
+    {
+      "file": "20261001102446_quote_pricing_revision_v2.sql",
+      "sha256": "4cee82faab561be97a762a6b2c8b48ee197f1cbb632972e629c66c4ac3e61431",
+      "approval": "stage2_or_3_approved",
+      "new_tables": [
+        "quote_pricing_requests",
+        "quote_cost_lines"
+      ]
+    },
+    {
+      "file": "20261001111822_sample_ledger_v1.sql",
+      "sha256": "10405bd7af8f4001f91914f883bdd4126e7360a1d3f0ef0e3105e0e7e014b391",
+      "approval": "pending",
+      "new_tables": [
+        "sample_rounds",
+        "sample_estimates",
+        "sample_costs",
+        "sample_payments",
+        "sample_invoices",
+        "sample_invoice_lines",
+        "sample_requests",
+        "sample_mail_receipts"
+      ]
+    },
+    {
+      "file": "20261001121648_client_settlement_v1.sql",
+      "sha256": "780ab4ab5ff64e7ba170709776d43c258b49443ee9e200e2a5291306d5a07a88",
+      "approval": "pending",
+      "new_tables": [
+        "client_document_packets",
+        "client_document_links",
+        "client_document_responses",
+        "client_payment_reports",
+        "client_payment_receipts",
+        "client_finance_requests",
+        "client_document_mail_receipts"
+      ]
+    },
+    {
+      "file": "20261001130755_factory_production_v1.sql",
+      "sha256": "20a82fc4660de5789b27fc2fad8e5709f497bc0c0a213e06a9556b431f684667",
+      "approval": "pending",
+      "new_tables": [
+        "factory_final_terms",
+        "factory_terms_agreements",
+        "factory_transfer_reports",
+        "factory_bank_acknowledgments",
+        "factory_production_starts",
+        "factory_workflow_requests"
+      ]
+    },
+    {
+      "file": "20261001134525_factory_qc_v1.sql",
+      "sha256": "2ff10f285a88eea3961a67896656b29ed44ceb64b96c3e4c8a78fbebec2b96d8",
+      "approval": "pending",
+      "new_tables": [
+        "factory_qc_assets",
+        "factory_qc_submissions",
+        "factory_qc_reviews",
+        "factory_qc_requests"
+      ]
+    },
+    {
+      "file": "20261001145000_shipment_workflow_v1.sql",
+      "sha256": "769c926b3215775608c96388d44bd39d5947f0b8de5a7878cb660c1412b0c0f0",
+      "approval": "pending",
+      "new_tables": [
+        "shipment_plans",
+        "shipment_milestones",
+        "shipment_customer_receipts",
+        "shipment_delivery_documents",
+        "shipment_workflow_requests",
+        "shipment_mail_receipts"
+      ]
+    },
+    {
+      "file": "20261001162000_client_payment_conditions_v1.sql",
+      "sha256": "d2ec55570273464b3d4f5b88b92612962788ad24b8b8b65b050e6046742e27ae",
+      "approval": "pending",
+      "new_tables": []
+    },
+    {
+      "file": "20261001170000_partial_factory_qc_v1.sql",
+      "sha256": "238531912704baea1dc5c70b78ba1c1324ee4865777e3aa444afe3edae8feb83",
+      "approval": "pending",
+      "new_tables": []
+    },
+    {
+      "file": "20261001180000_client_document_corrections_v1.sql",
+      "sha256": "c103f4790417067adebdd639d5dd503cc76513309fbae7d6e29feb34e874a96d",
+      "approval": "pending",
+      "new_tables": []
+    },
+    {
+      "file": "20261001190000_client_price_renegotiation_v1.sql",
+      "sha256": "452bc084660099c3eb60c8ed2db63d88cccbdc925eb7aca5e3576bc8a83c181b",
+      "approval": "pending",
+      "new_tables": []
+    },
+    {
+      "file": "20261001200000_case_chat_and_client_samples_v1.sql",
+      "sha256": "4ed869e341b8db48a96e7b935c8a7e3d54ef0fcc624f3a5738d5a4eb8f8e8154",
+      "approval": "pending",
+      "new_tables": [
+        "case_chat_reads"
+      ]
+    },
+    {
+      "file": "20261001200100_confirmed_cny_reference_fx_v1.sql",
+      "sha256": "82d4128be30badadd801faa8cd13ef05ba93e3a0f911340dff53c16ab7235888",
+      "approval": "pending",
+      "new_tables": []
+    },
+    {
+      "file": "20261001210000_shipment_request_role_scope.sql",
+      "sha256": "3ca6827a44048d2aca728658baa659d745e407f88e97d18f842060b5371f3fe5",
+      "approval": "pending",
+      "new_tables": []
+    }
+  ],
+  "new_table_count": 34,
+  "new_tables": [
+    "case_chat_reads",
+    "client_document_links",
+    "client_document_mail_receipts",
+    "client_document_packets",
+    "client_document_responses",
+    "client_finance_requests",
+    "client_payment_receipts",
+    "client_payment_reports",
+    "factory_bank_acknowledgments",
+    "factory_final_terms",
+    "factory_production_starts",
+    "factory_qc_assets",
+    "factory_qc_requests",
+    "factory_qc_reviews",
+    "factory_qc_submissions",
+    "factory_terms_agreements",
+    "factory_transfer_reports",
+    "factory_workflow_requests",
+    "quote_cost_lines",
+    "quote_pricing_requests",
+    "sample_costs",
+    "sample_estimates",
+    "sample_invoice_lines",
+    "sample_invoices",
+    "sample_mail_receipts",
+    "sample_payments",
+    "sample_requests",
+    "sample_rounds",
+    "shipment_customer_receipts",
+    "shipment_delivery_documents",
+    "shipment_mail_receipts",
+    "shipment_milestones",
+    "shipment_plans",
+    "shipment_workflow_requests"
+  ],
+  "security_definer_names": [
+    "bind_sample_invoice_client",
+    "case_chat_allowed",
+    "case_chat_peer_valid",
+    "case_chat_targets",
+    "claim_client_document_email",
+    "claim_rfq_email_v2",
+    "claim_sample_email",
+    "claim_shipment_email",
+    "client_document_send_state",
+    "client_finance_command",
+    "client_finance_context",
+    "client_invoice_threshold",
+    "client_payment_family",
+    "client_payment_totals",
+    "client_sample_invoices",
+    "create_rfq_v2",
+    "ext_rfq_context",
+    "ext_submit_rfq",
+    "factory_order_context",
+    "factory_order_ship_ready",
+    "factory_qc_approved_quantity",
+    "factory_qc_command",
+    "factory_qc_context",
+    "factory_qc_reserved_quantity",
+    "factory_qc_storage_scope",
+    "factory_workflow_command",
+    "finance_packet_matches_live",
+    "finish_client_document_email",
+    "finish_client_document_resend",
+    "finish_sample_email",
+    "finish_shipment_email",
+    "guard_client_invoice_issue",
+    "guard_client_shipment_payment",
+    "guard_factory_production_progress",
+    "guard_factory_qc_allocation",
+    "guard_factory_qc_inbound_reactivation",
+    "guard_factory_qc_shipment",
+    "guard_finance_progress",
+    "guard_financed_factory_order",
+    "guard_shipment_customer_completion",
+    "import_pending_rfq_answer",
+    "issue_document_atomic",
+    "list_case_chats",
+    "mark_case_chat_read",
+    "my_shipment_orders",
+    "open_case_chat",
+    "preview_client_document",
+    "preview_client_document_with_terms",
+    "preview_client_price_reissue",
+    "preview_client_reissue",
+    "preview_quote_pricing_v2",
+    "preview_rfq_v2",
+    "preview_sample_invoice",
+    "read_case_chat",
+    "sample_command",
+    "save_quote_pricing_v2",
+    "send_case_chat",
+    "shipment_command",
+    "shipment_context",
+    "shipment_delivery_context",
+    "shipment_order_role",
+    "staff_client_finance_summary",
+    "shipment_request_visible"
+  ],
+  "nonfixed_search_path": [],
+  "explicit_anon_or_public_execute_grants": [
+    "20261001091055_rfq_selection_preview_v2.sql",
+    "20261001091055_rfq_selection_preview_v2.sql"
+  ],
+  "reviewed_anon_capability_allowlist": [
+    "ext_rfq_context(text)",
+    "ext_submit_rfq(text,jsonb,text,text)"
+  ],
+  "anon_allowlist_scope": "Existing Stage2 RFQ invitation token only: expiry/cancellation/frozen requested lines/actual invitation factory; no anonymous ledger/table access"
+}

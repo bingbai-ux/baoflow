@@ -14,13 +14,14 @@ interface Props {
   dealName: string
   onClose: () => void
   onArchived?: () => void
+  initialReason?: ArchiveReasonInput
 }
 
 const REASON_OPTIONS: ArchiveReasonInput[] = ['completed', 'cancelled', 'lost', 'other']
 
-export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Props) {
+export function ArchiveDealModal({ dealId, dealName, onClose, onArchived, initialReason }: Props) {
   const { toast } = useUi()
-  const [reason, setReason] = useState<ArchiveReasonInput>('completed')
+  const [reason, setReason] = useState<ArchiveReasonInput>(initialReason||'completed')
   const [note, setNote] = useState('')
   const [pending, startTransition] = useTransition()
 
@@ -43,6 +44,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
       onClick={onClose}
     >
       <div
+        role="dialog" aria-modal="true" aria-label="案件をアーカイブ"
         className="bg-white rounded-[16px] shadow-2xl max-w-md w-full p-5"
         onClick={(e) => e.stopPropagation()}
       >
@@ -52,7 +54,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
             案件をクローズ
           </h3>
           <button
-            type="button"
+            type="button" style={{minHeight:44}}
             onClick={onClose}
             className="p-1 text-[#84787D] hover:bg-[#FBFAF6] rounded"
           >
@@ -73,7 +75,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
               {REASON_OPTIONS.map((r) => (
                 <button
                   key={r}
-                  type="button"
+                  type="button" style={{minHeight:44}}
                   onClick={() => setReason(r)}
                   className={`text-[11px] py-1.5 rounded-[8px] border transition-colors ${
                     reason === r
@@ -92,6 +94,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
               メモ（任意）
             </label>
             <textarea
+              aria-label="アーカイブ理由の補足"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
@@ -103,7 +106,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
 
         <div className="flex items-center justify-end gap-2 mt-5">
           <button
-            type="button"
+            type="button" style={{minHeight:44}}
             onClick={onClose}
             disabled={pending}
             className="text-[11px] px-3 py-1.5 border border-[#E2E1DA] rounded-[8px] bg-white hover:bg-[#FBFAF6] disabled:opacity-50"
@@ -111,7 +114,7 @@ export function ArchiveDealModal({ dealId, dealName, onClose, onArchived }: Prop
             キャンセル
           </button>
           <button
-            type="button"
+            type="button" style={{minHeight:44}}
             onClick={handleArchive}
             disabled={pending}
             className="text-[11px] px-3 py-1.5 bg-[#351E28] text-[#C9A2B8] rounded-[8px] hover:brightness-95 disabled:opacity-50"

@@ -31,14 +31,16 @@ function harness(role='sales'){
  const client={rpc:async(name:string,args:Record<string,any>)=>{
   calls.push({kind:'rpc:'+name})
   if(state.dbFailures.has('rpc:'+name))return {data:null,error:{message:'synthetic DB failure'}}
-  if(name==='claim_rfq_email'||name==='claim_storage_invoice_email'){
+  if(name==='claim_rfq_email'||name==='claim_rfq_email_v2'||name==='claim_storage_invoice_email'){
    const receipt=receipts.get(args.p_invitation_id||args.p_document_id)
    if(receipt)return {data:{claimed:false,...receipt},error:null}
    const newReceipt={status:'attempting',attemptId:'synthetic-attempt'};receipts.set(args.p_invitation_id||args.p_document_id,newReceipt)
+   if(name==='claim_rfq_email_v2')state.rows.rfq_email_receipts=[{invitation_id:args.p_invitation_id,status:'attempting'}]
    return {data:{claimed:true,...newReceipt},error:null}
   }
   if(name==='finish_rfq_email'||name==='finish_storage_invoice_email'){
    receipts.get(args.p_invitation_id||args.p_document_id)!.status=args.p_status
+   if(state.rows.rfq_email_receipts?.[0])state.rows.rfq_email_receipts[0].status=args.p_status
    if(name==='finish_rfq_email'&&args.p_status==='accepted')state.rows.rfq_factory_invitations[0].invitation_sent_at='synthetic-sent'
    return {data:null,error:null}
   }
@@ -67,6 +69,7 @@ function harness(role='sales'){
    if(id==='@/lib/supabase/server')return {createClient:async()=>client}
    if(id==='next/cache')return {revalidatePath:(path:string)=>calls.push({kind:'revalidate',value:path})}
    if(id==='./deal-access')return load('lib/actions/deal-access.ts')
+   if(id==='@/lib/deals/rfq-preview')return load('lib/deals/rfq-preview.ts')
    if(id==='@/lib/utils/file-classify')return load('lib/utils/file-classify.ts')
    if(id==='@/lib/utils/storage-invoice')return load('lib/utils/storage-invoice.ts')
    if(id==='@/lib/utils/inventory-validation')return load('lib/utils/inventory-validation.ts')
@@ -82,10 +85,35 @@ function harness(role='sales'){
   runInNewContext(compiled.get(relative)!,{exports,module:{exports},require,process:{env},fetch:fakeFetch,Date,File,Promise,Buffer,crypto:nodeRequire('node:crypto').webcrypto,setTimeout,console})
   return exports
  }
- return {state,calls,env,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts'),billing:load('lib/actions/storage-billing.ts'),inventory:load('lib/actions/inventory.ts')}
+ return {state,calls,env,designs:load('lib/actions/designs.ts'),thumbnails:load('lib/actions/product-thumbnail.ts'),rfq:load('lib/actions/rfq.ts'),rfqV2:load('lib/actions/rfq-v2.ts'),billing:load('lib/actions/storage-billing.ts'),inventory:load('lib/actions/inventory.ts')}
 }
 const image=()=>new File(['synthetic image'],'photo.png',{type:'image/png'})
 const attachment=()=>new File(['synthetic PDF'],'design.pdf',{type:'application/pdf'})
+
+test('v2 email preview performs no send/reservation; changed address invalidates confirmation before external I/O',async()=>{
+ const h=harness();const r=await h.rfqV2.previewRfqEmail('invitation');assert.ok(r.preview)
+ assert.equal(h.calls.filter(c=>c.kind==='email'||c.kind.startsWith('rpc:claim')).length,0)
+ h.state.rows.factories[0].contact_email='changed@example.test'
+ assert.match((await h.rfqV2.sendConfirmedRfqEmail('invitation',r.preview.fingerprint)).error,/変更/)
+ assert.equal(h.calls.filter(c=>c.kind==='email'||c.kind.startsWith('rpc:claim')).length,0)
+})
+test('v2 frozen recipient/message are the exact confirmed provider payload and accepted is distinct from delivery',async()=>{
+ const h=harness();h.state.rows.external_forms[0].context={schema_version:2,recipient:{name:'Frozen <factory>',email:'frozen@example.test'},request_message:'Original <instruction>',response_deadline:'2026-11-01'}
+ const r=await h.rfqV2.previewRfqEmail('invitation');assert.ok(r.preview)
+ h.state.rows.factories[0].contact_email='changed@example.test';h.state.rows.rfq_requests[0].request_message='Mutated master'
+ assert.equal((await h.rfqV2.sendConfirmedRfqEmail('invitation',r.preview.fingerprint)).status,'accepted')
+ const send=h.calls.find(c=>c.kind==='email')!.value as {body:string};const payload=JSON.parse(send.body)
+ assert.deepEqual(payload.to,['frozen@example.test']);assert.equal(payload.html,r.preview.html);assert.match(payload.html,/Original &lt;instruction&gt;/);assert.doesNotMatch(payload.html,/Mutated master/)
+ assert.equal((await h.rfqV2.sendConfirmedRfqEmail('invitation',r.preview.fingerprint)).status,'accepted');assert.equal(h.calls.filter(c=>c.kind==='email').length,1)
+})
+for(const failure of ['unknown','receipt-save'])test(`v2 ${failure} cannot repeat a provider request after a restored UI`,async()=>{
+ const h=harness(),p=(await h.rfqV2.previewRfqEmail('invitation')).preview
+ if(failure==='unknown')h.state.mailThrow=true;else h.state.dbFailures.add('rpc:finish_rfq_email')
+ assert.ok((await h.rfqV2.sendConfirmedRfqEmail('invitation',p.fingerprint)).error)
+ h.state.mailThrow=false;h.state.dbFailures.clear();const restored=(await h.rfqV2.previewRfqEmail('invitation')).preview
+ assert.ok(restored.status);assert.ok((await h.rfqV2.sendConfirmedRfqEmail('invitation',restored.fingerprint)).error)
+ assert.equal(h.calls.filter(c=>c.kind==='email').length,1)
+})
 
 test('accepted RFQ email is sent once and stored atomically',async()=>{
  const h=harness()

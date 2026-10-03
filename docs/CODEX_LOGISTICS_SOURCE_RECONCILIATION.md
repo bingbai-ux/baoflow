@@ -1,0 +1,52 @@
+# 物流原資料と旧6件の照合（2026-10-02）
+
+## 別々に適用する物流根拠
+
+- 海源食品届：親が原メールを確認（2026-07-31 18:13、Kaigen岩佐）。Kaigenは正しい検査報告に基づいて食品届を作成するが、報告の正否は判定しない。供給者/依頼側が正しい読める食品接触材料の証拠を用意する。現行発送計画のfood_basisには資料の版/対象材料/確認者を記録し、inspection_readyとinspection_clearedを実施事実で分ける。メールだけで検査不要や通過済みにはしない。https://mail.google.com/mail/u/?authuser=bing.bai%40foodandcompany.co.jp#all/19fb77354725c802
+- YP Express：親確認の元管理表（改訂表記Apr25）には約20日船、箱ごとceil(L×W×H/5000)×箱数、受取先「义乌宝湾物流园3楼3栋4号门／老李／13566714204」。既存logistics-engineの式はこのYP資料系と整合するが、海源のCBM×167/21kg式とは違う。現行性・登録provider/methodとの対応未確認。受取先は参考資料に保持し、海源/air/食品共通住所へ自動入力しない。https://docs.google.com/spreadsheets/d/1h1Pfg7eDxqTg3jSF3zii6QqqauB2qmuzLlHksStzgnA/edit
+- Kaigen外部請求案内：親確認Sept15メールで2026年12月メール配信終了、2027年から外部ダウンロード。BAO顧客請求メールとは別。外部請求書取得/照合は担当による取得が必要、認証やAPIを推測しない。BAOの顧客メールを停止しない。
+
+完了条件：利用する便の現行個別見積（追加料・端数・区分混載・税込/含有範囲）、providerと船/air/食品区分に対応する現行受取先と担当確認、食品報告の材料/商品対象と正否の確認者、実食品手続/輸送イベントの正本。追跡APIが未提供なら手動の実績記録を明示する。自動連携の完了とは言わない。
+
+## 旧6件の発見と訂正
+
+新構造products/variantsやquote.spec_idは欠損しているが、旧deal_specificationsは全6案件に1件ずつ残存し未編集。したがって「旧仕様がない」は誤り。元の011_seed_data.sqlが6案件すべてを初期投入している。DBの仕様/見積作成日は全件2026-09-14で実見積日とは断定不可。
+全件のdesign_files/documents/deal_communications/RFQ/factory_purchase_ordersは0、quote source_file_url/factory_response/existing_quote_file/参考画像もなし。ローカル営業CRM/工場クライアント兼用管理表には顧客名/旧商品名一致0。原取引見積を発見したとみなさない。
+
+検索キー（DB既存metadata）：
+|案件番号|顧客|旧商品名|
+|---|---|---|
+|PF-202602-001|ROAST WORKS|クラフト紙スタンドパウチ250g|
+|PF-202602-003|gelato BENE|PETアイスカップ280ml|
+|PF-202602-004|抹茶一期|抹茶保存缶100g|
+|PF-202602-005|Burger CRAFT|バイオマスレジ袋Mサイズ|
+|PF-202602-006|ROAST WORKS|テイクアウト用リッド12oz|
+|PF-202602-007|gelato BENE|ホールケーキ用化粧箱5号|
+
+安全な修正案：旧仕様と初期投入根拠を読取表示し、元数値/採用/旧PDFを保持する。実取引なら原仕様と工場見積との対応を確認した新商品/variant/価格版を作成し、旧見積は勝手に転用しない。初期投入だけのデータなら、その確認結果に基づく扱いを決める。架空/不要と推測して削除・自動archiveもしない。唯一の同案件旧仕様があるだけで、工場がその仕様を承認した証拠とはしない。
+
+## 復旧後の確定実装と受入
+
+- 公式DQ手数料と食品届出手数料を価格改訂の折畳み参考計算へ配線。DQは2025-04-01通関分から、基本3000円＋ceil(max(品目数−30,0)/10)×1000、立替納税1400円（リアルタイム口座振替なら0）、非課税。食品届出は2025-08-01通関分から、顧客作成5000円/件、海源作成は工場ごとceil(品目数/7)×5000＋(品目数−1)×1000。税扱い未確認を明示し、送料・関税・検査費に合算/費目転記しない。
+- 海源公式追跡https://japan-kaigen.com/tsuiseki/ を配送画面へ通常の外部リンクとして配線。追跡番号や顧客情報を自動送信しない。FCL/LCLのBLはハイフン除去の説明、実績は担当が根拠・日時を手動記録。POSTフォームはAPIとは扱わず、自動polling/スクレイピングをしない。
+- 海源国内加算PDFは1箱/地域/税別。重複するサイズ・重量境界、沖縄離島、木箱等の優先順位は決めず個別見積の確認を表示。https://japan-kaigen.com/wp-content/uploads/2024%E5%B9%B47%E6%9C%8825%E6%97%A5%E3%82%88%E3%82%8A%E6%94%B9%E5%AE%9A.pdf
+- 案件画面に旧仕様の読取欄を追加。名称/寸法/素材/印刷/加工を旧テーブルから表示し「出自と採用見積との対応は未確認」「新発注前に原仕様・工場見積照合」を明示。見積金額/旧履歴/quote.spec_id/variant_idを変更せず、SQL上の復元と実取引確認を混同しない。
+- 本番read-onlyで全6件、初期seedの仕様名称・寸法・素材と未編集、見積version1・数量・工場単価・工場名・source manualが各1件一致。単に同案件1仕様だけより強い初期投入identity根拠はある。しかしquoteからspecへの直接ID/工場見積原文/固定snapshotは欠損したまま。これは初期投入対応の証明であり実取引契約の証明ではない。
+
+可逆移行案：同じstrict seed fingerprintをguardし、独立legacy商品/variantへ旧値だけをコピー、出自未確認のlineageを保存。旧quote/旧仕様/旧PDFは更新せず、新発注は確認済み新価格版を作成する。現行受取先・金融条件を推測しない。取り消し時は生成したlegacyレコードの参照・後続利用0を確認して非使用へ戻し、原履歴を削除しない。この案はまだDML/migration化・適用していない。直接quote.variant_idを書換える自動backfillはしない。
+
+対象calc5 PASS（DQ30/31/40/41/80/81/90/91、食品7/8/14/15含む）、390px browser2 distinct PASS（手数料・費目不変・旧仕様読取/履歴不変、配送HTTP200/公式リンク/無write）、lint/typecheck/build PASS。14 migration bytesと権限/DB変更0。Mac切断時の未起動コマンドを二重実行せず、clean基点から再開した。
+
+## 2026-10-02 supplier reply / original workbook reconciliation
+
+Previously supplied `报价表.xlsx` was materialized from Library `libfile_ab0e26761f748191a53812979d8a095e` (152370 bytes; SHA256 `7c9c1880309c893e0d6a44e5d6533d33171881b35eebdc77be6b3886d66298c1`). All three sheets were read: 海运包税 / DQ快船 / 空运包税. Workbook modified metadata is 2026-07-14; sea tariff explicitly effective 2025-06-15. This does not establish that the same-name attachment visible in the reply is byte-identical.
+
+Both supplier screenshots were materialized and visually inspected (IMG_2792.png, 584879 bytes; IMG_2793.png, 558688 bytes). Reply establishes DQ whole-ticket ceiling and sea/air DDP per-box ceiling. UI implements only rounding of logistics-confirmed chargeable weights; it does not infer dimensional comparison order or alter saved freight. Ordinary/sensitive cargo separation remains the default; sufficient documents require supplier confirmation of any exception. Food inspection certificates and Japanese food filing are distinct. Self-filed food filing does not imply all fees/taxes/inspection duties waived.
+
+Sea ordinary/sensitive/special rates are 20/24/33 CNY; special cargo requires quotation. DQ 7.5/KG and air 28/33/KG have no explicit currency on their sheets and are not auto-applied. Unresolved: Sagawa +1 vs +1.5, DQ delivery included vs additional, document-based DQ exception versus older prohibited-food wording, exact scope of self-filing fee waiver. These require individual quotation rather than blocking drafting. No inquiry sent.
+
+Yiwu and Shenzhen receiving addresses were verified from original screenshots; Yiwu terminal glyph `6号巾` remains uncorrected and must be confirmed before dispatch. Raw contacts/addresses remain in private local source files, not the client bundle. Supplier screenshot sender is not assumed identical to Japanese customs contact. Screenshot times have no date. Official website tracking is manual; no API permission inferred.
+
+User explicitly deferred size-limit automation. Size exceptions remain dispatch-time quotation; weight, dimensional-weight reference and rounding remain active. No size-boundary gate or new database/permission changes introduced.
+
+Validation: six focused calculation tests; one actual fixture browser mobile journey (ticket 151kg, boxes 26kg, saved freight unchanged, no price revision writes); lint/typecheck passed. Screenshot: `artifacts/supplier-rounding-390.png`. Production remains behind fresh backup verification; this is local acceptance only.

@@ -1,4 +1,5 @@
 'use client'
+import {frozenFxNote,FX_NOTE_PREFIX,usesDailyReference} from '@/lib/calc/fx-reference'
 
 import { documentTotals } from '@/lib/calc/document-totals'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -57,6 +58,7 @@ export interface VariantLite {
 }
 
 export interface QuoteLite {
+  pricing_snapshot?: Record<string,unknown>|null
   id: string
   spec_id: string | null
   variant_id: string | null
@@ -326,7 +328,7 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
             <Row label="商品小計 (税抜)" value={formatJPY(subtotal)} />
             {feesTotal > 0 && <Row label="別途費用" value={formatJPY(feesTotal)} />}
             <Row label="課税対象 (税抜)" value={formatJPY(taxableSubtotal)} />
-            <Row label="消費税 (10%)" value={formatJPY(tax)} />
+            <Row label="保存済み消費税" value={formatJPY(tax)} />
           </div>
           <div className="border-t-2 border-[#351E28] mt-2 pt-2">
             <Row
@@ -354,6 +356,9 @@ function PricedTemplate({ type, deal, specs, products, variants, quotes, fees, c
           </div>
         </section>
       )}
+
+      {frozenFxNote(quotes)&&!meta.notes?.includes(FX_NOTE_PREFIX)&&<p className="text-[10px] text-[#84787D] mb-3 whitespace-pre-wrap">{frozenFxNote(quotes)}。円単価・税込総額は切上げ。保存した発行版を再出力します。</p>}
+      {usesDailyReference(quotes)&&<a href="https://www.exchangerate-api.com" className="text-[10px] underline" target="_blank" rel="noreferrer">Rates By Exchange Rate API</a>}
 
       <footer className="text-center text-[9px] text-[#AEB8A0] mt-8 pt-4 border-t border-[#EFEFEA]">
         Issued via BAO Flow · {today}

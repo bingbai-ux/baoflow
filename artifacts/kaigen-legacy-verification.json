@@ -1,0 +1,13 @@
+{
+  "calc_pass": 5,
+  "browser_distinct_pass": 2,
+  "source_seed_matching_cases": 6,
+  "legacy_link_modified": false,
+  "production_write": false,
+  "external_send": false,
+  "tracking": "public link/manual event only; no API/polling",
+  "migration_bytes_changed": false,
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS"
+}

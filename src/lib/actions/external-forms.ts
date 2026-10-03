@@ -284,6 +284,7 @@ export async function submitRfqResponse(
  * RFQ 回答フォームの表示データ (anonymous)。案件名は返さない (§0.5-5 マスキング)。
  */
 export interface RfqContext {
+  schema_version?: number
   rfq: {
     id: string
     rfq_number: string | null

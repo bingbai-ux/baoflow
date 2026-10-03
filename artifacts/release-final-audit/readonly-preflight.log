@@ -1,0 +1,14 @@
+BEGIN
+SET
+SET
+NOTICE:  {"check": "missing_candidate_tables", "count": 0, "expected_after_apply": 0}
+NOTICE:  {"check": "candidate_rls_disabled", "count": 0, "expected": 0}
+NOTICE:  {"check": "candidate_direct_or_anon_table_access", "count": 0, "expected": 0}
+NOTICE:  {"check": "candidate_definer_anon_execute", "count": 0, "expected": 0}
+NOTICE:  {"check": "candidate_definer_search_path", "count": 0, "expected": 0}
+NOTICE:  {"check": "missing_candidate_definers", "count": 0, "expected_after_apply": 0}
+NOTICE:  {"check": "chat_broad_or_write_policies", "count": 0, "expected_after_apply": 0}
+NOTICE:  {"check": "private_qc_bucket_exists", "count": 1, "expected_after_apply": 1}
+NOTICE:  {"check": "legacy_unbound_quotes_preserve_manual_resolution", "count": 0, "severity": "warning_no_guess_backfill"}
+DO
+ROLLBACK

@@ -1,0 +1,29 @@
+{
+  "focused": {
+    "pass": 15,
+    "fail": 0
+  },
+  "native": {
+    "distinct": 1,
+    "pass": 1,
+    "scenario": "synthetic real Auth/PostgREST/Postgres reprice/customer reapproval/invoice cash carry/Mailpit/PDF; fixed FX notes via synthetic issued document fixture"
+  },
+  "pdf_text_checks": [
+    "参考FX",
+    "日次参考値",
+    "ExchangeRate-API",
+    "150 JPY/USD",
+    "20 JPY/CNY",
+    "6,600",
+    "550",
+    "6,050",
+    "2026-10-31"
+  ],
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "existing_stage12_evidence": "48 pages /25 fixture browser /3 native accepted separately; not rerun",
+  "production_changed": false,
+  "migration_applied_to_production": false,
+  "live_fx_native": "NO: isolated synthetic daily feed; actual external read separately documented Stage12"
+}
