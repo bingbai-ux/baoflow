@@ -7,26 +7,20 @@
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireSalesAccess } from './deal-access'
+import { normalizeAccountInviteEmail, prepareAccountInvite, type AccountInviteInput } from '@/lib/utils/account-invites'
 
-export async function createAccountInvitation(input: {
-  portal_role: 'client' | 'logistics' | 'factory'
-  client_id?: string | null
-  partner_id?: string | null
-  factory_id?: string | null
-  label?: string | null
-}): Promise<{ token: string | null; error: string | null }> {
+export async function createAccountInvitation(input: AccountInviteInput): Promise<{ token: string | null; error: string | null }> {
   const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { token: null, error: accessError }
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { token: null, error: 'Unauthorized' }
 
-  if (input.portal_role === 'client' && !input.client_id)
-    return { token: null, error: 'クライアントを指定してください' }
-  if (input.portal_role === 'logistics' && !input.partner_id)
-    return { token: null, error: '物流パートナーを指定してください' }
-  if (input.portal_role === 'factory' && !input.factory_id)
-    return { token: null, error: '工場を指定してください' }
+  const prepared = prepareAccountInvite(input)
+  if (!prepared.context) return { token: null, error: prepared.error }
 
   const token = crypto.randomBytes(24).toString('base64url')
   const { error } = await supabase.from('external_forms').insert({
@@ -34,13 +28,7 @@ export async function createAccountInvitation(input: {
     token,
     status: 'pending',
     created_by: user.id,
-    context: {
-      portal_role: input.portal_role,
-      client_id: input.client_id || null,
-      partner_id: input.partner_id || null,
-      factory_id: input.factory_id || null,
-      label: input.label || null,
-    },
+    context: prepared.context,
   })
   if (error) return { token: null, error: error.message }
   revalidatePath('/master')
@@ -65,6 +53,7 @@ export async function getAccountInviteInfo(token: string): Promise<{
   error?: string
   portalRole?: 'client' | 'logistics' | 'factory'
   orgName?: string
+  recipientEmail?: string
 }> {
   const supabase = await createClient()
   const { data } = await supabase.rpc('ext_form_by_token', { p_token: token }).maybeSingle()
@@ -74,7 +63,7 @@ export async function getAccountInviteInfo(token: string): Promise<{
     status: string
     cancelled_at: string | null
     expires_at: string | null
-    context: { portal_role?: string; client_id?: string; partner_id?: string; label?: string } | null
+    context: { portal_role?: string; client_id?: string; partner_id?: string; label?: string; recipient_email?: string } | null
   }
   if (form.form_type !== 'account_invite') return { valid: false, error: '招待リンクが見つかりません' }
   if (form.status === 'submitted') return { valid: false, error: 'この招待は既に使用されています' }
@@ -84,9 +73,12 @@ export async function getAccountInviteInfo(token: string): Promise<{
     return { valid: false, error: 'この招待は有効期限が切れています' }
 
   const role = (form.context?.portal_role || '') as 'client' | 'logistics' | 'factory'
+  const recipientEmail = normalizeAccountInviteEmail(form.context?.recipient_email)
+  if (!recipientEmail || !['client', 'factory', 'logistics'].includes(role)) return { valid: false, error: '宛先を指定した新しい招待を依頼してください' }
   return {
     valid: true,
     portalRole: role,
     orgName: form.context?.label || undefined,
+    recipientEmail,
   }
 }
