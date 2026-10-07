@@ -4,6 +4,8 @@ import { createClient as createSupabase } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Factory } from '@/lib/types'
 import type { FactoryRollup } from './master-types'
+import { requireSalesAccess } from './deal-access'
+import { normalizeAccountInviteEmail } from '@/lib/utils/account-invites'
 
 export interface FactoryInput {
   factory_name: string
@@ -92,19 +94,55 @@ export async function createFactoryRecord(
 
 export async function updateFactoryRecord(
   id: string,
-  input: FactoryInput | FormData
+  input: FactoryInput | FormData,
+  expectedUpdatedAt: string
 ): Promise<{ data: Factory | null; error: string | null }> {
+  return saveExistingFactory(id, input, expectedUpdatedAt, false)
+}
+
+/** Explicit staff attestation; saves verified RFQ information on the existing factory. */
+export async function completeFactoryBasicInfo(
+  id: string,
+  input: FormData,
+  expectedUpdatedAt: string
+): Promise<{ data: Factory | null; error: string | null }> {
+  if (!(input instanceof FormData) || input.get('basic_info_reviewed') !== 'on')
+    return { data: null, error: '工場名と連絡先メールを確認してください' }
+  return saveExistingFactory(id, input, expectedUpdatedAt, true)
+}
+
+async function saveExistingFactory(id: string, input: FactoryInput | FormData, expectedUpdatedAt: string, complete: boolean) {
   const supabase = await createSupabase()
-  const data = parseFormData(input)
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { data: null, error: accessError }
+  if (!input || typeof input !== 'object') return { data: null, error: '工場の基本情報を入力してください' }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    || typeof expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(expectedUpdatedAt)))
+    return { data: null, error: '工場を再読み込みしてから保存してください' }
+  // Parse an allowlisted set of fields, even if the server action receives an object.
+  const form = input instanceof FormData ? input : (() => {
+    const fd = new FormData()
+    for (const [key, value] of Object.entries(input)) if (value != null) fd.set(key, Array.isArray(value) ? value.join('\n') : String(value))
+    return fd
+  })()
+  const data = parseFormData(form)
+  const { data: current, error: readError } = await supabase.from('factories')
+    .select('id,basic_info_completed').eq('id', id).eq('updated_at', expectedUpdatedAt).maybeSingle()
+  if (readError || !current) return { data: null, error: '工場が変更されたか、編集できません。再読み込みしてください' }
   if (!data.factory_name?.trim()) return { data: null, error: '工場名は必須です' }
+  if (complete || current.basic_info_completed) {
+    const email = normalizeAccountInviteEmail(data.contact_email)
+    if (!email) return { data: null, error: 'RFQ用の連絡先メールアドレスは必須です' }
+    data.contact_email = email
+  }
 
   const { data: row, error } = await supabase
     .from('factories')
-    .update({ ...data, updated_at: new Date().toISOString() })
-    .eq('id', id)
+    .update({ ...data, ...(complete ? { basic_info_completed: true } : {}), updated_at: new Date(Math.max(Date.now(), Date.parse(expectedUpdatedAt) + 1)).toISOString() })
+    .eq('id', id).eq('updated_at', expectedUpdatedAt)
     .select()
-    .single()
-  if (error) return { data: null, error: error.message }
+    .maybeSingle()
+  if (error || !row) return { data: null, error: '工場が変更されたか、保存できません。再読み込みしてください' }
   revalidatePath('/master')
   return { data: row as Factory, error: null }
 }

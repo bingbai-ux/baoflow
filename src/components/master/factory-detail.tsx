@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2, Edit2, Save, X, Star } from 'lucide-react'
-import { updateFactoryRecord, deleteFactoryRecord } from '@/lib/actions/factories'
+import { updateFactoryRecord, completeFactoryBasicInfo, deleteFactoryRecord } from '@/lib/actions/factories'
 import type { FactoryRollup } from '@/lib/actions/master-types'
 import type { Factory } from '@/lib/types'
 import { formatDate } from '@/lib/utils/format'
@@ -20,18 +20,24 @@ export function FactoryDetail({ factory, rollup }: Props) {
   const [pending, startSave] = useTransition()
   const [deleting, startDelete] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const saving = useRef(false)
+  const [reviewed, setReviewed] = useState(false)
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (saving.current) return
+    const complete = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('name') === 'complete_basic_info'
+    if (complete && !reviewed) return
+    saving.current = true
     setError(null)
     const fd = new FormData(e.currentTarget)
     startSave(async () => {
-      const r = await updateFactoryRecord(factory.id, fd)
-      if (r.error) setError(r.error)
-      else {
-        setEditing(false)
-        router.refresh()
-      }
+      try {
+        const r = await (complete ? completeFactoryBasicInfo : updateFactoryRecord)(factory.id, fd, factory.updated_at)
+        if (r.error) setError(r.error)
+        else { setEditing(false); router.refresh() }
+      } catch { setError('保存できませんでした。再読み込みして確認してください') }
+      finally { saving.current = false }
     })
   }
 
@@ -50,11 +56,11 @@ export function FactoryDetail({ factory, rollup }: Props) {
 
   if (editing) {
     return (
-      <form onSubmit={handleSave} className="space-y-4">
+      <form onSubmit={handleSave} onChange={(e) => { if ((e.target as HTMLElement).getAttribute('name') !== 'basic_info_reviewed') setReviewed(false) }} className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-[18px] font-semibold">工場編集</h2>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setEditing(false)} className="text-[12px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-3 py-1 inline-flex items-center gap-1">
+            <button type="button" disabled={pending} onClick={() => setEditing(false)} className="text-[12px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-3 py-1 inline-flex items-center gap-1">
               <X className="w-3 h-3" />キャンセル
             </button>
             <button type="submit" disabled={pending} className="text-[12px] text-[#C9A2B8] bg-[#351E28] rounded-[8px] px-3 py-1 inline-flex items-center gap-1 disabled:opacity-50">
@@ -63,7 +69,14 @@ export function FactoryDetail({ factory, rollup }: Props) {
           </div>
         </div>
         {error && <ErrorBanner message={error} />}
-        <FactoryFormFields initial={factory} />
+        <fieldset disabled={pending} className="space-y-4"><FactoryFormFields initial={factory} /></fieldset>
+        <Section title="RFQ用基本情報の確認">
+          <p className="text-[11px]">工場名と連絡先メールを確認して登録を完了します。未確認の住所・電話・銀行情報は空欄で保存できます。</p>
+          <label className="flex items-center gap-2 text-[12px] py-2">
+            <input type="checkbox" name="basic_info_reviewed" checked={reviewed} disabled={pending} onChange={(e) => setReviewed(e.target.checked)} />工場名と連絡先メールを確認しました
+          </label>
+          <button type="submit" name="complete_basic_info" disabled={pending || !reviewed} className="min-h-11 rounded-full bg-[#E9F056] px-4 text-[12px] disabled:opacity-40">基本情報を保存して登録完了</button>
+        </Section>
       </form>
     )
   }
@@ -89,7 +102,7 @@ export function FactoryDetail({ factory, rollup }: Props) {
             factoryId={factory.id}
             orgLabel={factory.factory_name}
           />
-          <button onClick={() => setEditing(true)} className="text-[11px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 inline-flex items-center gap-1 hover:bg-[#FBFAF6]">
+          <button onClick={() => { setReviewed(false); setEditing(true) }} className="text-[11px] text-[#351E28] border border-[#E2E1DA] rounded-[8px] px-2 py-1 inline-flex items-center gap-1 hover:bg-[#FBFAF6]">
             <Edit2 className="w-3 h-3" />編集
           </button>
           <button onClick={handleDelete} disabled={deleting} className="text-[11px] text-[#B03616] border border-[#FFD8C2] rounded-[8px] px-2 py-1 inline-flex items-center gap-1 hover:bg-[#FFD8C2] disabled:opacity-50">
@@ -99,6 +112,7 @@ export function FactoryDetail({ factory, rollup }: Props) {
       </div>
 
       {error && <ErrorBanner message={error} />}
+      <p className="text-[12px]">RFQ用基本情報: {factory.basic_info_completed ? '登録完了' : '未完了 — 編集画面で工場名と連絡先メールを確認してください'}</p>
 
       {/* 評価 */}
       <div className="grid grid-cols-3 gap-2">
