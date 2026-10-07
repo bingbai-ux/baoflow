@@ -4,7 +4,7 @@
 // 未ログイン: 新規登録 or ログイン → 招待受け取り → ポータルへ。
 // ログイン済み: そのまま受け取りボタン。
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { claimAccountInvite } from '@/lib/actions/account-invites'
@@ -40,6 +40,7 @@ export function AccountInviteClient({
   const [msg, setMsg] = useState<string | null>(null)
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
   const [pending, startTransition] = useTransition()
+  const submitting = useRef(false)
   const recipient = normalizeAccountInviteEmail(recipientEmail)
   const wrongAccount = !!loggedInEmail && normalizeAccountInviteEmail(loggedInEmail) !== recipient
 
@@ -54,45 +55,54 @@ export function AccountInviteClient({
   }
 
   const claimAndGo = () => {
-    if (pending || wrongAccount || !recipient) return
-    startTransition(receive)
+    if (submitting.current || wrongAccount || !recipient) return
+    submitting.current = true
+    startTransition(async () => {
+      try { await receive() }
+      catch { setMsg('招待を受け取れませんでした。通信状態を確認して、もう一度お試しください。') }
+      finally { submitting.current = false }
+    })
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pending) return
+    if (submitting.current) return
     setMsg(null)
     const loginEmail = normalizeAccountInviteEmail(email)
     if (!recipient || loginEmail !== recipient) {
       setMsg('招待先のメールアドレスで登録・ログインしてください')
       return
     }
+    submitting.current = true
     startTransition(async () => {
-      const supabase = createClient()
-      if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email: loginEmail,
-          password,
-          options: { data: { display_name: name || email.split('@')[0] } },
-        })
-        if (error) {
-          setMsg(error.message)
-          return
+      try {
+        const supabase = createClient()
+        if (mode === 'signup') {
+          const { data, error } = await supabase.auth.signUp({
+            email: loginEmail,
+            password,
+            options: { data: { display_name: name || email.split('@')[0] } },
+          })
+          if (error) {
+            setMsg(error.message)
+            return
+          }
+          if (!data.session) {
+            // メール確認が必要な設定の場合
+            setNeedsEmailConfirm(true)
+            setPassword('')
+            return
+          }
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
+          if (error) {
+            setMsg(error.message)
+            return
+          }
         }
-        if (!data.session) {
-          // メール確認が必要な設定の場合
-          setNeedsEmailConfirm(true)
-          setPassword('')
-          return
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
-        if (error) {
-          setMsg(error.message)
-          return
-        }
-      }
-      await receive()
+        await receive()
+      } catch { setMsg('招待を受け取れませんでした。通信状態を確認して、もう一度お試しください。') }
+      finally { submitting.current = false }
     })
   }
 

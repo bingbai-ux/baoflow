@@ -107,7 +107,7 @@ const server=http.createServer(async(req,res)=>{
   send(null);return
  }
  if(!db[table])db[table]=[]
- let rows=db[table].filter(row=>{for(const [key,value]of url.searchParams){if(['select','order','limit','offset','on_conflict'].includes(key))continue;let actual=key.split('.').reduce((obj,k)=>obj?.[k],row);if(value.startsWith('eq.')&&String(actual)!==value.slice(3))return false;if(value==='is.null'&&actual!=null)return false;if(value==='not.is.null'&&actual==null)return false;if(value.startsWith('in.(')&&!value.slice(4,-1).split(',').includes(String(actual)))return false;if(value.startsWith('like.')&&!String(actual??'').startsWith(value.slice(5).replace('%','')))return false}return true})
+ let rows=db[table].filter(row=>{for(const [key,value]of url.searchParams){if(['select','order','limit','offset','on_conflict'].includes(key))continue;let actual=key.split('.').reduce((obj,k)=>obj?.[k],row);if(value.startsWith('gt.')&&Date.parse(actual)<=Date.parse(value.slice(3)))return false;if(value.startsWith('gt.')&&actual==null)return false;if(value.startsWith('cs.')){const expected=JSON.parse(value.slice(3));if(!actual||Object.entries(expected).some(([k,v])=>!Object.hasOwn(actual,k)||actual[k]!==v))return false}if(value.startsWith('eq.')&&String(actual)!==value.slice(3))return false;if(value==='is.null'&&actual!=null)return false;if(value==='not.is.null'&&actual==null)return false;if(value.startsWith('in.(')&&!value.slice(4,-1).split(',').includes(String(actual)))return false;if(value.startsWith('like.')&&!String(actual??'').startsWith(value.slice(5).replace('%','')))return false}return true})
  if(['GET','HEAD'].includes(req.method)){rows=rows.map(row=>{
   if(table==='inbound_shipments')return {...row,client:db.clients.find(c=>c.id===row.client_id),deal:db.deals.find(d=>d.id===row.deal_id),lines:(db.inbound_shipment_items||[]).filter(l=>l.shipment_id===row.id)}
   if(table==='shipment_requests')return {...row,client:db.clients.find(c=>c.id===row.client_id),items:(db.shipment_request_items||[]).filter(l=>l.request_id===row.id).map(l=>({...l,item:db.inventory_items.find(i=>i.id===l.item_id)}))}
@@ -119,6 +119,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==='POST'){rows=(Array.isArray(input)?input:[input]).map(v=>({id:randomUUID(),created_at:now,updated_at:now,archived_at:null,master_status:'M01',...v}));db[table].push(...rows)}
  if(req.method==='PATCH')rows.forEach(r=>Object.assign(r,input))
  if(req.method==='DELETE'){db[table]=db[table].filter(r=>!rows.includes(r))}
+ if(url.searchParams.has('order')){const [key,direction]=url.searchParams.get('order').split('.');rows.sort((a,b)=>String(a[key]).localeCompare(String(b[key]))*(direction==='desc'?-1:1))}
  if(url.searchParams.has('limit'))rows=rows.slice(0,Number(url.searchParams.get('limit')))
  res.setHeader('content-range',`0-${Math.max(rows.length-1,0)}/${rows.length}`)
  if(req.method==='HEAD'){res.end();return}

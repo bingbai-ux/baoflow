@@ -131,6 +131,7 @@ export interface Client {
 
 export interface Factory {
   id: string
+  basic_info_completed: boolean
   contact_name: string | null
   factory_name: string
   rating: number | null

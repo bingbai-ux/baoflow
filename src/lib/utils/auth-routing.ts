@@ -4,7 +4,7 @@ export function isRoute(path: string, root: string): boolean {
 }
 
 export function isPublicAuthPath(path: string): boolean {
-  return ['/external', '/account-invite', '/auth/callback'].some(root => isRoute(path, root)) ||
+  return ['/external', '/account-invite', '/auth/callback', '/auth/confirm'].some(root => isRoute(path, root)) ||
     path === '/forgot-password' || path === '/reset-password'
 }
 

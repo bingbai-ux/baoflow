@@ -2,7 +2,7 @@
 
 // Sprint 13: 新しいパスワードの設定 (メールの再設定リンクから遷移)。
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,26 +12,39 @@ export default function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const submitting = useRef(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting.current) return
     setError(null)
     if (password.length < 8) return setError('パスワードは8文字以上にしてください')
     if (password !== confirm) return setError('確認用パスワードが一致しません')
+    submitting.current = true
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password })
-    setLoading(false)
-    if (error) {
-      setError(
-        error.message.includes('session')
-          ? 'セッションが切れています。もう一度「パスワード再設定」からやり直してください。'
-          : error.message
-      )
-      return
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        setError(
+          error.message.toLowerCase().includes('session')
+            ? 'セッションが切れています。認証メールを開いたブラウザでこの画面を開き直してください。解決しない場合は担当者へ連絡してください。'
+            : error.status === 0 || (error.status || 0) >= 500 || !error.message || error.message === '{}'
+              ? 'パスワードを設定できませんでした。通信状態を確認して、もう一度お試しください。'
+              : error.message
+        )
+        return
+      }
+      setPassword('')
+      setConfirm('')
+      router.push('/')
+      router.refresh()
+    } catch {
+      setError('パスワードを設定できませんでした。通信状態を確認して、もう一度お試しください。')
+    } finally {
+      submitting.current = false
+      setLoading(false)
     }
-    router.push('/')
-    router.refresh()
   }
 
   return (
@@ -49,6 +62,7 @@ export default function ResetPasswordPage() {
               <input
                 type="password" aria-label="新しいパスワード" autoComplete="new-password"
                 required
+                disabled={loading}
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -60,6 +74,7 @@ export default function ResetPasswordPage() {
               <input
                 type="password" aria-label="確認用パスワード" autoComplete="new-password"
                 required
+                disabled={loading}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 className="w-full bg-[#EFEFEA] rounded-[12px] px-[14px] py-[10px] text-[13px] border border-transparent outline-none focus:border-[#E2E1DA]"

@@ -10,6 +10,27 @@ import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { normalizeAccountInviteEmail, prepareAccountInvite, type AccountInviteInput } from '@/lib/utils/account-invites'
 
+/** Staff-only, read-only lookup. The existing claim RPC remains the authority at use time. */
+export async function findAccountInvitation(input: AccountInviteInput): Promise<{ token: string | null; error: string | null }> {
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { token: null, error: accessError }
+  const prepared = prepareAccountInvite(input)
+  if (!prepared.context) return { token: null, error: prepared.error }
+  const { portal_role, recipient_email, client_id, partner_id, factory_id } = prepared.context
+  const scope = { portal_role, recipient_email, client_id, partner_id, factory_id }
+  const { data, error } = await supabase.from('external_forms')
+    .select('token')
+    .eq('form_type', 'account_invite').eq('status', 'pending')
+    .is('cancelled_at', null).gt('expires_at', new Date().toISOString())
+    .contains('context', scope)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  // Never expose database diagnostics that could contain bearer values.
+  if (error) return { token: null, error: '既存の招待を確認できませんでした' }
+  if (!data?.token) return { token: null, error: 'この宛先・会社・権限に一致する有効な招待がありません' }
+  return { token: data.token, error: null }
+}
+
 export async function createAccountInvitation(input: AccountInviteInput): Promise<{ token: string | null; error: string | null }> {
   const supabase = await createClient()
   const accessError = await requireSalesAccess(supabase)

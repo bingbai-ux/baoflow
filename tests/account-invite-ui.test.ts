@@ -8,15 +8,15 @@ import * as helpers from '../src/lib/utils/account-invites'
 type Element = {type: string; props: Record<string, any>}
 const email = 'owner+client@example.test'
 const org = '20000000-0000-4000-8000-000000000001'
-function harness(kind: 'creator' | 'receiver', props: Record<string, unknown>, options: {confirm?: boolean; claimError?: string} = {}) {
+function harness(kind: 'creator' | 'receiver', props: Record<string, unknown>, options: {confirm?: boolean; claimError?: string; lookupError?: boolean} = {}) {
   const states: any[] = [], jobs: Promise<unknown>[] = [], calls: any[] = [], routes: string[] = []
   let index = 0
   const useState = (initial: any) => {const slot=index++; if (!(slot in states)) states[slot]=initial; return [states[slot], (value: any) => {states[slot] = typeof value === 'function' ? value(states[slot]) : value}]}
-  const react = {useState, useTransition: () => {const [pending,setPending]=useState(false); return [pending,(fn: () => unknown) => {setPending(true); jobs.push(Promise.resolve().then(fn).finally(() => setPending(false)))}]}}
+  const react = {useState, useRef: (initial: any) => {const [value] = useState({current:initial}); return value}, useTransition: () => {const [pending,setPending]=useState(false); return [pending,(fn: () => unknown) => {setPending(true); jobs.push(Promise.resolve().then(fn).finally(() => setPending(false)))}]}}
   const exports: Record<string, any> = {}
   const file = kind === 'creator' ? '../src/components/master/account-invite-button.tsx' : '../src/components/external/account-invite-client.tsx'
   const compiled = ts.transpileModule(readFileSync(new URL(file, import.meta.url),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText
-  runInNewContext(compiled, {exports, window:{location:{origin:'http://127.0.0.1:3100'}}, require: (name: string) => {
+  runInNewContext(compiled, {exports, navigator:{clipboard:{writeText:async()=>{calls.push({kind:'copy'})}}}, window:{location:{origin:'http://127.0.0.1:3100'}}, require: (name: string) => {
     if (name === 'react') return react
     if (name === 'react/jsx-runtime') return {jsx: (type: string, props: any) => ({type,props}), jsxs: (type: string, props: any) => ({type,props}), Fragment: 'fragment'}
     if (name === 'lucide-react') return {Copy:'icon',KeyRound:'icon',X:'icon'}
@@ -24,6 +24,7 @@ function harness(kind: 'creator' | 'receiver', props: Record<string, unknown>, o
     if (name.includes('utils/account-invites')) return helpers
     if (name.includes('ui-store')) return {useUi: () => ({toast: () => {}})}
     if (name.includes('actions/account-invites')) return {
+      findAccountInvitation:async(input: any)=>{calls.push({kind:'lookup',input}); return options.lookupError ? {token:null,error:'一致する有効な招待がありません'} : {token:'nonsecret-synthetic-fixture',error:null}},
       createAccountInvitation:async(input: any)=>{calls.push({kind:'create', input}); return {token:'nonsecret-synthetic-fixture',error:null}},
       claimAccountInvite:async()=>{calls.push({kind:'claim'}); return options.claimError ? {success:false,error:options.claimError} : {success:true,portalRole:props.portalRole || 'client'}},
     }
@@ -108,4 +109,22 @@ test('existing verified recipient claims through each role home; rejected claim 
   const h=harness('receiver',{valid:true,recipientEmail:email,loggedInEmail:email},{claimError:'スタッフアカウントではこの招待を使えません'})
   button(h.render(),'この招待を受け取る').props.onClick();await h.flush()
   assert.equal(h.routes.length,0);assert.match(text(h.render()),/スタッフアカウント/)
+})
+
+
+test('existing invitation retrieval and copy revalidate without generating; failed lookup never copies', async () => {
+  for (const lookupError of [false,true]) {
+    const h=harness('creator',{portalRole:'client',clientId:org,orgLabel:'Synthetic client'},{lookupError})
+    button(h.render(),'ログイン招待').props.onClick()
+    find(h.render(),e=>e.type==='input'&&e.props.id==='account-invite-email').props.onChange({target:{value:email}})
+    const view=h.render(), lookup=button(view,'既存の有効な招待')
+    lookup.props.onClick();lookup.props.onClick();await h.flush()
+    assert.deepEqual(h.calls.map(c=>c.kind),['lookup'])
+    if (!lookupError) {
+      button(h.render(),'コピー').props.onClick();await h.flush()
+      assert.deepEqual(h.calls.map(c=>c.kind),['lookup','lookup','copy'])
+      find(h.render(),e=>e.type==='button'&&e.props['aria-label']==='招待画面を閉じる').props.onClick()
+      assert.ok(!elements(h.render()).some(e=>e.props?.role==='dialog'))
+    } else assert.ok(!elements(h.render()).some(e=>e.type==='input'&&e.props.readOnly))
+  }
 })

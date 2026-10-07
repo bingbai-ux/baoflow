@@ -1,0 +1,82 @@
+import {test,expect} from '@playwright/test'
+const fixture='http://127.0.0.1:55440'
+const client='22222222-2222-4222-8222-222222222222'
+const factory='77777777-7777-4777-8777-777777777771'
+const email='local+client@example.test'
+const synthetic='nonsecret-synthetic-existing-invitation'
+const context={portal_role:'client',recipient_email:email,client_id:client,factory_id:null,partner_id:null,label:'Synthetic company'}
+const invitation={form_type:'account_invite',token:synthetic,status:'pending',cancelled_at:null,expires_at:'2100-01-01T00:00:00Z',context}
+test.beforeEach(async({context,request})=>{
+ await context.route('**/*',route=>['127.0.0.1','localhost'].includes(new URL(route.request().url()).hostname)?route.continue():route.abort())
+ await context.grantPermissions(['clipboard-read','clipboard-write'])
+ await request.post(fixture+'/__reset')
+ const actor='11111111-1111-4111-8111-111111111111'
+ const token=[{alg:'HS256',typ:'JWT'},{sub:actor,exp:4102444800,iat:1700000000,role:'authenticated'},'fixture'].map(x=>typeof x==='string'?x:Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')
+ const value={access_token:token,refresh_token:'nonsecret-fixture',expires_at:4102444800,expires_in:3600,token_type:'bearer',user:{id:actor,role:'authenticated',email:'local@example.test'}}
+ await context.addCookies([{name:'sb-127-auth-token',value:'base64-'+Buffer.from(JSON.stringify(value)).toString('base64url'),domain:'127.0.0.1',path:'/'}])
+})
+test('existing invite can reopen and copy without another insert; consumed invite cannot copy',async({page,request})=>{
+ await request.post(fixture+'/rest/v1/external_forms',{data:invitation})
+ await page.goto('/master?tab=clients&id='+client)
+ await page.getByRole('button',{name:'ログイン招待',exact:true}).click()
+ const dialog=page.getByRole('dialog')
+ await dialog.getByLabel('招待先メールアドレス').fill(email.toUpperCase())
+ await dialog.getByRole('button',{name:'既存の有効な招待を再表示'}).click()
+ await expect(dialog.getByLabel('生成した招待リンク')).toHaveValue('http://127.0.0.1:3100/account-invite/'+synthetic)
+ await dialog.getByRole('button',{name:'コピー',exact:true}).click()
+ await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toBe('http://127.0.0.1:3100/account-invite/'+synthetic)
+ let state=await (await request.get(fixture+'/__state')).json()
+ expect(state.external_forms).toHaveLength(1)
+ await dialog.getByLabel('招待画面を閉じる').click()
+ await page.getByRole('button',{name:'ログイン招待',exact:true}).click()
+ await dialog.getByLabel('招待先メールアドレス').fill(email)
+ await dialog.getByRole('button',{name:'既存の有効な招待を再表示'}).click()
+ await expect(dialog.getByLabel('生成した招待リンク')).toBeVisible()
+ await request.patch(fixture+'/rest/v1/external_forms?token=eq.'+synthetic,{data:{status:'submitted'}})
+ await dialog.getByRole('button',{name:'コピー',exact:true}).click()
+ await expect(dialog.getByLabel('生成した招待リンク')).toHaveCount(0)
+ state=await (await request.get(fixture+'/__state')).json()
+ expect(state.external_forms).toHaveLength(1);expect(state.external_forms[0].status).toBe('submitted')
+})
+test('only exact company recipient can redisplay; expiry and cancellation do not create a replacement',async({page,request})=>{
+ await request.post(fixture+'/rest/v1/external_forms',{data:[{...invitation,context:{...context,client_id:'22222222-2222-4222-8222-222222222223'}},{...invitation,token:'synthetic-expired',expires_at:'2020-01-01T00:00:00Z'},{...invitation,token:'synthetic-cancelled',cancelled_at:'2026-09-30T00:00:00Z'}]})
+ await page.goto('/master?tab=clients&id='+client)
+ await page.getByRole('button',{name:'ログイン招待',exact:true}).click()
+ const dialog=page.getByRole('dialog')
+ await dialog.getByLabel('招待先メールアドレス').fill(email)
+ await dialog.getByRole('button',{name:'既存の有効な招待を再表示'}).click()
+ await expect(page.getByText('この宛先・会社・権限に一致する有効な招待がありません')).toBeVisible()
+ await expect(dialog.getByLabel('生成した招待リンク')).toHaveCount(0)
+ const state=await (await request.get(fixture+'/__state')).json();expect(state.external_forms).toHaveLength(3)
+})
+test('normal factory editing explicitly verifies name/email and completes the same factory with unknown details empty',async({page,request})=>{
+ await request.post(fixture+'/rest/v1/factories',{data:{id:factory,factory_name:'Synthetic factory',contact_email:email,notes:'Synthetic only',bank_info:null,basic_info_completed:false}})
+ await page.goto('/master?tab=factories&id='+factory)
+ await expect(page.getByText(/RFQ用基本情報: 未完了/)).toBeVisible()
+ await page.getByRole('button',{name:'編集',exact:true}).click()
+ const complete=page.getByRole('button',{name:'基本情報を保存して登録完了'})
+ await expect(complete).toBeDisabled()
+ await page.getByLabel('工場名と連絡先メールを確認しました').check()
+ await page.getByLabel('メール',{exact:true}).fill('')
+ await expect(complete).toBeDisabled()
+ await page.getByLabel('工場名と連絡先メールを確認しました').check()
+ await complete.click()
+ await expect(page.getByText('RFQ用の連絡先メールアドレスは必須です')).toBeVisible()
+ await page.getByLabel('メール',{exact:true}).fill(email)
+ await page.getByLabel('工場名と連絡先メールを確認しました').check()
+ await complete.click()
+ await expect(page.getByText('RFQ用基本情報: 登録完了')).toBeVisible()
+ const state=await (await request.get(fixture+'/__state')).json();expect(state.factories).toHaveLength(1)
+ const f=state.factories[0];expect(f.id).toBe(factory);expect(f.contact_email).toBe(email);expect(f.basic_info_completed).toBe(true)
+ expect(f.bank_info).toBeNull();expect(f.address).toBeNull();expect(f.contact_phone).toBeNull();expect(f.notes).toBe('Synthetic only')
+})
+test('stale factory edit refuses completion and retains newer registered data',async({page,request})=>{
+ await request.post(fixture+'/rest/v1/factories',{data:{id:factory,factory_name:'Synthetic factory',contact_email:email,basic_info_completed:false}})
+ await page.goto('/master?tab=factories&id='+factory)
+ await page.getByRole('button',{name:'編集',exact:true}).click()
+ await request.patch(fixture+'/rest/v1/factories?id=eq.'+factory,{data:{factory_name:'Newer saved factory',updated_at:'2100-01-01T00:00:00Z'}})
+ await page.getByLabel('工場名と連絡先メールを確認しました').check()
+ await page.getByRole('button',{name:'基本情報を保存して登録完了'}).click()
+ await expect(page.getByText('工場が変更されたか、編集できません。再読み込みしてください')).toBeVisible()
+ const state=await (await request.get(fixture+'/__state')).json();expect(state.factories[0].factory_name).toBe('Newer saved factory');expect(state.factories[0].basic_info_completed).toBe(false)
+})

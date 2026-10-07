@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { isPublicAuthPath, safeAuthDestination } from '../src/lib/utils/auth-routing'
 
 test('recovery callback and reset page are reachable before a session exists', () => {
-  for (const path of ['/auth/callback', '/reset-password', '/forgot-password', '/external/rfq-response/token']) assert.equal(isPublicAuthPath(path), true)
-  for (const path of ['/deals', '/externality', '/account-invites', '/master']) assert.equal(isPublicAuthPath(path), false)
+  for (const path of ['/auth/callback', '/auth/confirm', '/reset-password', '/forgot-password', '/external/rfq-response/token']) assert.equal(isPublicAuthPath(path), true)
+  for (const path of ['/deals', '/externality', '/account-invites', '/auth/confirmation', '/master']) assert.equal(isPublicAuthPath(path), false)
 })
 
 test('callback accepts local deep links and rejects external or backslash destinations', () => {
