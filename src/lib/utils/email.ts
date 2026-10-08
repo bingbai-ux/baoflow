@@ -5,7 +5,8 @@
 
 import { Resend } from 'resend'
 
-const resend = process.env.RESEND_API_KEY
+const mailFrom = process.env.RFQ_MAIL_FROM
+const resend = process.env.RESEND_API_KEY && mailFrom
   ? new Resend(process.env.RESEND_API_KEY)
   : null
 
@@ -21,15 +22,14 @@ export interface EmailParams {
  * @returns Success status
  */
 export async function sendEmail({ to, subject, body }: EmailParams): Promise<boolean> {
-  if (!resend) {
-    console.log('[Email] RESEND_API_KEY not set, skipping:', subject)
-    console.log('[Email] Would send to:', to)
+  if (!resend || !mailFrom) {
+    console.log('[Email] RESEND_API_KEY or RFQ_MAIL_FROM not set; email not sent')
     return false
   }
 
   try {
     const { error } = await resend.emails.send({
-      from: 'BAO Flow <noreply@baoflow.com>', // TODO: Update to actual domain
+      from: mailFrom,
       to,
       subject,
       html: body,
