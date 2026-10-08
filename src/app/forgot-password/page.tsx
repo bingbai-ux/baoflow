@@ -2,7 +2,7 @@
 
 // Sprint 13: パスワード再設定 (メール送信)。全ロール共通。
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -11,18 +11,38 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const submitting = useRef(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting.current) return
+    submitting.current = true
     setError(null)
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    })
-    setLoading(false)
-    if (error) setError(error.message)
-    else setSent(true)
+    const recipient = email.trim()
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(recipient, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      })
+      if (error) {
+        setError(
+          error.status === 0 || (error.status || 0) >= 500 || !error.message || error.message === '{}'
+            ? '再設定リンクを送信できませんでした。通信状態を確認して、もう一度お試しください。'
+            : error.status === 429
+              ? '送信回数の上限に達しました。時間をおいてから、もう一度お試しください。'
+              : error.message
+        )
+        return
+      }
+      setEmail(recipient)
+      setSent(true)
+    } catch {
+      setError('再設定リンクを送信できませんでした。通信状態を確認して、もう一度お試しください。')
+    } finally {
+      submitting.current = false
+      setLoading(false)
+    }
   }
 
   return (
@@ -37,7 +57,7 @@ export default function ForgotPasswordPage() {
           {sent ? (
             <p className="text-[13px] leading-relaxed text-center">
               再設定用のリンクを <b>{email}</b> に送りました。
-              メール内のリンクから新しいパスワードを設定してください。
+              この操作をしたブラウザでメール内のリンクを開き、新しいパスワードを設定してください。
             </p>
           ) : (
             <>
@@ -48,6 +68,7 @@ export default function ForgotPasswordPage() {
                 <input
                   type="email" aria-label="メールアドレス" autoComplete="email"
                   required
+                  disabled={loading}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="email@example.com"
