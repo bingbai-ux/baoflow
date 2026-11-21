@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 
-export type RecoverableOperation = 'case_chat' | 'deal' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc' | 'shipment_workflow'
+export type RecoverableOperation = 'case_chat' | 'deal' | 'project' | 'spec' | 'quantity' | 'rfq' | 'document' | 'storage_invoice' | 'pricing_revision' | 'sample_ledger' | 'client_finance' | 'factory_workflow' | 'factory_qc' | 'shipment_workflow'
 /** Read only the current staff user's saved transaction result, never another actor's request. */
 export async function recoverWorkflowRequest(operation: RecoverableOperation, requestId?: string, dealId?: string) {
   const supabase = await createClient()

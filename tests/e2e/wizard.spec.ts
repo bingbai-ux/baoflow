@@ -11,16 +11,18 @@ test.beforeEach(async({context,request})=>{
 // This verifies browser -> actual Next server action -> synthetic RPC wiring.
 // PostgreSQL transaction semantics are verified by verify-wizard-atomic.mjs.
 test('wizard retries save once, creates specification and adds a quantity through server actions',async({page,request})=>{
- await page.goto('/deals/new')
- await page.getByLabel('クライアント',{exact:true}).selectOption('22222222-2222-4222-8222-222222222222')
- await page.getByRole('button',{name:'パウチ',exact:true}).click()
- await request.post(fixture+'/__fail',{data:{table:'wizard_atomic'}})
- const failedActionPromise=page.waitForRequest(req=>req.method()==='POST'&&!!req.headers()['next-action'])
- await page.getByRole('button',{name:'案件を保存して商品仕様へ'}).click()
+ // 再設計 工程1: 新規作成は「取引先を選んでつくる」画面(create_project_v1)に置き換わった。
+ await page.goto('/deals/new?client=22222222-2222-4222-8222-222222222222')
+ const create=page.getByRole('button',{name:'このプロジェクトをつくる'})
+ await expect(create).toBeEnabled()
+ await request.post(fixture+'/__fail',{data:{table:'create_project_v1'}})
+ const isCreate=(req:import('@playwright/test').Request)=>req.method()==='POST'&&!!req.headers()['next-action']&&(req.postData()||'').includes('request_id')
+ const failedActionPromise=page.waitForRequest(isCreate)
+ await create.click()
  const failedAction=await failedActionPromise
  await expect(page.getByText('Local simulated database failure',{exact:true})).toBeVisible()
- const actionPromise=page.waitForRequest(req=>req.method()==='POST'&&!!req.headers()['next-action'])
- await page.getByRole('button',{name:'案件を保存して商品仕様へ'}).click()
+ const actionPromise=page.waitForRequest(isCreate)
+ await create.click()
  const action=await actionPromise
  expect(action.postData()).toBe(failedAction.postData())
  await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}(?:\?.*)?$/)
@@ -30,6 +32,10 @@ test('wizard retries save once, creates specification and adds a quantity throug
  await page.request.post('/deals/new',{headers:{'next-action':action.headers()['next-action'],'content-type':action.headers()['content-type'],'next-router-state-tree':action.headers()['next-router-state-tree'],origin:'http://127.0.0.1:3100',accept:'text/x-component'},data:action.postData()!})
  expect((await state()).deals).toHaveLength(2)
  expect((await state()).wizard_requests).toHaveLength(1)
+ // 旧ウィザードが作っていた「商品の枠」は新しい作成画面では作らないので、仕様入力の確認用にここで1つ用意する。
+ const created=(await state()).deals.find((d:{id:string})=>d.id!=='33333333-3333-4333-8333-333333333333')
+ await request.post(fixture+'/rest/v1/deal_products',{data:{deal_id:created.id,product_no:1,description:'パウチ',category_l1:'パウチ',is_selected:false}})
+ await page.goto(`/deals/${created.id}?step=2`)
  await page.getByRole('button',{name:'仕様・数量を入力',exact:true}).click()
  await page.getByLabel('数量パターン 1',{exact:true}).fill('1000')
  await page.getByLabel('数量パターン 2',{exact:true}).fill('2000')

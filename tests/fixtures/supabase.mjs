@@ -115,7 +115,7 @@ const server=http.createServer(async(req,res)=>{
    if(p.brand_id&&!b){send({code:'P0001',message:'ブランドがこの取引先に登録されていません'},400);return}
    const id=randomUUID(),code=`PF-202611-${String(number++).padStart(3,'0')}`,clientName=c.short_name||c.company_name
    db.deals.push({...structuredClone(deal),id,deal_code:code,deal_name:p.deal_name||`${b?.name||clientName} 2026年11月`,client_id:c.id,client_name_text:clientName,brand_text:b?.name||null,brand_id:p.brand_id||null,contact_id:p.contact_id||null,desired_delivery_date:p.desired_delivery_date||null,process_stage:1})
-   const result={success:true,dealId:id,dealCode:code};db.wizard_requests.push({request_id:input.p_request_id,operation:'project',payload:p,result});send(result);return
+   const result={success:true,dealId:id,dealCode:code};db.wizard_requests.push({request_id:input.p_request_id,user_id:IDs.user,operation:'project',payload:p,result});send(result);return
   }
   if(table==='set_process_stage'){
    if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}

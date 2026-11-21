@@ -26,13 +26,12 @@ async function pending(page:Page,scope:string){
  return entry
 }
 test('lost deal response restores the saved case after reload without another creation',async({page,request})=>{
- await page.goto('/deals/new')
- await page.getByLabel('クライアント',{exact:true}).selectOption('22222222-2222-4222-8222-222222222222')
- await page.getByRole('button',{name:'パウチ',exact:true}).click()
- const submit=page.getByRole('button',{name:'案件を保存して商品仕様へ'})
+ // 再設計 工程1: 新規作成は「取引先を選んでつくる」画面に置き換わった。復旧の仕組みは同じ。
+ await page.goto('/deals/new?client=22222222-2222-4222-8222-222222222222')
+ const submit=page.getByRole('button',{name:'このプロジェクトをつくる'})
  await expect(submit).toBeEnabled()
  await loseSaveResponse(page,()=>submit.click())
- await pending(page,'deal/new')
+ await pending(page,'project/new')
  const saved=await(await request.get(fixture+'/__state')).json()
  const id=saved.wizard_requests[0].result.dealId
  await page.reload();await expect(page).toHaveURL(new RegExp(`/deals/${id}$`))

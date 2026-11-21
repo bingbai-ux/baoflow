@@ -12,7 +12,7 @@ import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 import { StageHeader } from '@/components/process/stage-header'
-import { todayInJapan } from '@/lib/process/stages'
+import { daysLeft, stageLabel, todayInJapan } from '@/lib/process/stages'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
 // 問い合わせ→仕様→RFQ→工場回答→原価→売値→見積書→入金→入稿→製作→輸送→到着→完了 の
@@ -179,6 +179,8 @@ export default async function DealDetailPage({ params }: Props) {
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">待ち先</dt><dd className="font-bold">{waitingLabel(deal.waiting_on)}</dd><dd><details><summary className="cursor-pointer text-[11px] underline">変更</summary><WaitingOnBadge dealId={deal.id} value={deal.waiting_on} /></details></dd></div>
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">希望納期</dt><dd className="font-bold tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">担当</dt><dd className="font-bold">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
+        {/* スマホでは工程カードを出さない代わりに、ここへ文字で出す（作業欄を押し下げないため） */}
+        <div className="flex items-center gap-2 sm:hidden"><dt className="text-[#84787D]">工程</dt><dd className="font-bold tabular-nums">{deal.process_stage}/9 {stageLabel(deal.process_stage)} · {daysLeft(deal.desired_delivery_date, todayInJapan(), deal.process_stage).text}</dd></div>
       </dl>
 
       <details className="mb-3"><summary className="inline-flex min-h-11 items-center cursor-pointer underline text-[12px]">業務台帳を開く</summary><nav aria-label="案件の業務台帳" className="flex flex-wrap gap-x-4">

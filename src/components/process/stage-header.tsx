@@ -27,8 +27,9 @@ export function StageHeader({ dealId, stage, dueDate, today, archived }: { dealI
       router.refresh()
     })
   }
+  // スマホでは作業欄を押し下げないよう、このカードは出さない（案件番号の行に「工程 2/9 …」と文字で出す）。
   return (
-    <section aria-label="工程と納期" className="mb-3 rounded-[16px] border border-[#E2E1DA] bg-white p-4">
+    <section aria-label="工程と納期" className="mb-3 hidden rounded-[16px] border border-[#E2E1DA] bg-white p-4 sm:block">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="text-[15px] font-bold text-[#351E28]"><span className="tabular-nums">{current} / 9</span> {stageLabel(current)}</p>
         <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-[#351E28]">

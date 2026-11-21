@@ -38,7 +38,7 @@ test('mobile work stays visible, sections survive reload and Back, and missing i
  await expect(page.locator('#storage-issue-requirement')).toHaveText('クライアントを選択してください')
  await page.getByLabel('クライアント',{exact:true}).selectOption('22222222-2222-4222-8222-222222222222')
  await expect(page.locator('#storage-issue-requirement')).toContainText('請求対象量・単価・税率')
- await page.goto('/deals/new');await expect(page.locator('#deal-create-requirement')).toContainText('クライアント')
+ await page.goto('/deals/new');await expect(page.getByRole('list',{name:'作成の手順'})).toContainText('取引先') // 再設計 工程1: 新しい作成画面は手順(取引先→担当者・納期)を常に示す
  await request.post(fixture+'/__role',{data:{role:'client'}});await page.goto('/portal')
  await page.getByRole('button',{name:'出荷を依頼',exact:true}).click();await expect(page).toHaveURL(/tab=order/)
  await page.reload();await expect(page.getByRole('button',{name:'出荷を依頼',exact:true})).toHaveAttribute('aria-pressed','true')

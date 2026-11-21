@@ -21,7 +21,7 @@ test('capture the same synthetic case at desktop and mobile', async ({ page }) =
     expect((await page.goto(url))?.status()).toBe(200)
     await expect(page.locator('body')).not.toContainText('画面を読み込めませんでした')
     await page.evaluate(() => document.fonts.ready)
-    if (name === 'new') await expect(page.locator('#deal-create-requirement')).not.toContainText('確認しています')
+    if (name === 'new') await expect(page.getByRole('button', { name: /既存の取引先/ })).toBeVisible() // 再設計 工程1: 新しい作成画面
     if (name === 'case' && phase === 'after') {
       const action = page.getByRole('region', { name: '次の対応' }).getByRole('button', { name: '売値を比較して採用', exact: true })
       await expect(action).toBeVisible()
@@ -72,13 +72,13 @@ test('legacy confirmed without adoption guides to adoption, not invoice or paid,
 
 test('two products each save two specifications with three quantity patterns using the existing atomic API', async ({ page, request }) => {
   test.setTimeout(120000)
-  await page.goto('/deals/new')
-  await page.getByLabel('クライアント', { exact: true }).selectOption('22222222-2222-4222-8222-222222222222')
-  await page.getByRole('button', { name: 'パウチ', exact: true }).click()
-  await page.getByRole('button', { name: '商品1と同じ分類の商品を追加', exact: true }).click()
-  await page.getByRole('button', { name: '案件を保存して商品仕様へ', exact: true }).click()
-  await expect(page).toHaveURL(/\/deals\/[0-9a-f-]+\?step=2/)
+  // 再設計 工程1: 作成画面は取引先を選ぶだけになった。旧ウィザードが作っていた商品の枠2つは、仕様保存の確認用にここで用意する。
+  await page.goto('/deals/new?client=22222222-2222-4222-8222-222222222222')
+  await page.getByRole('button', { name: 'このプロジェクトをつくる' }).click()
+  await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}$/)
   const newId = new URL(page.url()).pathname.split('/').pop()
+  for (const n of [1, 2]) await request.post(`http://127.0.0.1:55440/rest/v1/deal_products`, { data: { deal_id: newId, product_no: n, description: 'パウチ', category_l1: 'パウチ', is_selected: false } })
+  await page.goto(`/deals/${newId}?step=2`)
   for (let p = 0; p < 2; p++) {
     await page.getByRole('navigation', { name: '案件の商品' }).getByRole('button').nth(p).click()
     for (let v = 0; v < 2; v++) {

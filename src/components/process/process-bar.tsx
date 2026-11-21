@@ -43,7 +43,7 @@ export function ProcessBar({ stage }: { stage: number }) {
           <li key={s.n} aria-current={state === 'now' ? 'step' : undefined} className="min-w-0">
             <span className={'block h-[6px] rounded-full ' + (state === 'past' ? 'bg-[#D7EFFF]' : state === 'now' ? 'bg-[#E9F056]' : 'bg-[#E2E1DA]')} />
             <span className={'mt-1 block truncate text-[11px] ' + (state === 'now' ? 'font-extrabold text-[#351E28]' : state === 'past' ? 'text-[#351E28]' : 'text-[#84787D]')}>
-              <span className="tabular-nums">{s.n}</span><span className="hidden sm:inline"> {s.short}</span>
+              <span className="tabular-nums">{s.n}</span> {s.short}
             </span>
             <span className="sr-only">{state === 'past' ? '完了' : state === 'now' ? '現在の工程' : 'これから'}</span>
           </li>

@@ -3,13 +3,14 @@
 // 再設計 工程1: 新規プロジェクト作成（クリック中心）。
 // ① 新規取引先 / 既存取引先 → ② 取引先を選ぶ（または登録）→ ③ 担当者・ブランド・希望納期 → つくる
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createProject } from '@/lib/actions/projects'
 import { addBrand, addContact, createClientWithContact } from '@/lib/actions/client-master'
 import { daysLeft } from '@/lib/process/stages'
 import { DaysLeftBadge } from '@/components/process/process-bar'
 import { useUi } from '@/components/ui/ui-store'
+import { useWorkflowRequest } from '@/lib/hooks/use-workflow-request'
 
 export interface PickerContact { id: string; name: string; email: string | null; phone: string | null; role: string | null; isPrimary: boolean }
 export interface PickerBrand { id: string; name: string }
@@ -53,7 +54,17 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState<'contact' | 'brand' | null>(null)
-  const request = useRef<{ key: string; id: string } | null>(null)
+  // 保存の返事が届かなかったとき（通信切れ・再読込）に、同じ内容を二重に作らないための仕組み（既存と同じ方式）
+  const recovery = useWorkflowRequest('project/new', 'project')
+  const { recovered, complete: completeRecovery } = recovery
+  useEffect(() => {
+    if (typeof recovered?.dealId === 'string') {
+      const id = recovered.dealId
+      completeRecovery()
+      toast('前回つくったプロジェクトを開きました')
+      router.replace(`/deals/${id}`)
+    }
+  }, [recovered, completeRecovery, router, toast])
 
   const sorted = useMemo(() => {
     const q = query.trim().toLocaleLowerCase()
@@ -75,14 +86,18 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
     if (!client) return
     setError(null)
     const payload = { client_id: client.id, contact_id: contactId, brand_id: brandId, deal_name: name.trim() || null, desired_delivery_date: due || null }
-    const key = JSON.stringify(payload)
-    // 同じ内容の押し直しは同じ要求IDで送る（二重作成を防ぐ）
-    if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() }
     startTransition(async () => {
-      const res = await createProject({ request_id: request.current!.id, ...payload })
-      if (res.error || !res.dealId) { setError(res.error || 'プロジェクトを作成できませんでした'); return }
-      toast(`プロジェクト ${res.dealCode || ''} をつくりました`)
-      router.push(`/deals/${res.dealId}`)
+      try {
+        // 同じ内容の押し直しは同じ要求IDで送る（二重作成を防ぐ）
+        const res = await createProject({ request_id: await recovery.requestId(payload), ...payload })
+        if (res.error || !res.dealId) {
+          if (res.rejected) recovery.complete() // 何も保存されていないと確定したので、内容を直してやり直せるようにする
+          setError(res.error || 'プロジェクトを作成できませんでした'); return
+        }
+        recovery.complete()
+        toast(`プロジェクト ${res.dealCode || ''} をつくりました`)
+        router.push(`/deals/${res.dealId}`)
+      } catch (e) { setError(e instanceof Error ? e.message : '保存結果を確認できませんでした。同じ内容でもう一度お試しください') }
     })
   }
 
@@ -94,6 +109,9 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
           return <li key={k} aria-current={now ? 'step' : undefined} className={now ? 'font-extrabold text-[#351E28]' : ''}>{t}</li>
         })}
       </ol>
+
+      {recovery.error && <p role="alert" className="rounded-[16px] border-[1.5px] border-[#FF5C34] bg-[#FFD8C2] p-3 text-[12.5px] text-[#B03616]">{recovery.error}</p>}
+      {recovery.unfinished && !recovery.recovered && <p className="rounded-[16px] border border-[#E2E1DA] bg-white p-3 text-[12.5px]">前回の保存結果がまだ確認できていません。同じ内容でもう一度「つくる」を押すと、二重にならずに続きから進みます。<button type="button" className="ml-2 min-h-[44px] underline" onClick={recovery.complete}>案件一覧で確認したので、新しく始める</button></p>}
 
       {step === 'choose' && (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -202,7 +220,7 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
 
           {error && <p role="alert" className="rounded-[16px] border-[1.5px] border-[#FF5C34] bg-[#FFD8C2] p-3 text-[12.5px] text-[#B03616]">{error}</p>}
           <div className="flex justify-end">
-            <button type="button" onClick={create} disabled={pending} className="min-h-[44px] rounded-full bg-[#E9F056] px-6 text-[14px] font-extrabold text-[#666C14] hover:brightness-95 disabled:opacity-60">
+            <button type="button" onClick={create} disabled={pending || !recovery.ready} className="min-h-[44px] rounded-full bg-[#E9F056] px-6 text-[14px] font-extrabold text-[#666C14] hover:brightness-95 disabled:opacity-60">
               {pending ? 'つくっています…' : 'このプロジェクトをつくる'}
             </button>
           </div>
