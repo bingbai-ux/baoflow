@@ -7,7 +7,7 @@ export const IDs={user:'11111111-1111-4111-8111-111111111111',client:'22222222-2
 const now='2026-09-30T00:00:00Z'
 const user={id:IDs.user,aud:'authenticated',role:'authenticated',email:'local@example.test',app_metadata:{},user_metadata:{},created_at:now}
 const client={id:IDs.client,company_name:'検証用カフェ',short_name:'検証用カフェ',brand_name:'TEST',storage_rate_config:null}
-const deal={id:IDs.deal,deal_code:'LOCAL-001',deal_name:'検証用パウチ',client_id:IDs.client,client_name_text:client.company_name,desired_delivery_date:'2026-10-15',simple_status:'quoting',master_status:'M01',waiting_on:'us',visibility:'internal',memo:'',archived_at:null,created_at:now,updated_at:now,last_activity_at:now,sales_user_id:IDs.user,sales_user:{display_name:'検証担当'},client, tags:[]}
+const deal={id:IDs.deal,deal_code:'LOCAL-001',deal_name:'検証用パウチ',process_stage:2,brand_text:null,client_id:IDs.client,client_name_text:client.company_name,desired_delivery_date:'2026-10-15',simple_status:'quoting',master_status:'M01',waiting_on:'us',visibility:'internal',memo:'',archived_at:null,created_at:now,updated_at:now,last_activity_at:now,sales_user_id:IDs.user,sales_user:{display_name:'検証担当'},client, tags:[]}
 const product={id:IDs.product,deal_id:IDs.deal,product_no:1,description:'パウチ',is_selected:false}
 const variant={id:IDs.variant,product_id:IDs.product,variant_label:'100g',material:'PET',width_mm:100,height_mm:150,depth_mm:30,pcs_per_carton:100,carton_width_cm:30,carton_height_cm:40,carton_depth_cm:30,gross_weight_kg:10,variant_order:1,deal_products:{deal_id:IDs.deal}}
 const quote={id:IDs.quote,deal_id:IDs.deal,variant_id:IDs.variant,spec_id:null,quantity:1000,moq:1000,version:1,status:'draft',factory_unit_price_usd:0.1,exchange_rate:150,cost_ratio:0.5,unit_cost_usd:0.12,total_cost_usd:120,selling_price_jpy:36,total_billing_jpy:36000,total_billing_tax_jpy:39600,factory_calculated_freight_usd:20,china_freight_usd:20}
@@ -103,6 +103,28 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程1: ブラウザ配線確認用の代役。SQLとしての正しさは tests/process-stage1-sql.test.ts (PGlite) で検証する。
+  if(table==='create_project_v1'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   db.wizard_requests ||= [];db.client_contacts ||= [];db.brands ||= []
+   const p=input.p_payload,prior=db.wizard_requests.find(r=>r.request_id===input.p_request_id)
+   if(prior){if(JSON.stringify(prior.payload)!==JSON.stringify(p)){send({code:'P0001',message:'同じ保存要求で内容が変わっています。新しい要求で保存してください'},400);return}send(prior.result);return}
+   const c=db.clients.find(c=>c.id===p.client_id);if(!c){send({code:'P0001',message:'取引先を選んでください'},400);return}
+   if(p.contact_id&&!db.client_contacts.some(x=>x.id===p.contact_id&&x.client_id===c.id)){send({code:'P0001',message:'担当者がこの取引先に登録されていません'},400);return}
+   const b=p.brand_id?db.brands.find(x=>x.id===p.brand_id&&x.client_id===c.id):null
+   if(p.brand_id&&!b){send({code:'P0001',message:'ブランドがこの取引先に登録されていません'},400);return}
+   const id=randomUUID(),code=`PF-202611-${String(number++).padStart(3,'0')}`,clientName=c.short_name||c.company_name
+   db.deals.push({...structuredClone(deal),id,deal_code:code,deal_name:p.deal_name||`${b?.name||clientName} 2026年11月`,client_id:c.id,client_name_text:clientName,brand_text:b?.name||null,brand_id:p.brand_id||null,contact_id:p.contact_id||null,desired_delivery_date:p.desired_delivery_date||null,process_stage:1})
+   const result={success:true,dealId:id,dealCode:code};db.wizard_requests.push({request_id:input.p_request_id,operation:'project',payload:p,result});send(result);return
+  }
+  if(table==='set_process_stage'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   const d=db.deals.find(d=>d.id===input.p_deal_id);if(!d){send({code:'P0001',message:'案件が見つかりません'},400);return}
+   if(!(input.p_stage>=1&&input.p_stage<=9)){send({code:'P0001',message:'工程は1〜9で指定してください'},400);return}
+   const changed=d.process_stage!==input.p_stage
+   if(changed){db.deal_status_history.push({id:randomUUID(),deal_id:d.id,changed_at:now,kind:'status',note:`工程を ${d.process_stage} から ${input.p_stage} に変更`});d.process_stage=input.p_stage}
+   send({success:true,changed});return
+  }
   if(['ext_form_by_token','ext_rfq_context','ext_submit_rfq','portal_factory_rfqs','portal_my_deals','create_factory_order_atomic','create_inbound_shipment_atomic','receive_inbound_shipment_atomic','create_shipment_request_atomic','ship_shipment_request_atomic'].includes(table)){try{send(workflowRpc(table,input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   send(null);return
  }

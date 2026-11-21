@@ -8,10 +8,11 @@ import { listDesignFiles } from '@/lib/actions/designs'
 import { listFactoryOrders } from '@/lib/actions/factory-orders'
 import { listFactoriesForRfq } from '@/lib/actions/rfq'
 import { listCatalog } from '@/lib/actions/catalog'
-import { type SimpleStatus, SIMPLE_STATUS_CONFIG } from '@/lib/types'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
+import { StageHeader } from '@/components/process/stage-header'
+import { todayInJapan } from '@/lib/process/stages'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
 // 問い合わせ→仕様→RFQ→工場回答→原価→売値→見積書→入金→入稿→製作→輸送→到着→完了 の
@@ -42,6 +43,8 @@ export default async function DealDetailPage({ params }: Props) {
       desired_delivery_date,
       memo,
       simple_status,
+      process_stage,
+      archived_at,
       waiting_on,
       created_at,
       last_activity_at,
@@ -134,7 +137,6 @@ export default async function DealDetailPage({ params }: Props) {
   }))
 
   const amount = approvedAmount(quotes || [])
-  const statusCfg = SIMPLE_STATUS_CONFIG[(deal.simple_status || 'quoting') as SimpleStatus]
 
   return (
     <>
@@ -147,9 +149,6 @@ export default async function DealDetailPage({ params }: Props) {
             <h1 className="font-display text-[21px] font-extrabold text-[#351E28] truncate">
               {deal.deal_name || '(案件名未設定)'}
             </h1>
-            <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[11px] font-bold px-2.5 py-[3px] whitespace-nowrap">
-              {statusCfg.label}
-            </span>
 
           </div>
           <p className="text-[13px] text-[#351E28] font-body mt-1 truncate">
@@ -172,6 +171,10 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
       </div>
 
+      <StageHeader dealId={deal.id} stage={deal.process_stage} dueDate={deal.desired_delivery_date} today={todayInJapan()} archived={!!deal.archived_at} />
+      {deal.process_stage === 1 && (products || []).length === 0 && (
+        <p className="mb-3 rounded-[16px] bg-[#E9F056] p-3 text-[12.5px] text-[#666C14]">プロジェクトができました。次は「商品登録」です。下の「商品仕様・数量を入力」から商品を追加してください。</p>
+      )}
       <dl aria-label="案件の状況" className="flex flex-wrap gap-x-5 gap-y-2 border-b border-[#E2E1DA] pb-3 mb-3 text-[12px]">
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">待ち先</dt><dd className="font-bold">{waitingLabel(deal.waiting_on)}</dd><dd><details><summary className="cursor-pointer text-[11px] underline">変更</summary><WaitingOnBadge dealId={deal.id} value={deal.waiting_on} /></details></dd></div>
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">希望納期</dt><dd className="font-bold tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>

@@ -845,3 +845,13 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 
 ## Final release scope review (local candidate)
 - shipment_workflow_requests unchanged columns: id, order_id, created_by, operation, payload, result, created_at. Owner SELECT also checks current role and frozen plan client/logistics or factory order identity through shipment_request_visible; no new table/column.
+
+## 再設計 工程1（2026-11-22・本番 baoflow-v2 に適用済み）
+`20261122000000_process_redesign_stage1.sql`。追加のみ。
+- brands: id UUID, client_id UUID (clients, ON DELETE CASCADE), name text, notes text, created_at/updated_at timestamptz。UNIQUE(client_id, lower(btrim(name)))。RLS staff_full_access。
+- client_contacts: id UUID, client_id UUID (clients, ON DELETE CASCADE), name text, email text, phone text, role text, notes text, is_primary boolean, created_at/updated_at timestamptz。主担当は1社1人（部分ユニーク client_contacts_one_primary）。RLS staff_full_access。
+- deals 追加カラム: process_stage smallint NOT NULL DEFAULT 1 CHECK(1〜9)、brand_id UUID (brands, SET NULL)、contact_id UUID (client_contacts, SET NULL)。
+- 9工程: 1プロジェクト作成 / 2商品登録 / 3工場見積 / 4価格提示 / 5請求・契約 / 6入稿 / 7製造 / 8発送 / 9検収（定義は src/lib/process/stages.ts）。
+- 移行: simple_status → process_stage 初期値（quoting→2, quote_confirmed→5, paid→6, data_confirmed/in_production→7, shipped→8, delivered→9）。simple_status / master_status は変更していない。
+- RPC: create_project_v1(p_request_id uuid, p_payload jsonb) → {success, dealId, dealCode}（wizard_requests に operation='project' で記録・再送は同じ結果）。set_process_stage(p_deal_id uuid, p_stage integer)（変更と deal_status_history を同時に記録）。どちらも authenticated のみ・staff 判定あり。
+- 退避: 作業前の全95テーブルの写しを backup_20261122 スキーマに保存（anon/authenticated からは見えない）。

@@ -15,19 +15,12 @@ interface NavItem {
   match: (path: string, tab: string | null) => boolean
 }
 
-// Sprint 14: メニュー順序は白さん指定の8項目 (設定は最下部固定枠)
+// 再設計 工程1: ナビは「案件・取引先・工場」+ 設定だけ。
+// ダッシュボード・在庫・売上分析・帳票の各ページは残してあり、URLを直接開けば使える。
 const NAV: NavItem[] = [
-  { k: 'home', label: 'ダッシュボード', href: '/', match: (p) => p === '/' },
-  { k: 'deals', label: '案件管理', href: '/deals', match: (p) => p.startsWith('/deals') || p.startsWith('/archive') },
-  {
-    k: 'accounts',
-    label: 'アカウント管理',
-    href: '/master',
-    match: (p) => p.startsWith('/master'),
-  },
-  { k: 'inventory', label: '在庫管理', href: '/inventory', match: (p) => p.startsWith('/inventory') },
-  { k: 'analytics', label: '売上分析', href: '/analytics', match: (p) => p.startsWith('/analytics') },
-  { k: 'docs', label: '請求書・見積書・納品書', href: '/docs', match: (p) => p.startsWith('/docs') },
+  { k: 'deals', label: '案件', href: '/deals', match: (p) => p.startsWith('/deals') || p.startsWith('/archive') },
+  { k: 'clients', label: '取引先', href: '/clients', match: (p) => p.startsWith('/clients') },
+  { k: 'factories', label: '工場', href: '/master?tab=factories', match: (p) => p.startsWith('/master') },
 ]
 
 interface UserProfile {

@@ -12,7 +12,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: deals, error } = await supabase.from('deals').select('id,deal_code,deal_name,client_name_text,desired_delivery_date,simple_status,waiting_on,last_activity_at,sales_user_id,sales_user:profiles!deals_sales_user_id_fkey(display_name)').is('archived_at', null).order('last_activity_at', { ascending: false })
+  const { data: deals, error } = await supabase.from('deals').select('id,deal_code,deal_name,client_name_text,brand_text,desired_delivery_date,simple_status,process_stage,waiting_on,last_activity_at,sales_user_id,sales_user:profiles!deals_sales_user_id_fkey(display_name)').is('archived_at', null).order('last_activity_at', { ascending: false })
   if (error) throw new Error('Deals could not be loaded')
   const ids = (deals || []).map(d => d.id)
   const [products, variants, quotes, rfqs, docs] = ids.length ? await Promise.all([

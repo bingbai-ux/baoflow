@@ -7,12 +7,13 @@ import { useUi } from '@/components/ui/ui-store'
 
 const PAGE_META: Record<string, { title: string; sub: string; primary?: { label: string; href: string } | null }> = {
   '/': { title: 'ダッシュボード', sub: '今日のサマリー', primary: null },
-  '/deals': { title: '案件管理', sub: 'すべての受注・見積', primary: null },
+  '/deals': { title: '案件', sub: '9工程の進み具合と納期', primary: null },
+  '/clients': { title: '取引先', sub: '会社・担当者・ブランド', primary: null },
   '/inventory': { title: '在庫管理', sub: '物流倉庫の入庫・在庫・出庫', primary: null },
   '/archive': { title: '案件履歴', sub: 'アーカイブした案件', primary: null },
   '/analytics': { title: '売上分析', sub: '採用見積ベースの概況', primary: null },
   '/docs': { title: '帳票管理', sub: '請求書・見積書・納品書・RFQ', primary: null },
-  '/master': { title: 'アカウント管理', sub: 'クライアント・工場・担当者・物流', primary: null },
+  '/master': { title: '工場・アカウント', sub: '工場・担当者・物流', primary: null },
   '/settings': { title: '設定', sub: '会社情報・既定値', primary: null },
 }
 
