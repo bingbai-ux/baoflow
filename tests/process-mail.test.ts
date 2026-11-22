@@ -135,3 +135,57 @@ test('受信口: 署名が正しい知らせだけ受け、本文を取りに行
     assert.ok(calls.some(c => c.path.startsWith(`/storage/v1/object/deal-images/${deal}/`)))
   } finally { server.close() }
 })
+
+test('DB: 工場の返信ページ — リンクは見積をもらった工場にだけ作れて使い回す。書き込みはトーク欄・ファイル・お知らせに入り、取り消すと使えない。AIの使い分けは決まった種類だけ保存できる', async () => {
+  const db = new PGlite()
+  const factory = 'ffffffff-ffff-4fff-8fff-ffffffffffff', other = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+  await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;
+  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+  create function public.is_staff() returns boolean language sql as $$select current_setting('test.staff',true)='yes'$$;
+  set test.staff='yes'; set test.uid='${uid}';
+  create table profiles(id uuid primary key); insert into profiles values('${uid}');
+  create table deals(id uuid primary key, deal_code text, deal_name text, client_name_text text, sales_user_id uuid, master_status text default 'M01', simple_status text default 'quoting', waiting_on text default 'factory', archived_at timestamptz, last_activity_at timestamptz);
+  insert into deals(id,deal_code,deal_name,client_name_text,sales_user_id) values('${deal}','PF-1','秋の新商品','デモ商事','${uid}');
+  create table factories(id uuid primary key, factory_name text); insert into factories values('${factory}','東莞パック'),('${other}','義烏プリント');
+  create table deal_quotes(id uuid primary key default gen_random_uuid(), deal_id uuid, factory_id uuid); insert into deal_quotes(deal_id,factory_id) values('${deal}','${factory}');
+  create table deal_communications(id uuid primary key default gen_random_uuid(), deal_id uuid not null, author_user_id uuid, author_role text, channel text not null, subject text, body text not null, is_read boolean not null default false, occurred_at timestamptz not null default now(), updated_at timestamptz not null default now());
+  create table deal_design_files(id uuid primary key default gen_random_uuid(), deal_id uuid not null, file_url text not null, storage_path text, file_name text, file_type text, file_size_bytes bigint, version_number integer not null default 1, category text, comment text);
+  create table deal_status_history(id int generated always as identity, deal_id uuid, from_status text, to_status text, from_simple_status text, to_simple_status text, changed_by uuid, kind text, note text);
+  create table notifications(id uuid primary key default gen_random_uuid(), user_id uuid, deal_id uuid, type text, status text, content text);`)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261123200000_talk_links_ai_settings.sql', import.meta.url), 'utf8'))
+  const one = async <T>(sql: string, params: unknown[] = []) => (await db.query<{ r: T }>(sql, params)).rows[0].r
+  await assert.rejects(db.query(`select create_talk_link('${deal}','${other}')`), /見積をもらっている工場/)
+  const first = await one<{ token: string; reused: boolean }>(`select create_talk_link('${deal}','${factory}') r`)
+  const again = await one<{ token: string; reused: boolean }>(`select create_talk_link('${deal}','${factory}') r`)
+  assert.match(first.token, /^[0-9a-f]{64}$/); assert.deepEqual([again.token, again.reused], [first.token, true])
+  const view = await one<Record<string, unknown>>(`select talk_link_by_token($1) r`, [first.token])
+  assert.deepEqual([view.status, view.dealCode, view.factoryName], ['active', 'PF-1', '東莞パック']); assert.equal(JSON.stringify(view).includes('デモ商事'), false, '顧客名は返さない')
+  assert.equal((await one<{ found: boolean }>(`select talk_link_by_token('short') r`)).found, false)
+
+  const files = JSON.stringify([{ name: '样品.jpg', type: 'image/jpeg', size: 10, storage_path: `${deal}/x_a.jpg`, url: 'https://s.test/x_a.jpg' }])
+  await db.query(`select post_talk_link($1,'样品已完成',$2::jsonb,'203.0.113.9','UA')`, [first.token, files])
+  await assert.rejects(db.query(`select post_talk_link($1,'x',$2::jsonb)`, [first.token, JSON.stringify([{ name: 'a', storage_path: 'other-deal/a', url: 'https://s.test/a' }])]), /保存先が正しくありません/)
+  await assert.rejects(db.query(`select post_talk_link($1,'  ')`, [first.token]), /本文がありません/)
+  const talk = (await db.query<{ author_role: string; channel: string; subject: string; body: string }>('select * from deal_communications')).rows
+  assert.deepEqual(talk.map(t => [t.author_role, t.channel, t.subject, t.body]), [['factory', 'link', '東莞パック（返信ページ）', '样品已完成\n\n添付: 样品.jpg']])
+  assert.deepEqual((await db.query<{ category: string; file_name: string }>('select category, file_name from deal_design_files')).rows, [{ category: 'talk_link', file_name: '样品.jpg' }])
+  assert.equal((await db.query<{ waiting_on: string }>('select waiting_on from deals')).rows[0].waiting_on, 'us')
+  assert.match((await db.query<{ content: string }>('select content from notifications')).rows[0].content, /東莞パック から「秋の新商品」に連絡が届きました/)
+  assert.equal((await db.query<{ n: number }>('select count(*)::int n from deal_status_history')).rows[0].n, 1)
+
+  await db.query(`select cancel_talk_link((select id from talk_links))`)
+  await assert.rejects(db.query(`select post_talk_link($1,'x')`, [first.token]), /使えなくなりました/)
+  assert.notEqual((await one<{ token: string }>(`select create_talk_link('${deal}','${factory}') r`)).token, first.token, '取り消したあとは新しいリンクになる')
+  await db.exec(`set test.staff='no'`)
+  await assert.rejects(db.query(`select create_talk_link('${deal}','${factory}')`), /営業・管理者のみ/)
+  await assert.rejects(db.query(`select save_ai_settings('claude-opus-5-5','claude-opus-5-5')`), /営業・管理者のみ/)
+  await db.exec(`set test.staff='yes'`)
+
+  assert.deepEqual((await db.query('select draft_model, catalog_model from ai_settings')).rows, [{ draft_model: 'claude-sonnet-5-5', catalog_model: 'claude-opus-5-5' }])
+  await db.query(`select save_ai_settings('claude-haiku-5-5','claude-sonnet-5-5')`)
+  assert.deepEqual((await db.query('select draft_model, catalog_model from ai_settings')).rows, [{ draft_model: 'claude-haiku-5-5', catalog_model: 'claude-sonnet-5-5' }])
+  await assert.rejects(db.query(`select save_ai_settings('gpt','claude-opus-5-5')`), /AIの種類が正しくありません/)
+  const can = async (role: string, fn: string) => (await db.query<{ ok: boolean }>(`select has_function_privilege($1, $2, 'execute') ok`, [role, fn])).rows[0].ok
+  assert.deepEqual([await can('anon', 'post_talk_link(text,text,jsonb,text,text)'), await can('authenticated', 'post_talk_link(text,text,jsonb,text,text)'), await can('service_role', 'post_talk_link(text,text,jsonb,text,text)')], [false, false, true])
+  assert.deepEqual([await can('anon', 'talk_link_by_token(text)'), await can('anon', 'create_talk_link(uuid,uuid)'), await can('anon', 'save_ai_settings(text,text)')], [true, false, false])
+})

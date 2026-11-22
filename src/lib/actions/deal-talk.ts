@@ -8,7 +8,9 @@ import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { createCommunication } from './communications'
 import { defaultIssuerName } from './issuer-companies'
-import { askClaude, aiReady, AI_NOT_CONFIGURED } from '@/lib/ai/claude'
+import { askClaude, aiReady, AI_NOT_CONFIGURED, loadAiModels } from '@/lib/ai/claude'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { headers } from 'next/headers'
 import { stageLabel } from '@/lib/process/stages'
 import { replyDomain, replyToField } from '@/lib/process/reply-address'
 import type { CommChannel, DealCommunication } from '@/lib/types'
@@ -17,14 +19,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CHANNELS: CommChannel[] = ['email', 'wechat', 'phone', 'memo', 'meeting']
 export type TalkParty = 'client' | 'factory'
 export interface TalkFactory { id: string; name: string; email: string | null; wechat: string | null }
-export interface TalkContext { clientEmail: string | null; clientContact: string | null; mailReady: boolean; aiReady: boolean; factories: TalkFactory[]; replyReady: boolean }
+export interface TalkContext { clientEmail: string | null; clientContact: string | null; mailReady: boolean; aiReady: boolean; factories: TalkFactory[]; replyReady: boolean; linkReady: boolean }
 const TRANSLATION = /\n?-{3}\s*日本語訳\s*-{3}[\s\S]*$/ // AIの下書きに付く日本語訳（工場へは送らない）
 
 /** トーク欄を開くときに要る情報（顧客の宛先と、メール・AIが使える状態か）。 */
 export async function getTalkContext(dealId: string): Promise<TalkContext> {
   const supabase = await createClient()
   const [contact, factories] = await Promise.all([clientContact(supabase, dealId), dealFactories(supabase, dealId)])
-  return { clientEmail: contact?.email || null, clientContact: contact?.name || null, mailReady: !!process.env.RESEND_API_KEY && !!process.env.RFQ_MAIL_FROM, aiReady: aiReady(), factories, replyReady: !!replyDomain() }
+  return { clientEmail: contact?.email || null, clientContact: contact?.name || null, mailReady: !!process.env.RESEND_API_KEY && !!process.env.RFQ_MAIL_FROM, aiReady: aiReady(), factories, replyReady: !!replyDomain(), linkReady: !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!process.env.NEXT_PUBLIC_APP_URL }
 }
 
 /** この案件で見積をもらっている工場（トーク欄からメールを送れる相手）。 */
@@ -131,5 +133,73 @@ export async function draftTalkReply(dealId: string, party: TalkParty, hint: str
     ? 'あなたは包装資材の輸入を扱う (bao) の営業担当です。顧客あての返信の本文だけを、日本語の丁寧なビジネス文で書いてください。宛名・署名・件名は書かないでください（仕組みが付けます）。分からない事実（価格・納期・数量など）を作らず、確認が要る点は「確認のうえご連絡します」と書いてください。原価・工場名・工場とのやり取りには触れないでください。200〜400字。'
     : 'あなたは包装資材の輸入を扱う (bao) の営業担当です。中国の工場あての返信を書いてください。まず簡体字の中国語の本文、その下に「--- 日本語訳 ---」と書いて日本語訳を付けてください。宛名・署名は不要です。分からない事実（価格・納期・数量など）を作らないでください。顧客の社名や販売価格には触れないでください。簡潔に。'
   const content = `案件: ${d.deal_name || ''}（${d.deal_code || ''}）\n今の工程: ${stageLabel(d.process_stage)}\n希望納期: ${d.desired_delivery_date || '未設定'}\n商品: ${(products.data || []).map(p => p.description).filter(Boolean).join(' ／ ') || '未登録'}\n\nこれまでのやり取り（古い順）:\n${history || '（まだありません）'}\n\n営業からの指示: ${hint.trim().slice(0, 500) || '直近の連絡に対する返信を書いてください。'}`
-  try { return { error: null, draft: await askClaude({ system, content, maxTokens: 1200 }) } } catch (e) { return { error: e instanceof Error && /AI/.test(e.message) ? e.message : 'AIで下書きをつくれませんでした。時間をおいてもう一度お試しください。' } }
+  try { return { error: null, draft: await askClaude({ system, content, maxTokens: 1200, model: (await loadAiModels(supabase)).draft }) } } catch (e) { return { error: e instanceof Error && /AI/.test(e.message) ? e.message : 'AIで下書きをつくれませんでした。時間をおいてもう一度お試しください。' } }
+}
+
+
+// ---- 工場の返信ページ（ログインなしで、工場が返事・写真を書き込めるリンク） ----
+
+const TOKEN = /^[0-9a-f]{64}$/
+const FILE_MAX = 26214400, FILE_TYPES = /^(image\/(jpeg|png|webp|gif|heic)|video\/(mp4|quicktime)|application\/pdf)$/
+
+/** 営業が、工場へ渡す返信ページのリンクをつくる（同じ工場の有効なリンクがあれば同じものを返す）。 */
+export async function createTalkLink(dealId: string, factoryId: string): Promise<{ error: string | null; link?: string }> {
+  if (!UUID.test(dealId || '') || !UUID.test(factoryId || '')) return { error: '送り先の工場を選んでください' }
+  const origin = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+  if (!origin || !process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: '返信ページの設定がありません。管理者に連絡してください。' }
+  const supabase = await createClient()
+  const accessError = await requireSalesAccess(supabase)
+  if (accessError) return { error: accessError }
+  const { data, error } = await supabase.rpc('create_talk_link', { p_deal_id: dealId, p_factory_id: factoryId })
+  if (error || !data?.token) return { error: error?.message || 'リンクをつくれませんでした' }
+  return { error: null, link: `${origin}/external/talk/${data.token}` }
+}
+
+export interface TalkLinkView { status: 'active' | 'cancelled' | 'expired' | 'missing'; dealCode: string | null; factoryName: string | null }
+async function linkByToken(token: string): Promise<(TalkLinkView & { dealId: string | null })> {
+  const none = { status: 'missing' as const, dealCode: null, factoryName: null, dealId: null }
+  if (!TOKEN.test(token || '')) return none
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('talk_link_by_token', { p_token: token })
+  if (error) throw new Error('Talk link could not be loaded')
+  return data?.found ? { status: data.status, dealCode: data.dealCode, factoryName: data.factoryName, dealId: data.dealId } : none
+}
+/** 返信ページを開いたときに見せる内容。開いただけでは何も記録しない。 */
+export async function loadTalkLink(token: string): Promise<TalkLinkView> {
+  const { status, dealCode, factoryName } = await linkByToken(token)
+  return { status, dealCode, factoryName }
+}
+
+/** 工場がファイルを置く前に、置き場所をサーバーが決めて、1回だけ使える許可を渡す。 */
+export async function prepareTalkUpload(token: string, file: { name: string; type: string; size: number }): Promise<{ error: string | null; path?: string; uploadToken?: string }> {
+  const link = await linkByToken(token)
+  if (link.status !== 'active' || !link.dealId) return { error: '此页面已失效（このページは使えなくなりました）' }
+  if (!file?.name || !FILE_TYPES.test(file.type || '') || !Number.isFinite(file.size) || file.size <= 0 || file.size > FILE_MAX) return { error: `${file?.name || ''}: 仅支持图片、视频、PDF，每个 25MB 以内（画像・動画・PDF、1件 25MB まで）` }
+  const admin = createAdminClient()
+  if (!admin) return { error: '系统尚未配置（設定がありません）' }
+  const path = `${link.dealId}/${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'file'}`
+  const signed = await admin.storage.from('deal-images').createSignedUploadUrl(path)
+  if (signed.error || !signed.data?.token) return { error: '上传失败，请重试（アップロードの準備に失敗しました）' }
+  return { error: null, path, uploadToken: signed.data.token }
+}
+
+/** 工場の書き込みをトーク欄に入れる。 */
+export async function postFactoryTalk(token: string, body: string, files: Array<{ name: string; type: string; size: number; path: string }>): Promise<{ error: string | null }> {
+  const link = await linkByToken(token)
+  if (link.status !== 'active' || !link.dealId) return { error: '此页面已失效（このページは使えなくなりました）' }
+  const text = (body || '').trim()
+  if (!text && !files?.length) return { error: '请输入内容（本文を入力してください）' }
+  if (text.length > 4000 || (files || []).length > 5) return { error: '内容过长或文件过多（本文は4,000文字、ファイルは5件まで）' }
+  const admin = createAdminClient()
+  if (!admin) return { error: '系统尚未配置（設定がありません）' }
+  const pathOk = new RegExp(`^${link.dealId}/[0-9a-f-]{36}_[A-Za-z0-9._-]{1,120}$`, 'i')
+  const rows = []
+  for (const f of files || []) {
+    if (typeof f?.path !== 'string' || !pathOk.test(f.path)) return { error: '文件有误（ファイルを確認してください）' }
+    rows.push({ name: String(f.name || 'file').slice(0, 200), type: String(f.type || ''), size: Math.round(Number(f.size) || 0), storage_path: f.path, url: admin.storage.from('deal-images').getPublicUrl(f.path).data.publicUrl })
+  }
+  const h = await headers()
+  const { error } = await admin.rpc('post_talk_link', { p_token: token, p_body: text, p_files: rows, p_ip: (h.get('x-forwarded-for') || '').split(',')[0].trim() || null, p_ua: h.get('user-agent') })
+  if (error) { console.error('[talk-link] 書き込みを残せませんでした', error.message); return { error: '发送失败，请重试（送信できませんでした）' } }
+  return { error: null }
 }

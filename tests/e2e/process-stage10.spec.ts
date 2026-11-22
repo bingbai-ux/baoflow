@@ -156,3 +156,70 @@ test('トーク欄: 工場あてもメールで送れる形になり（宛先は
   await shot(page, 'a3-talk-factory')
   expect((await state(request)).deal_communications || []).toHaveLength(0) // 送っても記録してもいない
 })
+
+test('工場の返信ページ: リンクをつくって渡す → 工場がログインなしで返事と写真を送る → トーク欄と案件のファイルに入る', async ({ page, request, context, browser }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const f1 = 'ffffffff-0000-4000-8000-0000000000f1'
+  await post(request, 'factories', { id: f1, factory_name: '東莞パック', contact_email: null, wechat: 'dg-pack' })
+  await post(request, 'deals', { id: deal, deal_code: 'PF-TEST-010', deal_name: '定番の袋', client_id: clientId, client_name_text: '検証用カフェ', simple_status: 'quoting', waiting_on: 'factory', sales_user_id: userId, process_stage: 7, tags: [], desired_delivery_date: null, last_activity_at: '2026-11-01T00:00:00Z' })
+  await post(request, 'deal_quotes', { id: 'aaaaaaaa-0000-4000-8000-0000000010a1', deal_id: deal, factory_id: f1, quantity: 1000, version: 1, status: 'draft' })
+  await page.goto(`/deals/${deal}`); await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: '会話・連絡記録を開く', exact: true }).click()
+  await talk(page).getByRole('button', { name: '工場', exact: true }).click()
+  await talk(page).getByRole('button', { name: '返信ページのリンクをコピー' }).click()
+  await expect(talk(page).getByRole('status')).toContainText('コピーしました')
+  const url = await page.evaluate(() => navigator.clipboard.readText())
+  expect(url).toMatch(/^http:\/\/127\.0\.0\.1:3100\/external\/talk\/[0-9a-f]{64}$/)
+  await talk(page).getByRole('button', { name: '返信ページのリンクをコピー' }).click() // もう一度押しても同じリンク
+  await expect.poll(async () => (await state(request)).talk_links.length).toBe(1)
+
+  // 工場側（ログインしていない別のブラウザ・スマホ幅）
+  const outside = await browser.newContext({ viewport: { width: 390, height: 800 } })
+  await outside.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort())
+  const fp = await outside.newPage()
+  await fp.goto(url)
+  await expect(fp.getByRole('heading', { name: '给 (bao) 的回复' })).toBeVisible()
+  await expect(fp.locator('body')).toContainText('東莞パック ／ 订单编号 PF-TEST-010')
+  await expect(fp.locator('body')).not.toContainText('検証用カフェ') // 顧客名は出さない
+  expect((await state(request)).deal_communications || []).toHaveLength(0) // 開いただけでは何も記録しない
+  await expect(fp.getByRole('button', { name: /发送/ })).toBeDisabled()
+  await fp.getByLabel('文件（ファイル）').setInputFiles({ name: 'a.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('x') })
+  await fp.getByLabel(/内容/).fill('样品已完成，请看照片。')
+  await fp.getByRole('button', { name: /发送/ }).click()
+  await expect(fp.locator('p[role=alert]')).toContainText('仅支持图片、视频、PDF') // 種類の違うファイルは受けない
+  await fp.getByRole('button', { name: /删除/ }).click()
+  await fp.getByLabel('文件（ファイル）').setInputFiles({ name: '样品 1.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('jpg') })
+  await fp.getByRole('button', { name: /发送/ }).click()
+  await expect(fp.locator('p[role=status]')).toContainText('已发送')
+  expect(await fp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  if (shots) await fp.screenshot({ path: `${shots}/a4-factory-reply-page.png`, fullPage: true })
+  await expect(fp.goto(url.slice(0, -4) + '0000').then(() => fp.getByRole('heading', { name: '找不到此页面' }).isVisible())).resolves.toBe(true)
+  await outside.close()
+
+  const s = await state(request)
+  expect(s.deal_communications.map((c: { author_role: string; channel: string; body: string }) => [c.author_role, c.channel, c.body])).toEqual([['factory', 'link', '样品已完成，请看照片。\n\n添付: 样品 1.jpg']])
+  expect(s.deal_design_files.map((f: { category: string; storage_path: string }) => [f.category, f.storage_path.startsWith(deal + '/')])).toEqual([['talk_link', true]])
+  expect(s.deals.find((d: { id: string }) => d.id === deal).waiting_on).toBe('us')
+  await page.reload(); await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: '会話・連絡記録を開く', exact: true }).click()
+  await expect(thread(page)).toContainText('工場 ・ 返信ページ'); await expect(thread(page)).toContainText('样品已完成')
+})
+
+test('設定 > AIの使い分け: 用途ごとにAIを選んで保存すると、下書きがそのAIで作られる', async ({ page, request }) => {
+  await page.goto('/settings'); await page.waitForLoadState('networkidle')
+  await page.getByRole('link', { name: /AIの使い分け/ }).click()
+  await page.waitForURL('**/settings/ai'); await page.waitForLoadState('networkidle')
+  const box = page.getByRole('region', { name: 'AIの使い分け' })
+  await expect(box.getByLabel(/返信の下書き/)).toHaveValue('claude-sonnet-5-5'); await expect(box.getByLabel(/カタログの読み取り/)).toHaveValue('claude-opus-5-5')
+  await expect(box.getByRole('button', { name: 'この内容で保存する' })).toBeDisabled()
+  await box.getByLabel(/返信の下書き/).selectOption('claude-opus-5-5')
+  await box.getByRole('button', { name: 'この内容で保存する' }).click()
+  await expect.poll(async () => (await state(request)).ai_settings[0].draft_model).toBe('claude-opus-5-5')
+  await shot(page, 'a5-ai-settings')
+  await post(request, 'deals', { id: deal, deal_code: 'PF-TEST-010', deal_name: '定番の袋', client_id: clientId, client_name_text: '検証用カフェ', simple_status: 'quoting', waiting_on: 'us', sales_user_id: userId, process_stage: 3, tags: [], desired_delivery_date: null, last_activity_at: '2026-11-01T00:00:00Z' })
+  await page.goto(`/deals/${deal}`); await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: '会話・連絡記録を開く', exact: true }).click()
+  await talk(page).getByRole('button', { name: '顧客あての下書きをAIでつくる' }).click()
+  await expect(talk(page).getByLabel('本文')).toHaveValue(/確認のうえご連絡します/)
+  expect((await state(request)).ai_requests[0].model).toBe('claude-opus-5-5')
+})

@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { draftTalkReply, postTalk, type TalkContext, type TalkParty } from '@/lib/actions/deal-talk'
+import { createTalkLink, draftTalkReply, postTalk, type TalkContext, type TalkParty } from '@/lib/actions/deal-talk'
 import type { CommChannel, DealCommunication } from '@/lib/types'
 import { useUi } from '@/components/ui/ui-store'
 
@@ -12,7 +12,7 @@ const ghost = 'min-h-[44px] inline-flex items-center justify-center rounded-full
 const dark = 'min-h-[44px] inline-flex items-center justify-center rounded-full bg-[#351E28] px-4 text-[12px] font-bold text-[#C9A2B8] hover:brightness-95 disabled:opacity-40'
 const seg = (on: boolean) => 'min-h-[44px] flex-1 rounded-full border px-2 text-[12px] font-bold ' + (on ? 'border-[#351E28] bg-[#351E28] text-[#C9A2B8]' : 'border-[#E2E1DA] bg-white text-[#351E28]')
 const field = 'w-full min-h-[44px] rounded-[12px] border border-transparent bg-[#EFEFEA] px-3 text-[13px] text-[#351E28] outline-none focus:border-[#351E28]'
-const CHANNEL: Record<CommChannel, string> = { email: 'メール', wechat: 'WeChat', phone: '電話', memo: '社内メモ', meeting: '打合せ' }
+const CHANNEL: Record<CommChannel, string> = { email: 'メール', wechat: 'WeChat', phone: '電話', memo: '社内メモ', meeting: '打合せ', link: '返信ページ' }
 const when = (iso: string) => new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: DealCommunication[]; context: TalkContext }) {
@@ -27,6 +27,7 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
   const [hint, setHint] = useState('')
   const [factoryId, setFactoryId] = useState(context.factories[0]?.id || '')
   const [copied, setCopied] = useState(false)
+  const [link, setLink] = useState<{ factoryId: string; url: string; copied: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const end = useRef<HTMLDivElement>(null)
   const list = [...talks].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
@@ -42,6 +43,14 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
     const r = await postTalk(dealId, { from: mode === 'out' ? 'staff' : party, party, channel, body, send, factoryId: party === 'factory' ? factoryId : undefined })
     if (r.error) { setError(r.error); return }
     setBody(''); setHint(''); toast(send ? 'メールを送りました' : '記録しました'); router.refresh()
+  }) }
+  // 工場がログインなしで返事・写真を書き込めるページのリンクをつくって、コピーする（WeChat に貼って渡す）
+  const makeLink = () => { setError(null); startTransition(async () => {
+    const r = await createTalkLink(dealId, factoryId)
+    if (r.error || !r.link) { setError(r.error || 'リンクをつくれませんでした'); return }
+    let ok = false
+    try { await navigator.clipboard.writeText(r.link); ok = true } catch { /* コピーできないときは、下に出すリンクを手で写してもらう */ }
+    setLink({ factoryId, url: r.link, copied: ok })
   }) }
   const draft = async () => {
     setError(null); setDrafting(true)
@@ -91,8 +100,11 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" disabled={pending || !body.trim()} className={ghost} onClick={() => submit(false)}>記録する</button>
           {party === 'factory' && mode === 'out' && channel === 'wechat' && <button type="button" disabled={!forFactory} className={ghost} onClick={copy}>{copied ? 'コピーしました' : '中国語の部分をコピー'}</button>}
+          {party === 'factory' && mode === 'out' && factory && <button type="button" disabled={pending || !context.linkReady} className={ghost} onClick={makeLink}>返信ページのリンクをコピー</button>}
           {canMail && <button type="button" disabled={pending || !body.trim() || !mailTo || !context.mailReady} className={dark} onClick={() => submit(true)}>メールで送る</button>}
         </div>
+        {party === 'factory' && mode === 'out' && link?.factoryId === factoryId && <p role="status" className="break-all rounded-[12px] border border-[#E2E1DA] bg-[#FBFAF6] p-2 text-[11px]">{link.copied ? 'コピーしました。' : 'コピーできませんでした。下のリンクを写してください。'}{factory?.name} がこのページに書いた返事と写真は、ここに自動で入ります。<br />{link.url}</p>}
+        {party === 'factory' && mode === 'out' && factory && !context.linkReady && <p><span className="inline-block rounded-full bg-[#FFD8C2] px-2.5 py-1 text-[11px] font-bold text-[#B03616]">返信ページの設定がありません</span></p>}
         {canMail && !context.mailReady && <p><span className="inline-block rounded-full bg-[#FFD8C2] px-2.5 py-1 text-[11px] font-bold text-[#B03616]">メール送信の設定がありません</span></p>}
         <div className="rounded-[12px] border border-[#E2E1DA] p-2">
           <label className="block text-[11px] text-[#84787D]">AIへの指示（空でも可）

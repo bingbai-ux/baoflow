@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from '@/lib/actions/deal-access'
-import { askClaude, aiReady, AI_MODEL_CATALOG, AI_NOT_CONFIGURED, parseAiJson } from '@/lib/ai/claude'
+import { askClaude, aiReady, AI_NOT_CONFIGURED, loadAiModels, parseAiJson } from '@/lib/ai/claude'
 import { CATALOG_BUCKET, CATALOG_MAX_BYTES, CATALOG_MAX_PAGES, CATALOG_PAGES_PER_READ, tidyCandidates } from '@/lib/process/catalog-import'
 
 // 商品マスター: カタログの画像・PDFをAIに読ませて、マスターに足す候補（種類・形状・ディテール・素材・印刷の色数・付属品）を返す。
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const [catalog, options] = await Promise.all([supabase.from('product_catalog').select('id, level, parent_id, name'), supabase.from('product_option_items').select('kind, name')])
   if (catalog.error || options.error) return json({ error: '登録済みのマスターを読み込めませんでした' }, 500)
   try {
-    const text = await askClaude({ system: SYSTEM, content: [block, { type: 'text', text: 'このカタログから、商品マスターに登録する候補を JSON で返してください。' }], maxTokens: 4000, model: AI_MODEL_CATALOG, timeoutMs: 240000 })
+    const text = await askClaude({ system: SYSTEM, content: [block, { type: 'text', text: 'このカタログから、商品マスターに登録する候補を JSON で返してください。' }], maxTokens: 4000, model: (await loadAiModels(supabase)).catalog, timeoutMs: 240000 })
     return json({ candidates: tidyCandidates(parseAiJson(text), { catalog: catalog.data || [], options: options.data || [] }) })
   } catch (e) {
     return json({ error: e instanceof Error && /AI/.test(e.message) ? e.message : 'AIで読み取れませんでした。時間をおいてもう一度お試しください。' }, 502)

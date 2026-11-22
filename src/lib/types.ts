@@ -889,7 +889,7 @@ export interface DealProductVariant {
 // Sprint 6: コミュニケーション・履歴・添付カテゴリ・RFQ
 // ============================================================================
 
-export type CommChannel = 'email' | 'wechat' | 'phone' | 'memo' | 'meeting'
+export type CommChannel = 'email' | 'wechat' | 'phone' | 'memo' | 'meeting' | 'link'
 export type CommAuthorRole = 'staff' | 'client' | 'factory'
 
 export interface DealCommunication {
@@ -914,6 +914,7 @@ export const COMM_CHANNEL_LABELS: Record<CommChannel, { label: string; emoji: st
   phone: { label: '電話', emoji: '📞' },
   memo: { label: '内部メモ', emoji: '📝' },
   meeting: { label: '打合せ', emoji: '🤝' },
+  link: { label: '返信ページ', emoji: '' },
 }
 
 export type FileCategory = 'spec' | 'quote' | 'photo' | 'contract' | 'other'
