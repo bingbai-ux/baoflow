@@ -14,7 +14,7 @@ test.beforeEach(async({context,request})=>{
 })
 test('RFQ retry creates one complete request and copyable links without automatically sending email',async({page,request})=>{
  await page.goto(deal+'?step=3')
- await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click()
+ await page.getByRole('button',{name:'工場に見積を依頼する',exact:true}).click()
  const dialog=page.getByRole('dialog',{name:'見積依頼を作成',exact:true})
  await dialog.getByLabel('検証工場1',{exact:false}).check()
  await dialog.getByLabel('検証工場2',{exact:false}).check()
@@ -46,7 +46,7 @@ test('RFQ retry creates one complete request and copyable links without automati
 
 test('unregistered factory submits saved answer, staff explicitly selects its registered factory and imports once',async({page,request})=>{
  const response=await page.goto(deal+'?step=3');expect(response?.status()).toBe(200)
- await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click()
+ await page.getByRole('button',{name:'工場に見積を依頼する',exact:true}).click()
  const dialog=page.getByRole('dialog',{name:'見積依頼を作成',exact:true})
  await dialog.getByText('未登録工場への依頼 (任意)',{exact:true}).click()
  await dialog.getByLabel('未登録工場名',{exact:true}).fill('未登録検証工場')
@@ -97,7 +97,7 @@ test('legacy adopted quote remains readable, blocks speculative factory order an
 
 test('quantity selection and recipient previews are read-only; editing or concurrent specification change clears confirmation',async({page,request})=>{
  await request.post(fixture+'/rest/v1/deal_quotes',{data:{id:'99999999-9999-4999-8999-999999999999',deal_id:deal.split('/').pop(),variant_id:'55555555-5555-4555-8555-555555555555',quantity:2000}})
- await page.goto(deal+'?step=3');await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click()
+ await page.goto(deal+'?step=3');await page.getByRole('button',{name:'工場に見積を依頼する',exact:true}).click()
  await page.getByLabel('検証工場1',{exact:false}).check();await page.getByLabel('検証工場2',{exact:false}).check()
  await page.getByRole('checkbox',{name:'パウチ 仕様100g 1000個',exact:true}).uncheck()
  await page.getByLabel('工場へ伝える内容',{exact:true}).fill('合成データの依頼')
@@ -130,7 +130,7 @@ test('quantity selection and recipient previews are read-only; editing or concur
 
 test('factory answers separate prices for requested quantities without overwriting specification packaging',async({page,request})=>{
  await request.post(fixture+'/rest/v1/deal_quotes',{data:{id:'99999999-9999-4999-8999-999999999999',deal_id:deal.split('/').pop(),variant_id:'55555555-5555-4555-8555-555555555555',quantity:2000}})
- await page.goto(deal+'?step=3');await page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true}).click();await page.getByLabel('検証工場1',{exact:false}).check()
+ await page.goto(deal+'?step=3');await page.getByRole('button',{name:'工場に見積を依頼する',exact:true}).click();await page.getByLabel('検証工場1',{exact:false}).check()
  await page.getByRole('button',{name:'依頼内容を確認',exact:true}).click();await page.getByRole('button',{name:'この内容で回答リンクを作成',exact:true}).click()
  const url=await page.getByRole('dialog',{name:'見積依頼を作成しました'}).locator('input[readonly]').inputValue();await page.goto(url)
  for(let i=0;i<2;i++)for(const [label,value] of [['Unit USD / 单价',i?'0.08':'0.12'],['MOQ','500'],['PCS/CTN','200'],['Lead days / 交期','15'],['Carton W cm','30'],['Carton H cm','40'],['Carton D cm','30'],['G.W kg','10']])await page.getByLabel(label,{exact:true}).nth(i).fill(value)

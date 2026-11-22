@@ -84,7 +84,7 @@ export function ProductRegistry({ dealId, products: rows, variants, quotes, cata
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[12.5px] text-[#84787D] tabular-nums">{products.length}商品{products.length > 1 && !readOnly ? ' · 左の ⋮⋮ をつかんで並べ替えられます' : ''}</p>
+        <p className="text-[12.5px] text-[#84787D] tabular-nums">{products.length}商品</p>
         {!readOnly && <button type="button" onClick={() => open('new')} className={ghost + ' !bg-[#351E28] !text-[#C9A2B8] !border-[#351E28]'}>＋ 商品を追加</button>}
       </div>
       {error && <p role="alert" className="rounded-[16px] border-[1.5px] border-[#FF5C34] bg-[#FFD8C2] p-3 text-[12.5px] text-[#B03616]">{error}</p>}
@@ -111,7 +111,7 @@ export function ProductRegistry({ dealId, products: rows, variants, quotes, cata
                     <span className={pill + ' border border-[#E2E1DA] bg-[#EFEFEA] text-[#351E28]'}>{p.shipping_mode === 'sea' ? '船便' : p.shipping_mode === 'air' ? 'エアー' : '配送方法 未定'}{p.shipping_arranger === 'factory' ? '・工場手配' : p.shipping_arranger === 'partner' ? '・提携業者' : ''}</span>
                     {p.sample_required && <span className={pill + ' bg-[#D7EFFF] text-[#33566F]'}>サンプルあり</span>}
                     {p.food_inspection_required && <span className={pill + ' bg-[#D7EFFF] text-[#33566F]'}>食品検査あり</span>}
-                    {vs.length > 1 && <span className={pill + ' border border-[#E2E1DA] bg-[#EFEFEA] text-[#351E28]'}>以前の画面で登録した仕様案 {vs.length}件（ここでは1件目を表示）</span>}
+                    {vs.length > 1 && <span className={pill + ' border border-[#E2E1DA] bg-[#EFEFEA] text-[#351E28]'}>仕様案 {vs.length}件（1件目を表示）</span>}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1">
                     <span className="mr-1 text-[11px] text-[#84787D]">数量</span>
@@ -138,11 +138,11 @@ export function ProductRegistry({ dealId, products: rows, variants, quotes, cata
           )
         })}
       </ol>
-      {!products.length && !editor && <div className="rounded-[16px] border border-dashed border-[#E2E1DA] p-6 text-center text-[13px]">まだ商品がありません。「＋ 商品を追加」から登録してください。</div>}
+      {!products.length && !editor && <div className="rounded-[16px] border border-dashed border-[#E2E1DA] p-6 text-center text-[13px]">商品はまだありません</div>}
 
       {editor && editor.mode !== 'edit' && (
         <ProductForm key={editor.key} dealId={dealId} productId={null} initial={editor.initial} catalog={catalog} options={options}
-          title={editor.mode === 'copy' ? '商品をコピーして追加（変えたいところだけ直してください）' : '商品を追加'}
+          title={editor.mode === 'copy' ? 'コピーして追加' : '商品を追加'}
           onCancel={() => setEditor(null)} onSaved={name => { setEditor(null); toast(`「${name}」を登録しました`); router.refresh() }} />
       )}
       {!readOnly && !editor && products.length > 0 && <button type="button" onClick={() => open('new')} className={ghost + ' w-full !rounded-[16px] border-dashed'}>＋ 商品を追加</button>}
@@ -152,7 +152,7 @@ export function ProductRegistry({ dealId, products: rows, variants, quotes, cata
           <div className="w-full max-w-[440px] rounded-[16px] border border-[#E2E1DA] bg-white p-4 shadow-[0_20px_50px_rgba(53,30,40,.12)]">
             <p className="text-[15px] font-bold">この商品を削除しますか？</p>
             <p className="mt-2 text-[13px] break-words">{confirm.description}</p>
-            <p className="mt-1 text-[12.5px] text-[#84787D]">登録した数量も一緒に消え、元に戻せません。工場の価格や見積の記録がある商品は削除できません。</p>
+            <p className="mt-1 text-[12.5px] text-[#84787D]">元に戻せません。</p>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className={ghost} onClick={() => setConfirm(null)}>やめる</button>
               <button type="button" className={ghost + ' !border-[#FF5C34] !text-[#B03616]'} onClick={() => remove(confirm)}>削除する</button>

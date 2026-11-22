@@ -60,7 +60,7 @@ export function StageHeader({ dealId, stage, dueDate, today, archived, selected,
               </button>
             ))}
           </div>
-          <p className="mt-1 text-[11px] text-[#84787D]">変更は履歴に残ります。{minStage > 1 && `すでにある記録から「${stageLabel(minStage)}」まで進んでいると分かるため、それより前には戻せません。`}</p>
+          {minStage > 1 && <p className="mt-1 text-[11px] text-[#84787D]">記録があるため「{stageLabel(minStage)}」より前には戻せません。</p>}
         </details>
       )}
       {error && <p role="alert" className="mt-2 text-[12.5px] text-[#B03616]">{error}</p>}

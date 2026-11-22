@@ -76,7 +76,7 @@ test('T2 新規取引先を登録してそのまま作成でき、担当者を�
 test('T3 ブランドは登録がある取引先でだけ選択肢が出て、その場で追加もできる', async ({ page, request }) => {
   await page.goto(`/deals/new?client=${clientId}`)
   await expect(page.getByRole('button', { name: '指定しない' })).toHaveCount(0)
-  await page.getByRole('button', { name: /この会社にブランドを登録する/ }).click()
+  await page.getByRole('button', { name: '＋ ブランドを登録' }).click()
   await page.getByLabel('ブランド名').fill('TEST COFFEE')
   await page.getByRole('button', { name: 'このブランドを追加' }).click()
   await expect(page.getByRole('button', { name: 'TEST COFFEE' })).toHaveAttribute('aria-pressed', 'true')

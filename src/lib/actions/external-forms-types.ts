@@ -108,4 +108,13 @@ export interface RfqResponsePayload {
   payment_terms?: string | null
   general_notes?: string | null
   products: RfqResponseProductLine[]
+  /** 再設計 工程3: 追加費用・送料・日数（任意）。回答全体で1組。external_forms.submission_data に保存される。 */
+  extras?: RfqResponseExtras | null
+}
+
+export interface RfqDayRange { min: number | null; max: number | null }
+export interface RfqResponseExtras {
+  fees: Array<{ label: string; usd: number | null }>            // 版代・色数ごとの追加・特殊加工など
+  shipping: { sea_usd: number | null; air_usd: number | null; domestic_usd: number | null }
+  lead_days: { plate: RfqDayRange; sample: RfqDayRange; production: RfqDayRange; domestic: RfqDayRange; sea: RfqDayRange; air: RfqDayRange }
 }

@@ -96,7 +96,7 @@ export function ProductMaster({ catalog, options }: { catalog: CatalogNode[]; op
     <div className="space-y-4">
       {error && <p role="alert" className="rounded-[16px] border-[1.5px] border-[#FF5C34] bg-[#FFD8C2] p-3 text-[12.5px] text-[#B03616]">{error}</p>}
       <section aria-label="種類・形状・ディテール" className={card + ' space-y-4'}>
-        <div><h2 className="text-[15px] font-bold">種類 › 形状 › ディテール</h2><p className="text-[11px] text-[#84787D]">種類を選ぶと、その中の形状が出ます。形状を選ぶと、その中のディテールが出ます。</p></div>
+        <div><h2 className="text-[15px] font-bold">種類 › 形状 › ディテール</h2></div>
         {Level({ title: '種類', level: 1, parent: null, items: l1s, selected: l1, onSelect: id => { setL1(id); setL2(null) } })}
         {Level({ title: '形状', level: 2, parent: l1, items: l2s, selected: l2, onSelect: setL2, hint: l1 ? undefined : '先に種類を選んでください。' })}
         {Level({ title: 'ディテール', level: 3, parent: l2, items: l3s, hint: l2 ? undefined : '先に形状を選んでください。' })}
@@ -109,7 +109,6 @@ export function ProductMaster({ catalog, options }: { catalog: CatalogNode[]; op
         <div role="dialog" aria-modal="true" aria-label="名前を変える" className="fixed inset-0 z-[70] flex items-center justify-center bg-[#351E28]/40 p-4">
           <form className="w-full max-w-[400px] rounded-[16px] border border-[#E2E1DA] bg-white p-4 shadow-[0_20px_50px_rgba(53,30,40,.12)]" onSubmit={e => { e.preventDefault(); const r = renaming; run(() => r.type === 'catalog' ? renameCatalogNode(r.id, r.draft) : renameOptionItem(r.id, r.draft), '名前を変えました', () => setRenaming(null)) }}>
             <label className="block text-[12.5px] font-bold">「{renaming.name}」の新しい名前<input autoFocus value={renaming.draft} onChange={e => setRenaming({ ...renaming, draft: e.target.value })} className={input + ' mt-1 block w-full'} /></label>
-            <p className="mt-1 text-[11px] text-[#84787D]">すでに登録した商品に書かれている名前は変わりません。</p>
             <div className="mt-4 flex justify-end gap-2"><button type="button" className={ghost} onClick={() => setRenaming(null)}>やめる</button><button type="submit" disabled={pending || !renaming.draft.trim()} className={dark}>この名前にする</button></div>
           </form>
         </div>
@@ -118,7 +117,7 @@ export function ProductMaster({ catalog, options }: { catalog: CatalogNode[]; op
         <div role="dialog" aria-modal="true" aria-label="削除の確認" className="fixed inset-0 z-[70] flex items-center justify-center bg-[#351E28]/40 p-4">
           <div className="w-full max-w-[400px] rounded-[16px] border border-[#E2E1DA] bg-white p-4 shadow-[0_20px_50px_rgba(53,30,40,.12)]">
             <p className="text-[15px] font-bold">「{confirm.name}」を削除しますか？</p>
-            <p className="mt-1 text-[12.5px] text-[#84787D]">{confirm.warn}選択肢から消えるだけで、すでに登録した商品の内容は変わりません。</p>
+            <p className="mt-1 text-[12.5px] text-[#84787D]">{confirm.warn}登録済みの商品は変わりません。</p>
             <div className="mt-4 flex justify-end gap-2"><button type="button" className={ghost} onClick={() => setConfirm(null)}>やめる</button>
               <button type="button" disabled={pending} className={ghost + ' !border-[#FF5C34] !text-[#B03616]'} onClick={() => { const c = confirm; setConfirm(null); run(() => c.type === 'catalog' ? deleteCatalogNode(c.id) : deleteOptionItem(c.id), '削除しました', () => { if (c.id === l1) { setL1(null); setL2(null) } if (c.id === l2) setL2(null) }) }}>削除する</button></div>
           </div>

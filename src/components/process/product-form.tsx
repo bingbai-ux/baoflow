@@ -45,7 +45,7 @@ function Chips({ label, options, value, onChange, empty }: { label: string; opti
   return (
     <div role="group" aria-label={label} className="flex flex-wrap gap-2">
       {options.map(o => <button key={o} type="button" aria-pressed={value === o} onClick={() => onChange(value === o ? null : o)} className={value === o ? chipOn : chipOff}>{o}</button>)}
-      {!options.length && <span className="self-center text-[12.5px] text-[#84787D]">{empty || '選択肢がまだありません。下の自由記入を使うか、商品マスターで追加してください。'}</span>}
+      {!options.length && <span className="self-center text-[12.5px] text-[#84787D]">{empty || '選択肢なし'}</span>}
     </div>
   )
 }
@@ -147,7 +147,7 @@ export function ProductForm({ dealId, productId, initial, catalog, options, titl
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0"><h3 className="text-[15px] font-bold text-[#351E28]">{title}</h3>
           <p className="mt-1 text-[12.5px] text-[#351E28]"><span className="text-[#84787D]">商品名（自動）: </span><span data-testid="product-name-preview">{preview}</span></p></div>
-        <Link href="/settings/product-master" target="_blank" className="min-h-[44px] inline-flex items-center text-[11px] text-[#84787D] underline">選択肢を編集（商品マスター）</Link>
+        <Link href="/settings/product-master" target="_blank" className="min-h-[44px] inline-flex items-center text-[11px] text-[#84787D] underline">選択肢を編集</Link>
       </div>
 
       <div className="space-y-4">
@@ -155,22 +155,22 @@ export function ProductForm({ dealId, productId, initial, catalog, options, titl
           <div><p className={groupTitle}>種類</p><Chips label="種類" options={l1s.map(c => c.name)} value={f.l1} onChange={v => setF(s => ({ ...s, l1: v, l2: null, l3: null }))} /></div>
           {f.l1 && l2s.length > 0 && <div><p className={groupTitle}>形状</p><Chips label="形状" options={l2s.map(c => c.name)} value={f.l2} onChange={v => setF(s => ({ ...s, l2: v, l3: null }))} /></div>}
           {f.l2 && l3s.length > 0 && <div><p className={groupTitle}>ディテール</p><Chips label="ディテール" options={l3s.map(c => c.name)} value={f.l3} onChange={v => set('l3', v)} /></div>}
-          <label className="block text-[11px] text-[#84787D]">自由記入（選択肢にない種類・形状など）<input value={f.categoryNote} onChange={e => set('categoryNote', e.target.value)} className={freeInput} /></label>
+          <label className="block text-[11px] text-[#84787D]"><span className="sr-only">種類・形状の自由記入</span><input placeholder="自由記入" value={f.categoryNote} onChange={e => set('categoryNote', e.target.value)} className={freeInput} /></label>
         </Section>
 
         <Section n={2} title="素材・印刷・付属品">
           <div><p className={groupTitle}>素材</p><Chips label="素材" options={opt('material', [f.material || ''])} value={f.material} onChange={v => set('material', v)} />
-            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">素材の自由記入</span><input value={f.materialNote} onChange={e => set('materialNote', e.target.value)} placeholder="素材の自由記入（例: 内側アルミ・外側クラフト）" className={freeInput} /></label></div>
+            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">素材の自由記入</span><input value={f.materialNote} onChange={e => set('materialNote', e.target.value)} placeholder="自由記入" className={freeInput} /></label></div>
           <div><p className={groupTitle}>印刷の色数</p><Chips label="印刷の色数" options={opt('print_colors', [f.print || ''])} value={f.print} onChange={v => set('print', v)} />
-            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">印刷の自由記入</span><input value={f.printNote} onChange={e => set('printNote', e.target.value)} placeholder="印刷の自由記入（例: 表4色・裏1色、特色あり）" className={freeInput} /></label></div>
+            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">印刷の自由記入</span><input value={f.printNote} onChange={e => set('printNote', e.target.value)} placeholder="自由記入" className={freeInput} /></label></div>
           <div><p className={groupTitle}>付属品 <span className="font-normal text-[#84787D]">（いくつでも）</span></p>
             <div role="group" aria-label="付属品" className="flex flex-wrap gap-2">
               {opt('accessory', f.accessories).map(o => { const on = f.accessories.includes(o); return <button key={o} type="button" aria-pressed={on} onClick={() => set('accessories', on ? f.accessories.filter(a => a !== o) : [...f.accessories, o])} className={on ? chipOn : chipOff}>{o}</button> })}
             </div>
-            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">付属品の自由記入</span><input value={f.accessoriesNote} onChange={e => set('accessoriesNote', e.target.value)} placeholder="付属品の自由記入" className={freeInput} /></label></div>
+            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">付属品の自由記入</span><input value={f.accessoriesNote} onChange={e => set('accessoriesNote', e.target.value)} placeholder="自由記入" className={freeInput} /></label></div>
         </Section>
 
-        <Section n={3} title="大きさ" hint="決まっていなければ「未定」のままで登録できます">
+        <Section n={3} title="大きさ">
           <div role="group" aria-label="大きさの決め方" className="flex flex-wrap gap-2">
             {([['box', '縦×横×奥行'], ['round', '直径×高さ（瓶・缶など）'], ['capacity', '入る量で指定'], ['undecided', '未定']] as const).map(([k, t]) =>
               <button key={k} type="button" aria-pressed={f.sizeMode === k} onClick={() => set('sizeMode', k)} className={f.sizeMode === k ? chipOn : chipOff}>{t}</button>)}
@@ -179,11 +179,11 @@ export function ProductForm({ dealId, productId, initial, catalog, options, titl
             {sizeFields.map(([k, t]) => <label key={k} className="block text-[11px] text-[#84787D]">{t}（mm）<input inputMode="decimal" value={f[k]} onChange={e => set(k, e.target.value)} aria-invalid={!numeric(f[k].trim())} className={input + ' tabular-nums'} /></label>)}
           </div>}
           {f.sizeMode === 'capacity' && <div><Chips label="入る量" options={[...CAPACITIES, ...(f.capacity && !CAPACITIES.includes(f.capacity) ? [f.capacity] : [])]} value={f.capacity || null} onChange={v => set('capacity', v || '')} />
-            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">入る量の自由記入</span><input value={CAPACITIES.includes(f.capacity) ? '' : f.capacity} onChange={e => set('capacity', e.target.value)} placeholder="入る量の自由記入（例: 350ml、コーヒー豆 150g）" className={freeInput} /></label></div>}
-          <label className="block text-[11px] text-[#84787D]">大きさの自由記入<input value={f.sizeNote} onChange={e => set('sizeNote', e.target.value)} placeholder="例: 既製品のMサイズ相当、サンプルを見て決めたい" className={freeInput} /></label>
+            <label className="block text-[11px] text-[#84787D]"><span className="sr-only">入る量の自由記入</span><input value={CAPACITIES.includes(f.capacity) ? '' : f.capacity} onChange={e => set('capacity', e.target.value)} placeholder="自由記入（例: 350ml）" className={freeInput} /></label></div>}
+          <label className="block text-[11px] text-[#84787D]"><span className="sr-only">大きさの自由記入</span><input value={f.sizeNote} onChange={e => set('sizeNote', e.target.value)} placeholder="自由記入" className={freeInput} /></label>
         </Section>
 
-        <Section n={4} title="数量" hint="1つの商品で、いくつかの数量の見積を比べられます">
+        <Section n={4} title="数量">
           <div role="group" aria-label="よく使う数量" className="flex flex-wrap gap-2">
             {QUICK_QUANTITIES.map(q => { const on = f.quantities.includes(q); return <button key={q} type="button" aria-pressed={on} onClick={() => set('quantities', on ? f.quantities.filter(x => x !== q) : [...f.quantities, q].sort((a, b) => a - b))} className={(on ? chipOn : chipOff) + ' tabular-nums'}>{fmt(q)}</button> })}
             <button type="button" aria-expanded={wheel} onClick={() => setWheel(v => !v)} className={chipOff}>{wheel ? 'スロットを閉じる' : 'スロットで選ぶ'}</button>
@@ -198,7 +198,7 @@ export function ProductForm({ dealId, productId, initial, catalog, options, titl
             <ul aria-label="選んだ数量" className="flex flex-wrap gap-2">
               {f.quantities.map(q => <li key={q} className="inline-flex items-center gap-1 rounded-full bg-[#D7EFFF] py-1 pl-3 pr-1 text-[13px] font-bold text-[#33566F] tabular-nums">{fmt(q)}
                 <button type="button" aria-label={`数量 ${fmt(q)} を外す`} onClick={() => set('quantities', f.quantities.filter(x => x !== q))} className="min-h-[36px] min-w-[36px] rounded-full text-[13px]">×</button></li>)}
-              {!f.quantities.length && <li className="text-[12.5px] text-[#84787D]">まだ選んでいません（1つ以上必要です）</li>}
+              {!f.quantities.length && <li className="text-[12.5px] text-[#84787D]">未選択</li>}
             </ul>
           </div>
         </Section>
@@ -224,7 +224,7 @@ export function ProductForm({ dealId, productId, initial, catalog, options, titl
         </Section>
 
         <Section n={7} title="備考">
-          <label className="block text-[11px] text-[#84787D]"><span className="sr-only">備考</span><textarea value={f.memo} onChange={e => set('memo', e.target.value)} rows={3} placeholder="工場や社内に伝えたいこと" className={input + ' py-2'} /></label>
+          <label className="block text-[11px] text-[#84787D]"><span className="sr-only">備考</span><textarea value={f.memo} onChange={e => set('memo', e.target.value)} rows={3} placeholder="備考" className={input + ' py-2'} /></label>
         </Section>
       </div>
 

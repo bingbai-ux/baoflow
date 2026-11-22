@@ -25,7 +25,7 @@ test('record synthetic desktop and mobile screens across sales/client/factory/lo
 
 test('mobile work stays visible, sections survive reload and Back, and missing inputs explain how to continue',async({page,request})=>{
  await page.setViewportSize({width:390,height:844});await page.goto(deal+'?step=3')
- const next=page.getByRole('button',{name:'見積依頼(RFQ)をつくる',exact:true})
+ const next=page.getByRole('button',{name:'工場に見積を依頼する',exact:true})
  await expect(next).toBeVisible();expect((await next.boundingBox())!.y).toBeLessThan(740)
  await page.getByRole('combobox',{name:'表示する工程'}).selectOption('5')
  await expect(page).toHaveURL(/step=6/);await page.reload();await expect(page.getByRole('combobox',{name:'表示する工程'})).toHaveValue('5')

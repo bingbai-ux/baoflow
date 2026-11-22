@@ -48,7 +48,7 @@ test('商品を登録すると、名前が自動で付き、仕様・数量・�
   await page.getByRole('listbox', { name: '数量のスロット' }).getByRole('option', { name: '20,000' }).click()
   await page.getByRole('button', { name: '20,000 を追加' }).click()
   await page.getByLabel('数量を手で入力').fill('12000'); await page.getByRole('button', { name: 'この数量を追加' }).click()
-  await page.getByPlaceholder('工場や社内に伝えたいこと').fill('マット仕上げ希望')
+  await page.getByPlaceholder('備考', { exact: true }).fill('マット仕上げ希望')
   await expect(page.getByTestId('product-name-preview')).toHaveText(standName)
   await expect(page.getByRole('list', { name: '選んだ数量' }).getByRole('listitem')).toHaveCount(4)
   await shot(page, '20-product-form')

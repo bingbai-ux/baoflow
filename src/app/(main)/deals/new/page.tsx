@@ -48,7 +48,6 @@ export default async function NewProjectPage({ searchParams }: Props) {
     <div className="mx-auto max-w-[920px] py-4">
       <Link href="/deals" className="inline-flex min-h-[44px] items-center text-[12.5px] text-[#84787D] no-underline hover:text-[#351E28]">← 案件一覧にもどる</Link>
       <h1 className="font-display text-[21px] font-extrabold text-[#351E28]">新しいプロジェクトをつくる</h1>
-      <p className="mt-1 text-[12.5px] text-[#84787D]">取引先を選ぶだけで始められます。商品は次の画面で登録します。</p>
       <NewProjectFlow clients={rows} initialClientId={initial} today={new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })} />
     </div>
   )

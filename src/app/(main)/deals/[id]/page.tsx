@@ -9,6 +9,7 @@ import { listFactoryOrders } from '@/lib/actions/factory-orders'
 import { listFactoriesForRfq } from '@/lib/actions/rfq'
 import { listCatalog } from '@/lib/actions/catalog'
 import { listOptionItems } from '@/lib/actions/product-master'
+import { getConfirmationState } from '@/lib/actions/customer-confirmation'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -57,7 +58,7 @@ export default async function DealDetailPage({ params }: Props) {
   if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
-  const [factoryOrderResult, factories, options] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems()])
+  const [factoryOrderResult, factories, options, confirmation] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems(), getConfirmationState(id)])
   if (factoryOrderResult.error) throw new Error('Factory orders could not be loaded')
 
   const [
@@ -189,6 +190,7 @@ export default async function DealDetailPage({ params }: Props) {
         financeHold={financeHold}
         processStage={deal.process_stage}
         options={options}
+        confirmation={confirmation}
         dueDate={deal.desired_delivery_date}
         today={todayInJapan()}
         archived={!!deal.archived_at}

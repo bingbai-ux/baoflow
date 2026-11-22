@@ -12,7 +12,20 @@ import {
 import type {
   RfqResponsePayload,
   RfqResponseProductLine,
+  RfqResponseExtras,
+  RfqDayRange,
 } from '@/lib/actions/external-forms-types'
+
+// 再設計 工程3: 追加費用・送料・日数（任意）と、途中保存（この端末のブラウザに保存）
+const emptyRange = (): RfqDayRange => ({ min: null, max: null })
+const emptyExtras = (): RfqResponseExtras => ({
+  fees: [{ label: 'Plate / 版费', usd: null }, { label: 'Extra per color / 每色加价', usd: null }],
+  shipping: { sea_usd: null, air_usd: null, domestic_usd: null },
+  lead_days: { plate: emptyRange(), sample: emptyRange(), production: emptyRange(), domestic: emptyRange(), sea: emptyRange(), air: emptyRange() },
+})
+const LEAD_LABELS: Array<[keyof RfqResponseExtras['lead_days'], string]> = [['plate', 'Plate making / 制版'], ['sample', 'Sample / 打样'], ['production', 'Mass production / 大货'], ['domestic', 'Domestic delivery / 国内运输'], ['sea', 'Sea freight / 海运'], ['air', 'Air freight / 空运']]
+const extrasFilled = (x: RfqResponseExtras) => x.fees.some(f => f.usd != null) || Object.values(x.shipping).some(v => v != null) || Object.values(x.lead_days).some(r => r.min != null || r.max != null)
+const numOrNull = (v: string) => v.trim() === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Number(v)
 
 interface MaskedVariant {
   id: string
@@ -68,6 +81,29 @@ export function RfqResponseForm({
     }
   }
   const [lines, setLines] = useState<RfqResponseProductLine[]>(initLines)
+  const [extras, setExtras] = useState<RfqResponseExtras>(emptyExtras)
+  const draftKey = `bao-rfq-draft:${token}`
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+  // 途中保存の読み込み（依頼の行数が同じときだけ戻す）
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(draftKey)
+      if (!raw) return
+      const d = JSON.parse(raw)
+      if (!Array.isArray(d.lines) || d.lines.length !== initLines.length || d.lines.some((l: RfqResponseProductLine, i: number) => l.product_id !== initLines[i].product_id || (l.variant_id || null) !== (initLines[i].variant_id || null) || (l.quantity ?? null) !== (initLines[i].quantity ?? null))) return
+      setLines(d.lines); setFactoryEmail(d.factoryEmail || ''); setPaymentTerms(d.paymentTerms || ''); setGeneralNotes(d.generalNotes || '')
+      if (d.extras) setExtras(d.extras)
+      setDraftSavedAt(d.savedAt || null)
+    } catch { /* 途中保存が読めないときは空のフォームから始める */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey])
+  const saveDraft = () => {
+    try {
+      const savedAt = new Date().toLocaleString()
+      window.localStorage.setItem(draftKey, JSON.stringify({ lines, factoryEmail, paymentTerms, generalNotes, extras, savedAt }))
+      setDraftSavedAt(savedAt); setError(null)
+    } catch { setError('Could not save the draft on this device. / 无法在此设备保存草稿。') }
+  }
 
   const updateLine = <K extends keyof RfqResponseProductLine>(
     idx: number,
@@ -85,10 +121,11 @@ export function RfqResponseForm({
       payment_terms: paymentTerms || null,
       general_notes: generalNotes || null,
       products: lines,
+      ...(extrasFilled(extras) ? { extras } : {}),
     }
     startSubmit(async () => {
       const r = await submitRfqResponse(token, payload)
-      if (r.success) setSubmitted(true)
+      if (r.success) { try { window.localStorage.removeItem(draftKey) } catch { /* 送信は完了している */ } setSubmitted(true) }
       else setError(r.error || 'Submission failed / 提交失败')
     })
   }
@@ -181,6 +218,45 @@ export function RfqResponseForm({
       </Section>
 
       {/* 全体補足 */}
+      <Section titleEn="Extra costs, freight and lead time (optional)" titleCn="其他费用、运费和交期（选填）">
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1 text-[11px] font-bold">Extra costs USD / 其他费用（美金）</p>
+            <div className="space-y-2">
+              {extras.fees.map((fee, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input aria-label={`Cost item ${i + 1}`} value={fee.label} onChange={e => setExtras(x => ({ ...x, fees: x.fees.map((f, n) => n === i ? { ...f, label: e.target.value } : f) }))} className={smallInputCls + ' !w-[220px] max-w-full'} />
+                  <input aria-label={`${fee.label || 'Cost'} USD`} type="number" min="0" step="any" value={fee.usd ?? ''} onChange={e => setExtras(x => ({ ...x, fees: x.fees.map((f, n) => n === i ? { ...f, usd: numOrNull(e.target.value) } : f) }))} className={smallInputCls + ' !w-[120px]'} placeholder="USD" />
+                  {i > 1 && <button type="button" onClick={() => setExtras(x => ({ ...x, fees: x.fees.filter((_, n) => n !== i) }))} className="min-h-[36px] px-2 text-[11px] underline">Remove / 删除</button>}
+                </div>
+              ))}
+              <button type="button" onClick={() => setExtras(x => ({ ...x, fees: [...x.fees, { label: 'Special finishing (emboss, deboss…) / 特殊工艺', usd: null }] }))} className="min-h-[36px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[11px] font-bold">+ Add cost / 添加费用</button>
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] font-bold">Freight USD (total) / 运费合计（美金）</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {([['sea_usd', 'Sea to Japan / 海运到日本'], ['air_usd', 'Air to Japan / 空运到日本'], ['domestic_usd', 'Domestic to our forwarder / 国内送到指定货代']] as const).map(([k, t]) => (
+                <SmallField key={k} label={t}><input type="number" min="0" step="any" value={extras.shipping[k] ?? ''} onChange={e => setExtras(x => ({ ...x, shipping: { ...x.shipping, [k]: numOrNull(e.target.value) } }))} className={smallInputCls} /></SmallField>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] font-bold">Lead time in days (e.g. 15 – 20) / 交期天数（例如 15 – 20）</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {LEAD_LABELS.map(([k, t]) => (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="w-[170px] flex-shrink-0 text-[11px] text-[#84787D]">{t}</span>
+                  <input aria-label={`${t} min days`} type="number" min="0" step="1" value={extras.lead_days[k].min ?? ''} onChange={e => setExtras(x => ({ ...x, lead_days: { ...x.lead_days, [k]: { ...x.lead_days[k], min: numOrNull(e.target.value) } } }))} className={smallInputCls + ' !w-[72px]'} />
+                  <span className="text-[11px]">–</span>
+                  <input aria-label={`${t} max days`} type="number" min="0" step="1" value={extras.lead_days[k].max ?? ''} onChange={e => setExtras(x => ({ ...x, lead_days: { ...x.lead_days, [k]: { ...x.lead_days[k], max: numOrNull(e.target.value) } } }))} className={smallInputCls + ' !w-[72px]'} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Section>
+
       <Section titleEn="General terms" titleCn="整体条款">
         <Field labelEn="Payment terms" labelCn="付款条件">
           <input
@@ -200,6 +276,11 @@ export function RfqResponseForm({
           />
         </Field>
       </Section>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={saveDraft} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-4 text-[13px] font-bold">Save draft / 保存草稿</button>
+        {draftSavedAt && <span role="status" className="text-[11px] text-[#84787D]">Draft saved on this device / 草稿已保存在此设备: {draftSavedAt}</span>}
+      </div>
 
       <button
         type="submit"

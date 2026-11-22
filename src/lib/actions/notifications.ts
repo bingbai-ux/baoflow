@@ -30,6 +30,15 @@ export async function listNotifications(): Promise<NotifItem[]> {
     for(const r of reports||[]){const p=packets.data?.find(p=>p.id===r.packet_id&&p.status==='active');if(p)items.push({id:`client-payment-${r.id}`,kind:'paid',icon:'入',title:'入金申告・BAO実着金確認待ち',body:`${r.paid_on} · 申告額 ¥${Number(r.amount_jpy).toLocaleString('ja-JP')} — 銀行明細を確認してください`,when:'確認待ち',dealId:p.deal_id,href:`/deals/${p.deal_id}/settlement`})}
   }
 
+  // 再設計 工程3: 自分あてのお知らせ（顧客が商品内容を確認した、など）。直近14日分。
+  if (user) {
+    const since = new Date(today.getTime() - 14 * 86400000).toISOString()
+    const { data: notes, error: notesError } = await supabase.from('notifications').select('id, deal_id, content, created_at')
+      .eq('user_id', user.id).eq('type', 'dashboard').eq('status', 'pending').gte('created_at', since).order('created_at', { ascending: false }).limit(10)
+    if (notesError) throw new Error('お知らせを確認できません。再試行してください')
+    for (const n of notes || []) items.push({ id: `note-${n.id}`, kind: 'mention', icon: '確', title: '顧客が商品内容を確認', body: n.content || '', when: relativeTime(new Date(n.created_at)), dealId: n.deal_id, href: n.deal_id ? `/deals/${n.deal_id}?step=3` : null })
+  }
+
   for (const d of deals || []) {
     // Urgent: delivery within 14 days
     if (d.desired_delivery_date) {

@@ -40,6 +40,8 @@ import { updateDealStatus } from '@/lib/actions/deal-status'
 import { createQuote } from '@/lib/actions/quotes'
 import { createFactoryOrder, createInboundForFactoryOrder, type FactoryOrderRow } from '@/lib/actions/factory-orders'
 import { ProductRegistry } from '@/components/process/product-registry'
+import { CustomerConfirmPanel } from '@/components/process/customer-confirm-panel'
+import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
 import type { CatalogNode } from '@/lib/actions/catalog'
@@ -109,6 +111,8 @@ interface DealFlowProps {
   factories: Array<{ id: string; factory_name: string }>
   statusHistory: FlowHistoryRow[]
   communications: DealCommunication[]
+  /** 再設計 工程3: 顧客の商品内容確認の状態 */
+  confirmation: ConfirmationState
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -150,6 +154,7 @@ export function DealFlow({
   today,
   archived,
   options,
+  confirmation,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -260,7 +265,7 @@ export function DealFlow({
       title: '工場へ見積依頼(RFQ)を送る',
       actor: 'us',
       summary: rfqCount > 0 ? `${rfqCount}件 作成済み` : 'まだ作成していません',
-      body: <StepRfq deal={deal} products={products} rfqCount={rfqCount} />,
+      body: <StepRfq deal={deal} products={products} rfqCount={rfqCount} confirmation={confirmation} archived={archived} />,
     },
     {
       title: '工場の回答を記録(単価$・型代・MOQ・カートン)',
@@ -667,38 +672,46 @@ function StepRfq({
   deal,
   products,
   rfqCount,
+  confirmation,
+  archived,
 }: {
   deal: FlowDeal
   products: DealProduct[]
   rfqCount: number
+  confirmation: ConfirmationState
+  archived?: boolean
 }) {
   const [modalOpen, setModalOpen] = useState(false)
+  // 顧客の確認が一度取れていれば依頼に進める（あとで商品を直しても再確認は不要）。再設計より前に依頼済みの案件もそのまま進める。
+  const unlocked = confirmation.everConfirmed || rfqCount > 0
   return (
-    <div>
-      <p className="text-[12px] font-body text-[#351E28]">
-        仕様が固まったら、まず工場に原価を聞きます。回答には単価だけでなく
-        <b>カートン情報(PCS/CTN・箱サイズ・G.W)</b>も必ずもらってください — 送料計算に必要です。
-      </p>
-      {products.length===0&&<p className="text-[12px] mt-2">先に商品仕様を登録してください。<Link className="underline ml-2 min-h-[44px] inline-flex items-center" href={`/deals/${deal.id}?step=2`}>仕様を登録する</Link></p>}
-      <div className="mt-2.5 flex items-center gap-2.5 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          disabled={products.length===0}
-          className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
-        >
-          見積依頼(RFQ)をつくる
-        </button>
+    <div className="space-y-3">
+      {products.length===0&&<p className="text-[12px]">先に商品を登録してください。<Link className="underline ml-2 min-h-[44px] inline-flex items-center" href={`/deals/${deal.id}?step=2`}>商品を登録する</Link></p>}
+      <CustomerConfirmPanel dealId={deal.id} state={confirmation} hasProducts={products.length > 0} readOnly={archived} />
+      <section aria-label="工場への見積依頼" className="rounded-[16px] border border-[#E2E1DA] bg-white p-4">
+      <div className="flex items-center justify-between gap-2.5 flex-wrap">
+        <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-bold"><span className="tabular-nums text-[#84787D]">2</span>工場に見積を依頼
         {rfqCount > 0 && (
           <span className="rounded-full bg-[#D7EFFF] text-[#33566F] text-[11px] font-bold px-2.5 py-1">
             {rfqCount}件 作成済み
           </span>
         )}
+        {!unlocked && <span className="rounded-full border border-[#E2E1DA] bg-[#EFEFEA] px-2.5 py-1 text-[11px] font-bold text-[#351E28]">顧客の確認後に依頼できます</span>}</h3>
+        <span className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          disabled={products.length===0 || !unlocked}
+          className="min-h-[44px] rounded-full bg-[#E9F056] text-[#666C14] text-[12px] font-bold px-4 py-2 disabled:opacity-40 hover:brightness-95"
+        >
+          工場に見積を依頼する
+        </button>
         <BallButton dealId={deal.id} to="factory" label="送った → ボールを工場待ちに" />
+        </span>
       </div>
       <PendingRfqAnswers dealId={deal.id} />
       <RfqHistory dealId={deal.id} />
-      <Hint>RFQの作成だけでは工場への送信は完了しません。作成した依頼を工場に共有し、送信後に「工場待ち」に切り替えてください。</Hint>
+      </section>
       {modalOpen && (
         <RfqCreateModal
           dealId={deal.id}

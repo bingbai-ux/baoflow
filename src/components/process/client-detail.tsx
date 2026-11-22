@@ -92,8 +92,7 @@ export function ClientDetail({ client, contacts, brands }: { client: Basics; con
       </section>
 
       <section aria-label="ブランド" className={card}>
-        <h2 className="mb-1 text-[15px] font-bold">ブランド <span className="text-[12.5px] font-normal text-[#84787D] tabular-nums">{brands.length}件</span></h2>
-        <p className="mb-2 text-[11px] text-[#84787D]">1つの会社に複数のブランドがある場合に登録します。プロジェクトをつくるときに選べます。</p>
+        <h2 className="mb-2 text-[15px] font-bold">ブランド <span className="text-[12.5px] font-normal text-[#84787D] tabular-nums">{brands.length}件</span></h2>
         <ul className="mb-3 flex flex-wrap gap-2">
           {brands.map(b => <li key={b.id} className="inline-flex items-center gap-1 rounded-full border border-[#E2E1DA] bg-[#EFEFEA] py-1 pl-3 pr-1 text-[12.5px]">{b.name}
             <button type="button" aria-label={`${b.name} を削除`} className="min-h-[36px] rounded-full px-2 text-[11px] text-[#B03616] underline" onClick={() => setConfirm({ kind: 'brand', id: b.id, name: b.name })}>削除</button></li>)}

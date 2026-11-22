@@ -117,13 +117,10 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
         <div className="grid gap-4 sm:grid-cols-2">
           <button type="button" onClick={() => setStep('existing')} className={card + ' p-6 text-left hover:bg-[#FBFAF6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#351E28]'}>
             <span className="block text-[15px] font-bold text-[#351E28]">既存の取引先</span>
-            <span className="mt-1 block text-[12.5px] text-[#84787D]">以前に取引した会社から選びます</span>
             <span className="mt-4 inline-block rounded-full bg-[#D7EFFF] px-2.5 py-[3px] text-[11px] font-bold text-[#33566F] tabular-nums">登録済み {clients.length}社</span>
           </button>
           <button type="button" onClick={() => setStep('new')} className={card + ' p-6 text-left hover:bg-[#FBFAF6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#351E28]'}>
             <span className="block text-[15px] font-bold text-[#351E28]">新規の取引先</span>
-            <span className="mt-1 block text-[12.5px] text-[#84787D]">はじめての会社を登録して始めます</span>
-            <span className="mt-4 inline-block rounded-full border border-[#E2E1DA] bg-[#EFEFEA] px-2.5 py-[3px] text-[11px] font-bold text-[#351E28]">会社名だけで登録できます</span>
           </button>
         </div>
       )}
@@ -176,7 +173,7 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
                     {x.name}{x.isPrimary && <span className="ml-1 text-[11px] font-normal">（主担当）</span>}
                   </button>
                 ))}
-                {client.contacts.length === 0 && <span className="self-center text-[12.5px] text-[#84787D]">担当者が未登録です。あとからでも追加できます。</span>}
+                {client.contacts.length === 0 && <span className="self-center text-[12.5px] text-[#84787D]">未登録</span>}
                 <button type="button" onClick={() => setAdding(adding === 'contact' ? null : 'contact')} aria-expanded={adding === 'contact'} className={chipOff}>＋ 担当者を追加</button>
               </div>
               {adding === 'contact' && <InlineContact clientId={client.id} onCancel={() => setAdding(null)} onAdded={c => {
@@ -194,7 +191,7 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
                 </div>
               </div>
             )}
-            {client.brands.length === 0 && adding !== 'brand' && <button type="button" onClick={() => setAdding('brand')} className="min-h-[44px] text-[12.5px] text-[#84787D] underline">この会社にブランドを登録する（複数ブランドがある場合）</button>}
+            {client.brands.length === 0 && adding !== 'brand' && <button type="button" onClick={() => setAdding('brand')} className="min-h-[44px] text-[12.5px] text-[#84787D] underline">＋ ブランドを登録</button>}
             {adding === 'brand' && <InlineBrand clientId={client.id} onCancel={() => setAdding(null)} onAdded={b => {
               setClients(xs => xs.map(v => v.id === client.id ? { ...v, brands: [...v.brands, b] } : v)); setBrandId(b.id); setAdding(null)
             }} />}
@@ -214,7 +211,6 @@ export function NewProjectFlow({ clients: initialClients, initialClientId, today
             <div>
               <label className={label} htmlFor="project-name">プロジェクト名</label>
               <input id="project-name" value={name} onChange={e => setName(e.target.value)} placeholder={defaultName} maxLength={120} className={input} />
-              <p className="mt-1 text-[11px] text-[#84787D]">空のままなら「{defaultName}」になります。あとから変えられます。</p>
             </div>
           </div>
 
@@ -260,7 +256,7 @@ export function NewClientForm({ onBack, onCreated }: { onBack: () => void; onCre
       </div>
       <div><label className={label} htmlFor="nc-address">住所</label><input id="nc-address" value={f.address} onChange={set('address')} className={input} autoComplete="off" /></div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div><label className={label} htmlFor="nc-brand">ブランド名（あれば）</label><input id="nc-brand" value={f.brand} onChange={set('brand')} className={input} /><p className="mt-1 text-[11px] text-[#84787D]">2つ目以降は登録後に追加できます。</p></div>
+        <div><label className={label} htmlFor="nc-brand">ブランド名（あれば）</label><input id="nc-brand" value={f.brand} onChange={set('brand')} className={input} /></div>
         <div><label className={label} htmlFor="nc-notes">備考</label><input id="nc-notes" value={f.notes} onChange={set('notes')} className={input} /></div>
       </div>
       {error && <p role="alert" className="rounded-[16px] border-[1.5px] border-[#FF5C34] bg-[#FFD8C2] p-3 text-[12.5px] text-[#B03616]">{error}</p>}
