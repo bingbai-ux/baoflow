@@ -855,3 +855,14 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - 移行: simple_status → process_stage 初期値（quoting→2, quote_confirmed→5, paid→6, data_confirmed/in_production→7, shipped→8, delivered→9）。simple_status / master_status は変更していない。
 - RPC: create_project_v1(p_request_id uuid, p_payload jsonb) → {success, dealId, dealCode}（wizard_requests に operation='project' で記録・再送は同じ結果）。set_process_stage(p_deal_id uuid, p_stage integer)（変更と deal_status_history を同時に記録）。どちらも authenticated のみ・staff 判定あり。
 - 退避: 作業前の全95テーブルの写しを backup_20261122 スキーマに保存（anon/authenticated からは見えない）。
+
+## 再設計 工程2（2026-11-22・本番 baoflow-v2 に適用済み）
+`20261122100000_process_redesign_stage2.sql`。追加のみ。
+- product_option_items: id UUID, kind text ('material'|'print_colors'|'accessory'), name text, sort integer, created_at。UNIQUE(kind, lower(btrim(name)))。RLS staff_full_access。初期値 素材12・印刷の色数7・付属品8。
+- 種類・形状・ディテール（大/中/小分類）は既存の product_catalog (level 1/2/3) を使う。
+- deal_products 追加カラム: sort_order integer（並び順。既存分は product_no で初期化）, shipping_mode text ('sea'|'air'), shipping_arranger text ('factory'|'partner'), sample_required boolean NOT NULL DEFAULT false, food_inspection_required boolean NOT NULL DEFAULT false, category_note text。
+- deal_product_variants 追加カラム: size_mode text ('box'|'round'|'capacity'|'undecided'), diameter_mm numeric, capacity_text text, size_note text, material_note text, print_note text, accessories text[] NOT NULL DEFAULT '{}', accessories_note text。
+- 新しい商品登録は「1商品 = deal_products 1行 + deal_product_variants 1行（variant_label '標準'）+ 数量ごとの deal_quotes（status 'drafting'）」。
+- RPC: project_product_name(jsonb) → 商品名（画面側の同じ組み立ては src/lib/process/product-name.ts）。
+  save_project_product_v1(p_request_id uuid, p_payload jsonb) → {success, productId, variantId, name}（wizard_requests に operation='project_product'。価格・見積の記録がある数量は外せない。deals.process_stage を 2 以上に進める）。
+  reorder_project_products(p_deal_id uuid, p_ids uuid[])。delete_project_product(p_product_id uuid)（価格・見積・サンプルの記録がある商品は断る）。いずれも authenticated のみ・staff 判定あり。

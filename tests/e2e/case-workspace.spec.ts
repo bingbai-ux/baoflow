@@ -70,7 +70,8 @@ test('legacy confirmed without adoption guides to adoption, not invoice or paid,
   expect(state.deal_status_history).toHaveLength(0)
 })
 
-test('two products each save two specifications with three quantity patterns using the existing atomic API', async ({ page, request }) => {
+// 再設計 工程2: この画面（旧・仕様入力）は新しい商品登録に置き換えたため休止。同じ観点は tests/e2e/process-stage2.spec.ts で確認している。
+test.skip('two products each save two specifications with three quantity patterns using the existing atomic API', async ({ page, request }) => {
   test.setTimeout(120000)
   // 再設計 工程1: 作成画面は取引先を選ぶだけになった。旧ウィザードが作っていた商品の枠2つは、仕様保存の確認用にここで用意する。
   await page.goto('/deals/new?client=22222222-2222-4222-8222-222222222222')
@@ -135,7 +136,8 @@ test('keyboard search and return restore the case list scroll and focus', async 
   await expect(page.getByRole('table', { name: '案件一覧' })).not.toContainText('合成案件29')
 })
 
-test('invalid quantities are explained and unsaved specification input survives cancelled navigation', async ({ page }) => {
+// 再設計 工程2: この画面（旧・仕様入力）は新しい商品登録に置き換えたため休止。同じ観点は tests/e2e/process-stage2.spec.ts で確認している。
+test.skip('invalid quantities are explained and unsaved specification input survives cancelled navigation', async ({ page }) => {
   await page.goto(deal + '?step=2')
   await page.getByRole('button', { name: '別の仕様案を追加', exact: true }).click()
   const editor = page.getByRole('region', { name: '商品仕様の入力' })
@@ -152,7 +154,8 @@ test('invalid quantities are explained and unsaved specification input survives 
   await expect(page).toHaveURL(/step=2/)
 })
 
-test('mobile specification cards and empty input reasons are readable; navigation and contacts collapse', async ({ page }) => {
+// 再設計 工程2: この画面（旧・仕様入力）は新しい商品登録に置き換えたため休止。同じ観点は tests/e2e/process-stage2.spec.ts で確認している。
+test.skip('mobile specification cards and empty input reasons are readable; navigation and contacts collapse', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(deal + '?step=2')
   await expect(page.getByRole('region', { name: '仕様 100g', exact: true })).toBeVisible()

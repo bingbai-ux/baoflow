@@ -9,7 +9,7 @@ import {CaseChat} from '@/components/chat/case-chat'
 // ステップの実行者: ● 自分 / ▲ 工場 / ◯ クライアント
 // 完了判定は実データ(商品数・RFQ数・単価・カートン・採用・帳票・ステータス)から。
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { hasFactoryPrice, hasCarton, hasFactoryReplies } from '@/lib/deals/readiness'
 import { useRouter } from 'next/navigation'
@@ -39,7 +39,8 @@ import {
 import { updateDealStatus } from '@/lib/actions/deal-status'
 import { createQuote } from '@/lib/actions/quotes'
 import { createFactoryOrder, createInboundForFactoryOrder, type FactoryOrderRow } from '@/lib/actions/factory-orders'
-import { CaseProducts } from '@/components/deals/case-products'
+import { ProductRegistry } from '@/components/process/product-registry'
+import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
 import type { CatalogNode } from '@/lib/actions/catalog'
 import { archiveDeal } from '@/lib/actions/deals'
@@ -108,6 +109,8 @@ interface DealFlowProps {
   factories: Array<{ id: string; factory_name: string }>
   statusHistory: FlowHistoryRow[]
   communications: DealCommunication[]
+  /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
+  options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
   processStage: number
   dueDate: string | null
@@ -146,6 +149,7 @@ export function DealFlow({
   dueDate,
   today,
   archived,
+  options,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -205,6 +209,18 @@ export function DealFlow({
     setSelected(value)
   }
 
+  // 商品の入力を始めたら、いま見ている工程を固定する。
+  // （固定しないと、1つ目の商品を登録した瞬間に「次の作業」が工場見積へ移り、続けて商品を足せなくなる）
+  const [specPinned, setSpecPinned] = useState(false)
+  const pinSpecStep = useCallback((editing: boolean) => { setSpecEditing(editing); if (editing) setSpecPinned(true) }, [])
+  useEffect(() => {
+    if (!specPinned || selected != null) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('step', '2')
+    window.history.replaceState(null, '', url)
+    setSelected(1)
+  }, [specPinned, selected])
+
   const steps: Array<{
     title: string
     actor: Actor
@@ -234,7 +250,9 @@ export function DealFlow({
           quotes={quotes}
           designFiles={designFiles}
           catalog={catalog}
-        onEditorChange={setSpecEditing}
+          options={options}
+          archived={archived}
+        onEditorChange={pinSpecStep}
         />
       ),
     },
@@ -615,6 +633,8 @@ function StepSpecs({
   quotes,
   designFiles,
   catalog,
+  options,
+  archived,
   onEditorChange,
 }: {
   deal: FlowDeal
@@ -623,11 +643,13 @@ function StepSpecs({
   quotes: BuilderQuote[]
   designFiles: DesignFileRow[]
   catalog: CatalogNode[]
+  options: OptionItem[]
+  archived?: boolean
   onEditorChange: (editing: boolean) => void
 }) {
   return (
     <div className="space-y-4">
-      <CaseProducts dealId={deal.id} products={products} variants={variants} quotes={quotes} catalog={catalog} onEditorChange={onEditorChange} />
+      <ProductRegistry dealId={deal.id} products={products} variants={variants} quotes={quotes} catalog={catalog} options={options} readOnly={archived} onEditorChange={onEditorChange} />
       <details className="rounded-card border border-[#E2E1DA] p-3">
         <summary className="min-h-[44px] flex items-center text-[12px] font-bold cursor-pointer">補足メモ・参考資料</summary>
         <InlineCell value={deal.memo} onSave={async v => updateDealField(deal.id, 'memo', v || null)} placeholder="補足メモを入力" />

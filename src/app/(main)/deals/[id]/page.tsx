@@ -8,6 +8,7 @@ import { listDesignFiles } from '@/lib/actions/designs'
 import { listFactoryOrders } from '@/lib/actions/factory-orders'
 import { listFactoriesForRfq } from '@/lib/actions/rfq'
 import { listCatalog } from '@/lib/actions/catalog'
+import { listOptionItems } from '@/lib/actions/product-master'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -56,7 +57,7 @@ export default async function DealDetailPage({ params }: Props) {
   if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
-  const [factoryOrderResult, factories] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq()])
+  const [factoryOrderResult, factories, options] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems()])
   if (factoryOrderResult.error) throw new Error('Factory orders could not be loaded')
 
   const [
@@ -74,6 +75,7 @@ export default async function DealDetailPage({ params }: Props) {
       .from('deal_products')
       .select('*')
       .eq('deal_id', id)
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('product_no', { ascending: true }),
     supabase
       .from('deal_product_variants')
@@ -186,6 +188,7 @@ export default async function DealDetailPage({ params }: Props) {
       <DealFlow
         financeHold={financeHold}
         processStage={deal.process_stage}
+        options={options}
         dueDate={deal.desired_delivery_date}
         today={todayInJapan()}
         archived={!!deal.archived_at}

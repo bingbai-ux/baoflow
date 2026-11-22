@@ -8,11 +8,11 @@ const now='2026-09-30T00:00:00Z'
 const user={id:IDs.user,aud:'authenticated',role:'authenticated',email:'local@example.test',app_metadata:{},user_metadata:{},created_at:now}
 const client={id:IDs.client,company_name:'検証用カフェ',short_name:'検証用カフェ',brand_name:'TEST',storage_rate_config:null}
 const deal={id:IDs.deal,deal_code:'LOCAL-001',deal_name:'検証用パウチ',process_stage:2,brand_text:null,client_id:IDs.client,client_name_text:client.company_name,desired_delivery_date:'2026-10-15',simple_status:'quoting',master_status:'M01',waiting_on:'us',visibility:'internal',memo:'',archived_at:null,created_at:now,updated_at:now,last_activity_at:now,sales_user_id:IDs.user,sales_user:{display_name:'検証担当'},client, tags:[]}
-const product={id:IDs.product,deal_id:IDs.deal,product_no:1,description:'パウチ',is_selected:false}
+const product={id:IDs.product,deal_id:IDs.deal,product_no:1,sort_order:1,description:'パウチ',is_selected:false}
 const variant={id:IDs.variant,product_id:IDs.product,variant_label:'100g',material:'PET',width_mm:100,height_mm:150,depth_mm:30,pcs_per_carton:100,carton_width_cm:30,carton_height_cm:40,carton_depth_cm:30,gross_weight_kg:10,variant_order:1,deal_products:{deal_id:IDs.deal}}
 const quote={id:IDs.quote,deal_id:IDs.deal,variant_id:IDs.variant,spec_id:null,quantity:1000,moq:1000,version:1,status:'draft',factory_unit_price_usd:0.1,exchange_rate:150,cost_ratio:0.5,unit_cost_usd:0.12,total_cost_usd:120,selling_price_jpy:36,total_billing_jpy:36000,total_billing_tax_jpy:39600,factory_calculated_freight_usd:20,china_freight_usd:20}
 let db;let failure=null;let number=1
-function reset(){ db={profiles:[{...user,display_name:'検証担当',role:'sales'}],clients:[client],deals:[structuredClone(deal)],deal_products:[product],deal_product_variants:[variant],deal_quotes:[structuredClone(quote)],product_catalog:[{id:'pouch',name:'パウチ',level:1,parent_id:null,sort:1}],system_settings:[{id:1,default_exchange_rate:150,default_tax_rate:10,default_cost_ratio:0.5,company_info:{company_name:'ローカル検証',address:'テスト住所'},bank_accounts:[]}],documents:[],rfq_requests:[],factories:[],inventory_items:[],inventory_transactions:[],inbound_shipments:[],shipment_requests:[],deal_status_history:[],deal_design_files:[],deal_communications:[]};failure=null;number=1}
+function reset(){ db={profiles:[{...user,display_name:'検証担当',role:'sales'}],clients:[client],deals:[structuredClone(deal)],deal_products:[product],deal_product_variants:[variant],deal_quotes:[structuredClone(quote)],product_catalog:[{id:'pouch',name:'パウチ',level:1,parent_id:null,sort:1},{id:'bag',name:'袋',level:1,parent_id:null,sort:2},{id:'stand',name:'スタンド袋',level:2,parent_id:'bag',sort:1},{id:'flat',name:'平袋',level:2,parent_id:'bag',sort:2},{id:'zipstand',name:'ジップ付きスタンド',level:3,parent_id:'stand',sort:1}],product_option_items:[{id:'00000000-0000-4000-8000-0000000000a1',kind:'material',name:'クラフト紙',sort:10},{id:'00000000-0000-4000-8000-0000000000a2',kind:'material',name:'PET',sort:20},{id:'00000000-0000-4000-8000-0000000000b1',kind:'print_colors',name:'1色',sort:10},{id:'00000000-0000-4000-8000-0000000000b4',kind:'print_colors',name:'4色（フルカラー）',sort:20},{id:'00000000-0000-4000-8000-0000000000c1',kind:'accessory',name:'ジップ',sort:10},{id:'00000000-0000-4000-8000-0000000000c2',kind:'accessory',name:'バルブ',sort:20}],system_settings:[{id:1,default_exchange_rate:150,default_tax_rate:10,default_cost_ratio:0.5,company_info:{company_name:'ローカル検証',address:'テスト住所'},bank_accounts:[]}],documents:[],rfq_requests:[],factories:[],inventory_items:[],inventory_transactions:[],inbound_shipments:[],shipment_requests:[],deal_status_history:[],deal_design_files:[],deal_communications:[]};failure=null;number=1}
 reset()
 const server=http.createServer(async(req,res)=>{
  res.setHeader('access-control-allow-origin','*');res.setHeader('access-control-allow-headers','*');res.setHeader('access-control-allow-methods','GET,POST,PATCH,DELETE,HEAD,OPTIONS');res.setHeader('content-type','application/json')
@@ -103,6 +103,47 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程2: 商品登録の代役（ブラウザ配線確認用）。検査・名前付け・数量の扱いの正しさは tests/process-stage2-sql.test.ts (PGlite) で検証する。
+  if(table==='save_project_product_v1'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   db.wizard_requests ||= []
+   const p=input.p_payload,prior=db.wizard_requests.find(r=>r.request_id===input.p_request_id)
+   if(prior){send(prior.result);return}
+   const d=db.deals.find(d=>d.id===p.deal_id);if(!d){send({code:'P0001',message:'案件が見つかりません'},400);return}
+   if(!Array.isArray(p.quantities)||!p.quantities.length){send({code:'P0001',message:'見積を取りたい数量を1つ以上選んでください'},400);return}
+   const num=v=>/^[0-9]+(\.[0-9]+)?$/.test(String(v??''))?String(v):null,txt=v=>String(v??'').trim()||null
+   let size=''
+   if(p.size_mode==='box'){size=[num(p.width_mm)&&'W'+num(p.width_mm),num(p.height_mm)&&'H'+num(p.height_mm),num(p.depth_mm)&&'D'+num(p.depth_mm)].filter(Boolean).join('×');if(size)size+='mm'}
+   else if(p.size_mode==='round'){size=[num(p.diameter_mm)&&'φ'+num(p.diameter_mm),num(p.height_mm)&&'H'+num(p.height_mm)].filter(Boolean).join('×');if(size)size+='mm'}
+   else if(p.size_mode==='capacity'&&txt(p.capacity_text))size=txt(p.capacity_text)+'入り'
+   const name=[txt(p.category_l3)||txt(p.category_l2)||txt(p.category_l1)||txt(p.category_note)||'商品',size||'サイズ未定',txt(p.material)||txt(p.material_note),txt(p.print_color_count)||txt(p.print_note),(p.accessories||[]).join('・')||null].filter(Boolean).join(' / ')
+   let product=p.product_id?db.deal_products.find(x=>x.id===p.product_id&&x.deal_id===d.id):null
+   if(p.product_id&&!product){send({code:'P0001',message:'商品がこの案件に見つかりません'},400);return}
+   const mine=db.deal_products.filter(x=>x.deal_id===d.id)
+   if(!product){product={id:randomUUID(),deal_id:d.id,product_no:Math.max(0,...mine.map(x=>x.product_no||0))+1,sort_order:Math.max(0,...mine.map(x=>x.sort_order||x.product_no||0))+1,is_selected:false};db.deal_products.push(product)}
+   Object.assign(product,{description:name,category_l1:p.category_l1,category_l2:p.category_l2,category_l3:p.category_l3,category_note:p.category_note,shipping_mode:p.shipping_mode,shipping_arranger:p.shipping_arranger,sample_required:!!p.sample_required,food_inspection_required:!!p.food_inspection_required,product_memo:p.memo})
+   let variant=db.deal_product_variants.filter(v=>v.product_id===product.id).sort((a,b)=>a.variant_order-b.variant_order)[0]
+   if(!variant){variant={id:randomUUID(),product_id:product.id,deal_products:{deal_id:d.id},variant_label:'標準',variant_order:0,is_selected:false};db.deal_product_variants.push(variant)}
+   Object.assign(variant,{size_mode:p.size_mode,width_mm:p.size_mode==='box'&&p.width_mm?Number(p.width_mm):null,height_mm:['box','round'].includes(p.size_mode)&&p.height_mm?Number(p.height_mm):null,depth_mm:p.size_mode==='box'&&p.depth_mm?Number(p.depth_mm):null,diameter_mm:p.size_mode==='round'&&p.diameter_mm?Number(p.diameter_mm):null,capacity_text:p.size_mode==='capacity'?p.capacity_text:null,size_note:p.size_note,material:p.material,material_note:p.material_note,print_color_count:p.print_color_count,print_note:p.print_note,accessories:p.accessories||[],accessories_note:p.accessories_note})
+   const blocked=db.deal_quotes.find(q=>q.variant_id===variant.id&&!p.quantities.includes(q.quantity)&&(q.factory_unit_price_usd!=null||q.selling_price_jpy!=null))
+   if(blocked){send({code:'P0001',message:`数量 ${blocked.quantity} には工場の価格や見積の記録があるため外せません`},400);return}
+   db.deal_quotes=db.deal_quotes.filter(q=>q.variant_id!==variant.id||p.quantities.includes(q.quantity))
+   for(const quantity of p.quantities)if(!db.deal_quotes.some(q=>q.variant_id===variant.id&&q.quantity===quantity))db.deal_quotes.push({id:randomUUID(),deal_id:d.id,variant_id:variant.id,quantity,status:'drafting',version:1})
+   d.process_stage=Math.max(d.process_stage||1,2)
+   const result={success:true,productId:product.id,variantId:variant.id,name};db.wizard_requests.push({request_id:input.p_request_id,user_id:IDs.user,operation:'project_product',payload:p,result});send(result);return
+  }
+  if(table==='reorder_project_products'){
+   const mine=db.deal_products.filter(x=>x.deal_id===input.p_deal_id)
+   if(mine.length!==input.p_ids.length||!input.p_ids.every(id=>mine.some(x=>x.id===id))){send({code:'P0001',message:'商品の一覧が変わっています。画面を読み直してから並べ替えてください'},400);return}
+   input.p_ids.forEach((id,i)=>{db.deal_products.find(x=>x.id===id).sort_order=i+1});send({success:true});return
+  }
+  if(table==='delete_project_product'){
+   const product=db.deal_products.find(x=>x.id===input.p_product_id);if(!product){send({code:'P0001',message:'商品が見つかりません'},400);return}
+   const vids=db.deal_product_variants.filter(v=>v.product_id===product.id).map(v=>v.id)
+   if(db.deal_quotes.some(q=>vids.includes(q.variant_id)&&(q.factory_unit_price_usd!=null||q.selling_price_jpy!=null))){send({code:'P0001',message:'この商品には工場の価格や見積の記録があるため削除できません'},400);return}
+   db.deal_quotes=db.deal_quotes.filter(q=>!vids.includes(q.variant_id));db.deal_product_variants=db.deal_product_variants.filter(v=>v.product_id!==product.id);db.deal_products=db.deal_products.filter(x=>x.id!==product.id)
+   send({success:true,dealId:product.deal_id});return
+  }
   // 再設計 工程1: ブラウザ配線確認用の代役。SQLとしての正しさは tests/process-stage1-sql.test.ts (PGlite) で検証する。
   if(table==='create_project_v1'){
    if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
