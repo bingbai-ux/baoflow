@@ -25,14 +25,21 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
   const [channel, setChannel] = useState<CommChannel>('email')
   const [body, setBody] = useState('')
   const [hint, setHint] = useState('')
+  const [factoryId, setFactoryId] = useState(context.factories[0]?.id || '')
+  const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const end = useRef<HTMLDivElement>(null)
   const list = [...talks].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }) }, [list.length])
 
-  const canMail = mode === 'out' && party === 'client' && channel === 'email'
+  const factory = context.factories.find(f => f.id === factoryId) || null
+  const canMail = mode === 'out' && channel === 'email'
+  const mailTo = party === 'client' ? context.clientEmail : factory?.email || null
+  // 工場あての下書きは「中国語 → --- 日本語訳 ---」の形。工場へ渡すのは中国語の部分だけ
+  const forFactory = body.replace(/\n?-{3}\s*日本語訳\s*-{3}[\s\S]*$/, '').trim()
+  const copy = async () => { setError(null); try { await navigator.clipboard.writeText(forFactory); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { setError('コピーできませんでした。本文を選んでコピーしてください。') } }
   const submit = (send: boolean) => { setError(null); startTransition(async () => {
-    const r = await postTalk(dealId, { from: mode === 'out' ? 'staff' : party, party, channel, body, send })
+    const r = await postTalk(dealId, { from: mode === 'out' ? 'staff' : party, party, channel, body, send, factoryId: party === 'factory' ? factoryId : undefined })
     if (r.error) { setError(r.error); return }
     setBody(''); setHint(''); toast(send ? 'メールを送りました' : '記録しました'); router.refresh()
   }) }
@@ -66,7 +73,7 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
       <div className="mt-2 space-y-2">
         <div role="group" aria-label="相手" className="flex gap-1">
           <button type="button" aria-pressed={party === 'client'} className={seg(party === 'client')} onClick={() => setParty('client')}>顧客</button>
-          <button type="button" aria-pressed={party === 'factory'} className={seg(party === 'factory')} onClick={() => { setParty('factory'); if (channel === 'email') setChannel('wechat') }}>工場</button>
+          <button type="button" aria-pressed={party === 'factory'} className={seg(party === 'factory')} onClick={() => { setParty('factory'); if (channel === 'email' && !context.factories.some(f => f.email)) setChannel('wechat') }}>工場</button>
         </div>
         <div role="group" aria-label="記録の向き" className="flex gap-1">
           <button type="button" aria-pressed={mode === 'out'} className={seg(mode === 'out')} onClick={() => setMode('out')}>こちらから</button>
@@ -76,10 +83,15 @@ export function TalkPanel({ dealId, talks, context }: { dealId: string; talks: D
           <select value={channel} onChange={e => setChannel(e.target.value as CommChannel)} className={field}>{(['email', 'wechat', 'phone', 'meeting', 'memo'] as CommChannel[]).map(c => <option key={c} value={c}>{CHANNEL[c]}</option>)}</select></label>
         <label className="block text-[11px] text-[#84787D]">本文
           <textarea value={body} onChange={e => setBody(e.target.value)} rows={5} maxLength={4000} className={field + ' py-2'} /></label>
-        {canMail && <p className="break-all text-[11px] text-[#84787D]">宛先: {context.clientEmail ? `${context.clientContact || '担当者'} <${context.clientEmail}>` : '担当者のメールアドレスが未登録'}</p>}
+        {party === 'factory' && mode === 'out' && context.factories.length > 1 && <label className="block text-[11px] text-[#84787D]">送り先の工場
+          <select value={factoryId} onChange={e => setFactoryId(e.target.value)} className={field}>{context.factories.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>}
+        {canMail && party === 'client' && <p className="break-all text-[11px] text-[#84787D]">宛先: {context.clientEmail ? `${context.clientContact || '担当者'} <${context.clientEmail}>` : '担当者のメールアドレスが未登録'}</p>}
+        {canMail && party === 'factory' && <p className="break-all text-[11px] text-[#84787D]">宛先: {!factory ? 'この案件で見積をもらっている工場がありません' : factory.email ? `${factory.name} <${factory.email}>（中国語の部分だけ送ります）` : `${factory.name} のメールアドレスが未登録`}</p>}
+        {canMail && <p className="text-[11px] text-[#84787D]">{context.replyReady ? '相手がこのメールに返信すると、ここに自動で入ります' : '返信の自動取り込みは未設定です（届いた返信は「相手から届いた」で記録してください）'}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" disabled={pending || !body.trim()} className={ghost} onClick={() => submit(false)}>記録する</button>
-          {canMail && <button type="button" disabled={pending || !body.trim() || !context.clientEmail || !context.mailReady} className={dark} onClick={() => submit(true)}>メールで送る</button>}
+          {party === 'factory' && mode === 'out' && channel === 'wechat' && <button type="button" disabled={!forFactory} className={ghost} onClick={copy}>{copied ? 'コピーしました' : '中国語の部分をコピー'}</button>}
+          {canMail && <button type="button" disabled={pending || !body.trim() || !mailTo || !context.mailReady} className={dark} onClick={() => submit(true)}>メールで送る</button>}
         </div>
         {canMail && !context.mailReady && <p><span className="inline-block rounded-full bg-[#FFD8C2] px-2.5 py-1 text-[11px] font-bold text-[#B03616]">メール送信の設定がありません</span></p>}
         <div className="rounded-[12px] border border-[#E2E1DA] p-2">

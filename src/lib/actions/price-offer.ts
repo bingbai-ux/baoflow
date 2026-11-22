@@ -10,6 +10,7 @@ import { defaultIssuerName } from './issuer-companies'
 import { logSentMail } from '@/lib/process/talk-log'
 import { sendEmail } from '@/lib/utils/email'
 import { priceOfferPDF } from '@/lib/pdf/price-offer'
+import { replyToField } from '@/lib/process/reply-address'
 import { offerNumber, type OfferSnapshot } from '@/lib/process/offer-format'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -76,7 +77,7 @@ export async function sendPriceOffer(dealId: string): Promise<{ link: string | n
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `price-offer/${data.id}` },
-      body: JSON.stringify({ from, to: [to], subject, text, attachments: [{ filename: `お見積書_${offerNumber(s)}.pdf`, content: Buffer.from(pdf).toString('base64') }] }),
+      body: JSON.stringify({ from, to: [to], subject, text, ...replyToField(dealId, 'client'), attachments: [{ filename: `お見積書_${offerNumber(s)}.pdf`, content: Buffer.from(pdf).toString('base64') }] }),
     })
     if (!res.ok) status = 'rejected'
     else { const body = await res.json(); if (typeof body.id === 'string' && body.id) status = 'accepted' }

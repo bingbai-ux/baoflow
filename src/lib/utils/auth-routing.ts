@@ -5,7 +5,8 @@ export function isRoute(path: string, root: string): boolean {
 
 export function isPublicAuthPath(path: string): boolean {
   return ['/external', '/account-invite', '/auth/callback', '/auth/confirm'].some(root => isRoute(path, root)) ||
-    path === '/forgot-password' || path === '/reset-password'
+    path === '/forgot-password' || path === '/reset-password' ||
+    path === '/api/inbound-mail' // 届いたメールの受信口（署名で本物か確かめる）
 }
 
 /** OAuth redirect destinations must stay on this application. */

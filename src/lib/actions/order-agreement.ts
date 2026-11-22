@@ -10,6 +10,7 @@ import { logSentMail } from '@/lib/process/talk-log'
 import { sendEmail } from '@/lib/utils/email'
 import { orderInvoicePDF } from '@/lib/pdf/order-invoice'
 import { yen } from '@/lib/process/offer-format'
+import { replyToField } from '@/lib/process/reply-address'
 import { jpDate, type InvoiceSnapshot } from '@/lib/process/invoice-format'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -64,7 +65,7 @@ export async function issueOrderInvoice(dealId: string, issueDate: string, dueDa
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `order-agreement/${data.id}` },
-      body: JSON.stringify({ from, to: [to], subject, text, attachments: [{ filename: `請求書_${s.invoice_number}.pdf`, content: Buffer.from(pdf).toString('base64') }] }),
+      body: JSON.stringify({ from, to: [to], subject, text, ...replyToField(dealId, 'client'), attachments: [{ filename: `請求書_${s.invoice_number}.pdf`, content: Buffer.from(pdf).toString('base64') }] }),
     })
     if (!res.ok) status = 'rejected'
     else { const body = await res.json(); if (typeof body.id === 'string' && body.id) status = 'accepted' }

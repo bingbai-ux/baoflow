@@ -932,3 +932,14 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - RPC（ログイン不要・リンクの持ち主）: deal_receipt_by_token(p_token text)（発行元のロゴ・角印も返す）、confirm_deal_receipt(p_token, p_ip, p_ua)。
 - 受領で deals.waiting_on='none'・process_stage 9、履歴1行、リンク経由ならお知らせ1行。simple_status と archived_at は変えない。
 - 納品書PDF: GET /deals/<案件ID>/delivery-note（営業・管理者のみ）、GET /external/receipt/<token>/delivery-note（顧客）。どちらも受領済みのときだけ。
+
+## 届いたメールの自動取り込み（2026-11-22 作成・本番 baoflow-v2 には未適用）
+`20261123000000_inbound_mail.sql`。追加のみ。
+- inbound_mails: id UUID, email_id text UNIQUE（メール配信サービス側の番号）, deal_id UUID→deals, party text ('client'|'factory'), communication_id UUID→deal_communications, from_address, to_address, subject, attachments jsonb（[{name,type,size,saved}]）, received_at。RLS: staff は読むだけ。
+- RPC（service_role だけ。受信口 /api/inbound-mail が呼ぶ）: record_inbound_mail(p_email_id text, p_deal_id uuid, p_party text, p_from text, p_to text, p_subject text, p_body text, p_attachments jsonb) → deal_communications に1行（author_role = party, channel 'email', is_read false）、deals.waiting_on='us'、担当へ notifications（type 'dashboard', status 'pending'）。同じ email_id は1件だけ。add_inbound_mail_files(p_email_id text, p_files jsonb) → 保存できた添付を deal_design_files に category 'mail_in' で登録、保存できなかった分はトークの本文に書き足す。
+- 返信用アドレス: c-<案件IDの32文字>@<MAIL_REPLY_DOMAIN>（顧客）/ f-<同>@<MAIL_REPLY_DOMAIN>（工場）。送るメールの reply_to に付ける。
+- 使う既存カラム: deal_communications（deal_id, author_user_id, author_role, channel, subject, body, is_read, occurred_at, updated_at）、deal_design_files（deal_id, file_url, storage_path, file_name, file_type, file_size_bytes, version_number, category, comment）、factories（id, factory_name, contact_email, wechat）、deal_quotes（deal_id, factory_id）。
+
+## カタログ取込の置き場（2026-11-22 作成・本番 baoflow-v2 には未適用）
+`20261123100000_catalog_import_bucket.sql`。追加のみ。
+- 保管場所 catalog-imports（非公開・1件 50MB・PDF / JPEG / PNG）。storage.objects のポリシー: is_staff() の人だけ 読む・置く・消す。読み取りが終わったら画面側で消す。

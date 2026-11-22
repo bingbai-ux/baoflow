@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { defaultIssuerName } from './issuer-companies'
+import { replyToField } from '@/lib/process/reply-address'
 import { logSentMail } from '@/lib/process/talk-log'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -68,7 +69,7 @@ export async function recordShipped(dealId: string, input: { carrier: string; tr
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `deal-shipped/${dealId}` },
-        body: JSON.stringify({ from, to: [to], subject: `【発送のお知らせ】${data.dealName}`, text }),
+        body: JSON.stringify({ from, to: [to], subject: `【発送のお知らせ】${data.dealName}`, text, ...replyToField(dealId, 'client') }),
       })
       if (!res.ok) status = 'rejected'
       else { const body = await res.json(); if (typeof body.id === 'string' && body.id) status = 'accepted' }

@@ -95,6 +95,8 @@ test('カタログのAI取込: 画像を読ませると、登録済みを除い�
   await shot(page, 'a1-catalog-candidates')
   const before = await state(request)
   expect(before.ai_requests[0].text).toContain('[image:image/jpeg]') // 画像は縮めて JPEG で渡している
+  expect(before.ai_requests[0].model).toBe('claude-opus-5-5') // カタログの読み取りは最上位のAI
+  expect(before.storage_objects.filter((x: string) => x.startsWith('catalog-imports/'))).toEqual([]) // 読み終わったら、置いたファイルは消す
   expect(before.product_catalog).toHaveLength(5) // 候補を出しただけでは何も登録しない
   await box.getByRole('checkbox', { name: '窓' }).uncheck()
   await box.getByRole('button', { name: '選んだ 4件を登録する' }).click()
@@ -107,4 +109,50 @@ test('カタログのAI取込: 画像を読ませると、登録済みを除い�
   const options = s.product_option_items.map((o: { kind: string; name: string }) => `${o.kind}:${o.name}`)
   expect(options).toContain('material:アルミ蒸着'); expect(options).toContain('print_colors:特色2色'); expect(options).not.toContain('accessory:窓')
   await expect(page.getByRole('region', { name: '種類・形状・ディテール' })).toContainText('カップ')
+})
+
+test('カタログのAI取込: 大きなPDFは10ページずつ読み、進み具合を出す。途中で失敗したら、そこまでの候補を残して知らせる', async ({ page, request }) => {
+  await page.goto('/settings/product-master'); await page.waitForLoadState('networkidle')
+  const box = page.getByRole('region', { name: 'カタログからAIで取り込む' })
+  // 代役の保管場所は、置かれた PDF の代わりに23ページの見本を返す（→ 1〜10 / 11〜20 / 21〜23 の3回に分けて読む）
+  await box.getByLabel('カタログの画像・PDF').setInputFiles({ name: '工場カタログ 2026.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(6 * 1024 * 1024, 1) }) // これまで読めなかった 6MB
+  await expect(box.getByRole('list', { name: '分類の候補' }).getByRole('listitem')).toHaveCount(2)
+  const s = await state(request)
+  expect(s.ai_requests).toHaveLength(3)
+  expect(s.ai_requests.every((r: { text: string; model: string }) => r.text.includes('[document:application/pdf]') && r.model === 'claude-opus-5-5')).toBe(true)
+  expect(s.storage_objects.filter((x: string) => x.startsWith('catalog-imports/'))).toEqual([])
+  await shot(page, 'a2-catalog-pdf')
+
+  await request.post(fixture + '/__ai_fail', { data: { fail: true } })
+  await box.getByLabel('カタログの画像・PDF').setInputFiles({ name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') })
+  await expect(box.getByRole('alert')).toContainText('b.pdf の 1〜10ページ')
+  expect((await state(request)).storage_objects.filter((x: string) => x.startsWith('catalog-imports/'))).toEqual([]) // 失敗しても置いたファイルは消す
+})
+
+test('トーク欄: 工場あてもメールで送れる形になり（宛先は見積をもらった工場）、WeChat 用に中国語の部分だけコピーできる', async ({ page, request, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const f1 = 'ffffffff-0000-4000-8000-0000000000f1', f2 = 'ffffffff-0000-4000-8000-0000000000f2'
+  await post(request, 'factories', { id: f1, factory_name: '東莞パック', contact_email: 'dg@example.test', wechat: 'dg-pack' })
+  await post(request, 'factories', { id: f2, factory_name: '義烏プリント', contact_email: null, wechat: null })
+  await post(request, 'deals', { id: deal, deal_code: 'PF-TEST-010', deal_name: '定番の袋', client_id: clientId, client_name_text: '検証用カフェ', simple_status: 'quoting', waiting_on: 'us', sales_user_id: userId, process_stage: 3, tags: [], desired_delivery_date: null, last_activity_at: '2026-11-01T00:00:00Z' })
+  await post(request, 'deal_quotes', { id: 'aaaaaaaa-0000-4000-8000-0000000010a1', deal_id: deal, factory_id: f1, quantity: 1000, version: 1, status: 'draft' })
+  await post(request, 'deal_quotes', { id: 'aaaaaaaa-0000-4000-8000-0000000010a2', deal_id: deal, factory_id: f2, quantity: 1000, version: 1, status: 'draft' })
+  await page.goto(`/deals/${deal}`); await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: '会話・連絡記録を開く', exact: true }).click()
+  await talk(page).getByRole('button', { name: '工場', exact: true }).click()
+  await expect(talk(page).getByLabel('手段')).toHaveValue('email') // メールアドレスのある工場がいるので、メールのまま
+  await expect(talk(page)).toContainText('宛先: 東莞パック <dg@example.test>（中国語の部分だけ送ります）')
+  await expect(talk(page)).toContainText('返信の自動取り込みは未設定です')
+  await talk(page).getByLabel('送り先の工場').selectOption(f2)
+  await expect(talk(page)).toContainText('義烏プリント のメールアドレスが未登録')
+  await expect(talk(page).getByRole('button', { name: 'メールで送る' })).toBeDisabled()
+  // AIの下書き（中国語 + 日本語訳）→ WeChat に貼る用に中国語の部分だけコピー
+  await talk(page).getByRole('button', { name: '工場あての下書きをAIでつくる' }).click()
+  await expect(talk(page).getByLabel('本文')).toHaveValue(/日本語訳/)
+  await talk(page).getByLabel('手段').selectOption('wechat')
+  await talk(page).getByRole('button', { name: '中国語の部分をコピー' }).click()
+  await expect(talk(page).getByRole('button', { name: 'コピーしました' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('您好，样品已收到。')
+  await shot(page, 'a3-talk-factory')
+  expect((await state(request)).deal_communications || []).toHaveLength(0) // 送っても記録してもいない
 })

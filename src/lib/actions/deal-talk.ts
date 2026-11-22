@@ -10,18 +10,32 @@ import { createCommunication } from './communications'
 import { defaultIssuerName } from './issuer-companies'
 import { askClaude, aiReady, AI_NOT_CONFIGURED } from '@/lib/ai/claude'
 import { stageLabel } from '@/lib/process/stages'
+import { replyDomain, replyToField } from '@/lib/process/reply-address'
 import type { CommChannel, DealCommunication } from '@/lib/types'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CHANNELS: CommChannel[] = ['email', 'wechat', 'phone', 'memo', 'meeting']
 export type TalkParty = 'client' | 'factory'
-export interface TalkContext { clientEmail: string | null; clientContact: string | null; mailReady: boolean; aiReady: boolean }
+export interface TalkFactory { id: string; name: string; email: string | null; wechat: string | null }
+export interface TalkContext { clientEmail: string | null; clientContact: string | null; mailReady: boolean; aiReady: boolean; factories: TalkFactory[]; replyReady: boolean }
+const TRANSLATION = /\n?-{3}\s*日本語訳\s*-{3}[\s\S]*$/ // AIの下書きに付く日本語訳（工場へは送らない）
 
 /** トーク欄を開くときに要る情報（顧客の宛先と、メール・AIが使える状態か）。 */
 export async function getTalkContext(dealId: string): Promise<TalkContext> {
   const supabase = await createClient()
-  const contact = await clientContact(supabase, dealId)
-  return { clientEmail: contact?.email || null, clientContact: contact?.name || null, mailReady: !!process.env.RESEND_API_KEY && !!process.env.RFQ_MAIL_FROM, aiReady: aiReady() }
+  const [contact, factories] = await Promise.all([clientContact(supabase, dealId), dealFactories(supabase, dealId)])
+  return { clientEmail: contact?.email || null, clientContact: contact?.name || null, mailReady: !!process.env.RESEND_API_KEY && !!process.env.RFQ_MAIL_FROM, aiReady: aiReady(), factories, replyReady: !!replyDomain() }
+}
+
+/** この案件で見積をもらっている工場（トーク欄からメールを送れる相手）。 */
+async function dealFactories(supabase: Awaited<ReturnType<typeof createClient>>, dealId: string): Promise<TalkFactory[]> {
+  const quotes = await supabase.from('deal_quotes').select('factory_id').eq('deal_id', dealId).not('factory_id', 'is', null)
+  if (quotes.error) throw new Error('Factories could not be loaded')
+  const ids = [...new Set((quotes.data || []).map(q => q.factory_id as string))]
+  if (!ids.length) return []
+  const rows = await supabase.from('factories').select('id, factory_name, contact_email, wechat').in('id', ids)
+  if (rows.error) throw new Error('Factories could not be loaded')
+  return (rows.data || []).map(f => ({ id: f.id, name: f.factory_name, email: (f.contact_email || '').trim() || null, wechat: (f.wechat || '').trim() || null })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 async function clientContact(supabase: Awaited<ReturnType<typeof createClient>>, dealId: string): Promise<{ name: string | null; email: string | null } | null> {
@@ -38,11 +52,11 @@ async function clientContact(supabase: Awaited<ReturnType<typeof createClient>>,
 
 /**
  * トークを1件足す。
- * - from 'staff' + send=true: 顧客へメールで送り、送れたときだけ記録する（送れなかったら何も残さずエラーを返す）
+ * - from 'staff' + send=true: 顧客（または factoryId の工場）へメールで送り、送れたときだけ記録する（送れなかったら何も残さずエラーを返す）
  * - from 'staff' + send=false: 自分が送った・話した内容の記録だけ
  * - from 'client' / 'factory': 相手から受け取った連絡の記録
  */
-export async function postTalk(dealId: string, input: { from: 'staff' | TalkParty; party: TalkParty; channel: CommChannel; body: string; subject?: string; send?: boolean }): Promise<{ error: string | null; row?: DealCommunication }> {
+export async function postTalk(dealId: string, input: { from: 'staff' | TalkParty; party: TalkParty; channel: CommChannel; body: string; subject?: string; send?: boolean; factoryId?: string }): Promise<{ error: string | null; row?: DealCommunication }> {
   if (!UUID.test(dealId || '')) return { error: '案件が見つかりません' }
   const body = (input.body || '').trim()
   if (!body) return { error: '本文を入力してください' }
@@ -54,26 +68,42 @@ export async function postTalk(dealId: string, input: { from: 'staff' | TalkPart
   const deal = await supabase.from('deals').select('deal_name, deal_code, client_name_text').eq('id', dealId).limit(1)
   if (deal.error || !deal.data?.[0]) return { error: '案件が見つかりません' }
   let subject = (input.subject || '').trim().slice(0, 200) || null
+  let factoryName: string | null = null
 
   if (input.from === 'staff' && input.send) {
-    if (input.party !== 'client' || input.channel !== 'email') return { error: 'メールで送れるのは顧客あてだけです' }
-    const contact = await clientContact(supabase, dealId)
-    if (!contact?.email) return { error: '顧客の担当者のメールアドレスが未登録です。取引先の画面で登録してください。' }
+    if (input.channel !== 'email') return { error: 'メールで送るときは、手段をメールにしてください' }
     if (!process.env.RESEND_API_KEY || !process.env.RFQ_MAIL_FROM) return { error: 'メール送信の設定がありません。管理者に連絡してください。' }
-    subject = subject || `${deal.data[0].deal_name || deal.data[0].deal_code || ''} の件`
     const issuerName = await defaultIssuerName()
-    const text = `${deal.data[0].client_name_text || ''} ${contact.name || 'ご担当者'} 様\n\n${body}\n\n(bao) ${issuerName}`
+    let to: string, text: string
+    if (input.party === 'client') {
+      const contact = await clientContact(supabase, dealId)
+      if (!contact?.email) return { error: '顧客の担当者のメールアドレスが未登録です。取引先の画面で登録してください。' }
+      to = contact.email
+      subject = subject || `${deal.data[0].deal_name || deal.data[0].deal_code || ''} の件`
+      text = `${deal.data[0].client_name_text || ''} ${contact.name || 'ご担当者'} 様\n\n${body}\n\n(bao) ${issuerName}`
+    } else {
+      // 工場あて: この案件で見積をもらっている工場にだけ送れる。顧客名は件名・本文に入れない（案件番号だけ）
+      const factory = (await dealFactories(supabase, dealId)).find(f => f.id === input.factoryId)
+      if (!factory) return { error: '送り先の工場を選んでください' }
+      if (!factory.email) return { error: `${factory.name} のメールアドレスが未登録です。工場の画面で登録してください。` }
+      const cn = body.replace(TRANSLATION, '').trim()
+      if (!cn) return { error: '本文を入力してください' }
+      to = factory.email
+      subject = subject || `[BAO] ${deal.data[0].deal_code || ''}`
+      text = `${cn}\n\n(bao) ${issuerName}`
+      factoryName = factory.name
+    }
     let sent = false
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: process.env.RFQ_MAIL_FROM, to: [contact.email], subject, text }),
+        body: JSON.stringify({ from: process.env.RFQ_MAIL_FROM, to: [to], subject, text, ...replyToField(dealId, input.party) }),
       })
       if (res.ok) { const out = await res.json(); sent = typeof out.id === 'string' && !!out.id }
     } catch { /* 下で送れなかった扱いにする */ }
     if (!sent) return { error: 'メールを送れませんでした。宛先を確認して、もう一度お試しください。' }
   }
-  const r = await createCommunication(dealId, { channel: input.channel, author_role: input.from === 'staff' ? 'staff' : input.from, subject: subject ?? (input.from === 'staff' ? `${input.party === 'client' ? '顧客' : '工場'}あて` : null), body })
+  const r = await createCommunication(dealId, { channel: input.channel, author_role: input.from === 'staff' ? 'staff' : input.from, subject: factoryName ? `${factoryName} あて${subject ? `「${subject}」` : ''}` : subject ?? (input.from === 'staff' ? `${input.party === 'client' ? '顧客' : '工場'}あて` : null), body })
   if (r.error || !r.data) return { error: input.send ? `メールは送りましたが、トーク欄に残せませんでした（${r.error || '不明'}）` : r.error || '記録できませんでした' }
   revalidatePath(`/deals/${dealId}`)
   return { error: null, row: r.data }

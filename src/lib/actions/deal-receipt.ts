@@ -9,6 +9,7 @@ import { requireSalesAccess } from './deal-access'
 import { logSentMail } from '@/lib/process/talk-log'
 import { sendEmail } from '@/lib/utils/email'
 import { deliveryNotePDF } from '@/lib/pdf/receipt-delivery-note'
+import { replyToField } from '@/lib/process/reply-address'
 import type { ReceiptSnapshot } from '@/lib/process/receipt-format'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -33,12 +34,12 @@ export async function listDealReceipts(dealId: string): Promise<ReceiptRow[]> {
     contactName: r.contact_name, contactEmail: r.contact_email, sendStatus: r.send_status, sentAt: r.sent_at, receivedAt: r.received_at, receivedVia: r.received_via, createdAt: r.created_at }))
 }
 
-async function resend(to: string, subject: string, text: string, key: string, attachment?: { filename: string; bytes: Uint8Array }): Promise<Mail> {
+async function resend(to: string, subject: string, text: string, key: string, attachment?: { filename: string; bytes: Uint8Array }, replyTo: { reply_to?: string } = {}): Promise<Mail> {
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': key },
-      body: JSON.stringify({ from: process.env.RFQ_MAIL_FROM, to: [to], subject, text, ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.bytes).toString('base64') }] } : {}) }),
+      body: JSON.stringify({ from: process.env.RFQ_MAIL_FROM, to: [to], subject, text, ...replyTo, ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.bytes).toString('base64') }] } : {}) }),
     })
     if (!res.ok) return 'rejected'
     const body = await res.json()
@@ -76,7 +77,7 @@ export async function requestReceipt(dealId: string, arrivedOn: string): Promise
   if (!mailReady()) return { link, sent: false, to, error: 'メール送信の設定がありません。下のリンクを担当者へ直接お送りください。' }
   const s = data.snapshot as ReceiptSnapshot
   const status = await resend(to, `【お届けのご確認】${s.deal_name || ''}`,
-    `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。${s.issuer.name} です。\n「${s.deal_name || ''}」をお届けしました。内容をご確認のうえ、下のページで「受領しました」を押してください（ログインは不要です）。納品書をお送りします。\n\n${link}\n\n${s.issuer.name}`, `deal-receipt/${data.id}`)
+    `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。${s.issuer.name} です。\n「${s.deal_name || ''}」をお届けしました。内容をご確認のうえ、下のページで「受領しました」を押してください（ログインは不要です）。納品書をお送りします。\n\n${link}\n\n${s.issuer.name}`, `deal-receipt/${data.id}`, undefined, replyToField(dealId, 'client'))
   const mark = await supabase.rpc('mark_deal_receipt_sent', { p_id: data.id, p_status: status })
   if (status === 'accepted') await logSentMail(supabase, dealId, `【お届けのご確認】${s.deal_name || ''}`, `お届けの確認を依頼しました（到着日 ${arrivedOn.replace(/-/g, '/')}）。\n確認ページ: ${link}`)
   revalidatePath(`/deals/${dealId}`)

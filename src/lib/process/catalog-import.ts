@@ -33,3 +33,18 @@ export function tidyCandidates(raw: unknown, existing: ExistingMaster): CatalogC
   const options = (key: string, kind: string) => uniq(arr(o[key]).map(clean)).filter(name => !has(kind, name)).slice(0, 40)
   return { categories: categories.slice(0, 60), materials: options('materials', 'material'), print_colors: options('print_colors', 'print_colors'), accessories: options('accessories', 'accessory') }
 }
+
+/** 何回かに分けて読んだ結果を1つにまとめる（同じものは1つにする）。 */
+export function mergeCandidates(a: CatalogCandidates, b: CatalogCandidates): CatalogCandidates {
+  const key = (c: CatalogCandidates['categories'][number]) => [c.l1, c.l2, c.l3].map(x => norm(x || '')).join('>')
+  return {
+    categories: [...new Map([...a.categories, ...b.categories].map(c => [key(c), c])).values()],
+    materials: uniq([...a.materials, ...b.materials]), print_colors: uniq([...a.print_colors, ...b.print_colors]), accessories: uniq([...a.accessories, ...b.accessories]),
+  }
+}
+export const EMPTY_CANDIDATES: CatalogCandidates = { categories: [], materials: [], print_colors: [], accessories: [] }
+export const CATALOG_BUCKET = 'catalog-imports'
+export const CATALOG_PAGES_PER_READ = 10        // PDF は10ページずつAIに読ませる
+export const CATALOG_MAX_BYTES = 52428800       // 1ファイル 50MB まで
+export const CATALOG_MAX_PAGES = 600            // 1ファイル 600ページまで
+export const CATALOG_MAX_FILES = 10
