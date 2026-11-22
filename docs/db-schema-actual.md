@@ -901,7 +901,7 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - create_order_agreement(p_deal_id, p_issue_date, p_due_date, p_issuer_id uuid): 発行元を選んで発行（snapshot.issuer に id・name・postal_code・address・phone・email・registration_number、snapshot.bank に振込先）。引数3つの版は既定の会社で発行する。order_agreement_by_token は発行元のロゴ・角印（logo / stamp）も返す。
 - 商品内容の確認・お見積書のPDFとメールの署名は、既定の会社の名前を使う。
 
-## 再設計 工程6（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+## 再設計 工程6（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261122600000_process_redesign_stage6.sql`。追加のみ。
 - deal_intakes: deal_id UUID PK→deals, pattern text ('customer' 顧客がデータを用意 | 'template' 工場の雛形を使う), template_received_at / template_sent_at / artwork_received_at / artwork_sent_at / factory_ok_at timestamptz（手順を記録した日時）, prepay_rate integer (30|50|100), prepay_amount_usd numeric, prepay_paid_on date（入っていれば前払い済み）, prepay_note text, prepay_recorded_by UUID→profiles, prepay_recorded_at, production_started_at, created_at, updated_at。RLS: staff は読むだけ。
 - 入稿のファイルは既存の deal_design_files に category 'intake_template'（雛形）/ 'intake_artwork'（入稿データ）で登録する。本体は保管場所 deal-images の「案件ID/ランダム名」にブラウザから直接アップロードする。
