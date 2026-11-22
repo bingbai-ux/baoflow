@@ -875,7 +875,7 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - 確認済みになると deals.process_stage を 3 以上へ、waiting_on='us'、deal_status_history に1行、リンク経由なら notifications（type 'dashboard', status 'pending'）に1行。
 - 工場の回答フォームの追加項目（版代などの費用・送料・日数）は external_forms.submission_data.extras に入る（テーブル変更なし）。
 
-## 再設計 工程4（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+## 再設計 工程4（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261122300000_process_redesign_stage4.sql`。追加のみ。
 - deal_products 追加カラム: production_days integer（製造日数。1〜999）。
 - price_offers: id UUID, deal_id UUID→deals, round integer（第何回。UNIQUE(deal_id, round)）, token text UNIQUE, status text ('sent'|'approved'|'returned'|'cancelled'), snapshot jsonb（提示内容。原価・工場名なし）, contact_name, contact_email, send_status text ('accepted'|'rejected'|'unknown'), sent_at, decided_at, decided_via text ('link'|'staff'), decided_by UUID→profiles, choices jsonb（承認された見積行IDの配列）, return_comment text, decide_ip, decide_user_agent, created_by, created_at, expires_at。1案件に sent は1件まで。RLS: staff は読むだけ。
