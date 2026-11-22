@@ -33,7 +33,7 @@ export async function priceOfferPDF(s: OfferSnapshot, issuedOn: string, validUnt
   write(`お見積書（第${s.round}回）`, 20); y -= 6
   write(`${s.client_name || ''} 御中`, 14)
   write(`件名: ${s.deal_name || ''}${s.brand ? `（${s.brand}）` : ''}　　番号: ${offerNumber(s)}`, 10, SOFT)
-  write(`発行日: ${issuedOn}　　有効期限: ${validUntil}　　消費税: ${s.tax_rate ?? 10}%`, 10, SOFT); y -= 10
+  write(`発行日: ${issuedOn}　　有効期限: ${validUntil}　　消費税: ${s.tax_rate}%`, 10, SOFT); y -= 10
   s.items.forEach((item, i) => {
     write(`${i + 1}. ${item.name}`, 12)
     for (const o of item.options) write(optionLine(o), 10.5, INK, 14)

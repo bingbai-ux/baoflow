@@ -43,6 +43,8 @@ import { ProductRegistry } from '@/components/process/product-registry'
 import { CustomerConfirmPanel } from '@/components/process/customer-confirm-panel'
 import { PriceOfferPanel } from '@/components/process/price-offer-panel'
 import type { FactoryExtras, OfferRow } from '@/lib/actions/price-offer'
+import { InvoicePanel } from '@/components/process/invoice-panel'
+import type { AgreementRow } from '@/lib/actions/order-agreement'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -119,6 +121,9 @@ interface DealFlowProps {
   offers: OfferRow[]
   factoryExtras: FactoryExtras[]
   pricingDefaults: { fx: number; tax: number; ratio: number | null }
+  /** 再設計 工程5: 請求書（契約）の履歴と、設定に足りない発行者情報 */
+  agreements: AgreementRow[]
+  issuerGaps: string[]
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -164,6 +169,8 @@ export function DealFlow({
   offers,
   factoryExtras,
   pricingDefaults,
+  agreements,
+  issuerGaps,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -337,11 +344,21 @@ export function DealFlow({
       body: <StepQuoteDoc deal={deal} docs={quoteDocs} statusIdx={statusIdx} canIssue={amount.count > 0 && amount.missing === 0 && invalidDocumentQuotes(quotes) === 0} />,
     },
     {
-      title: '承認 → 見積確定 → 請求書 → 入金待ち',
+      title: '請求書を発行 → 承認で契約成立',
       actor: 'client',
       summary:
-        invoiceDocs.length > 0 ? `請求書 ${invoiceDocs.length}通 発行済み` : '承認後に請求書を発行',
-      body: <StepInvoice deal={deal} docs={invoiceDocs} statusIdx={statusIdx} canIssue={amount.count > 0 && amount.missing === 0 && invalidDocumentQuotes(quotes) === 0} />,
+        agreements.some(a => a.status === 'agreed') ? '契約成立' : agreements.some(a => a.status === 'sent') ? '顧客の承認待ち' : invoiceDocs.length > 0 ? `請求書 ${invoiceDocs.length}通 発行済み` : '承認後に請求書を発行',
+      body: (
+        <div className="space-y-4">
+          <InvoicePanel dealId={deal.id} agreements={agreements} issuerGaps={issuerGaps} taxRate={pricingDefaults.tax} today={today} readOnly={archived}
+            lines={approvedQuotes.filter(q => Number(q.quantity) > 0 && Number(q.total_billing_jpy) > 0).map(q => {
+              const at = products.findIndex(p => p.id === variants.find(v => v.id === q.variant_id)?.product_id) // products は並び順どおり
+              return { at: at < 0 ? products.length : at, name: products[at]?.description || '商品', quantity: Number(q.quantity), unitJpy: Number(q.selling_price_jpy), netJpy: Number(q.total_billing_jpy) }
+            }).sort((a, b) => a.at - b.at || a.quantity - b.quantity)} />
+          {/* 新しい流れ（お見積の承認）を通っていない案件だけ、従来の帳票操作を残す */}
+          {!offers.some(o => o.status === 'approved') && <StepInvoice deal={deal} docs={invoiceDocs} statusIdx={statusIdx} canIssue={amount.count > 0 && amount.missing === 0 && invalidDocumentQuotes(quotes) === 0} />}
+        </div>
+      ),
     },
     {
       title: '入金確認 → 工場へ前払い → 入稿データ最終確認',

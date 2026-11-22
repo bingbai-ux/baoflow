@@ -13,6 +13,7 @@ export default async function OfferPage({ params }: { params: Promise<{ token: s
   const { token } = await params
   const o = await loadOffer(token)
   const s = o.snapshot
+  if (s && s.tax_rate == null) throw new Error('Offer has no tax rate')
   return (
     <div>
       {!s || o.status === 'missing' ? (
@@ -21,8 +22,8 @@ export default async function OfferPage({ params }: { params: Promise<{ token: s
         <>
           <h1 className="text-[21px] font-extrabold">お見積書（第{s.round}回）</h1>
           <p className="mt-1 text-[14px]">{s.client_name} 様 ／ {s.deal_name}{s.brand ? `（${s.brand}）` : ''}</p>
-          <p className="text-[12.5px] text-[#84787D] tabular-nums">番号 {offerNumber(s)} ・ 発行日 {day(o.createdAt)} ・ 有効期限 {day(o.expiresAt)} ・ 消費税 {s.tax_rate ?? 10}%</p>
-          {o.status === 'sent' ? <OfferDecision token={token} items={s.items} /> : (
+          <p className="text-[12.5px] text-[#84787D] tabular-nums">番号 {offerNumber(s)} ・ 発行日 {day(o.createdAt)} ・ 有効期限 {day(o.expiresAt)} ・ 消費税 {s.tax_rate}%</p>
+          {o.status === 'sent' ? <OfferDecision token={token} items={s.items} taxRate={Number(s.tax_rate)} /> : (
             <>
               <ol aria-label="商品" className="mt-4 space-y-2">
                 {s.items.map((item, i) => (

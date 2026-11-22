@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react'
 import { decideOfferByCustomer } from '@/lib/actions/price-offer'
 import { yen, type OfferItem } from '@/lib/process/offer-format'
 
-export function OfferDecision({ token, items }: { token: string; items: OfferItem[] }) {
+export function OfferDecision({ token, items, taxRate }: { token: string; items: OfferItem[]; taxRate: number }) {
   const [pending, startTransition] = useTransition()
   const [choices, setChoices] = useState<Record<string, string>>(() => Object.fromEntries(items.filter(i => i.options.length === 1).map(i => [i.product_id, i.options[0].quote_id])))
   const [mode, setMode] = useState<'choose' | 'return'>('choose')
@@ -14,7 +14,8 @@ export function OfferDecision({ token, items }: { token: string; items: OfferIte
   const [done, setDone] = useState<'approve' | 'return' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ready = items.every(i => choices[i.product_id])
-  const total = items.reduce((sum, i) => sum + (i.options.find(o => o.quote_id === choices[i.product_id])?.tax_jpy || 0), 0)
+  // 消費税は請求書と同じく、選んだ数量の小計の合計に対して1回だけ計算する（切り上げ）
+  const total = Math.ceil(items.reduce((sum, i) => sum + (i.options.find(o => o.quote_id === choices[i.product_id])?.net_jpy || 0), 0) * (1 + taxRate / 100) - 1e-9)
   const submit = (decision: 'approve' | 'return') => { setError(null); startTransition(async () => {
     const r = await decideOfferByCustomer(token, decision, choices, comment)
     if (r.success) setDone(decision); else setError(r.error || '記録できませんでした')

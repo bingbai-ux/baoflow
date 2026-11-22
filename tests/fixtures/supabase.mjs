@@ -103,6 +103,37 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程5: 請求書の発行と契約成立の代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage5-sql.test.ts (PGlite) で検証する。
+  if(['order_agreement_issuer','create_order_agreement','mark_order_agreement_sent','staff_decide_order_agreement','order_agreement_by_token','agree_order_agreement'].includes(table)){
+   db.order_agreements ||= [];db.client_contacts ||= [];db.notifications ||= []
+   const staff=['sales','admin'].includes(db.profiles[0]?.role)
+   const missing=db.system_settings[0]?.invoice_issuer_missing||[]
+   const finish=(a,via)=>{const d=db.deals.find(d=>d.id===a.deal_id);Object.assign(a,{status:'agreed',agreed_at:new Date().toISOString(),agreed_via:via});d.process_stage=Math.max(d.process_stage||1,6);d.waiting_on='us'
+    db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note:`請求書 ${a.invoice_number} 契約成立${via==='staff'?'（営業が記録）':''}`,kind:'status',created_at:new Date().toISOString()})
+    if(via==='link')db.notifications.push({id:randomUUID(),user_id:d.sales_user_id,deal_id:d.id,type:'dashboard',status:'pending',content:`${d.client_name_text||'顧客'} が「${d.deal_name}」の請求書を承認しました（契約成立）。入稿に進めます。`,created_at:new Date().toISOString()})}
+   try{
+    if(table==='order_agreement_by_token'){const a=db.order_agreements.find(x=>x.token===input.p_token);send(a?{found:true,status:a.status,snapshot:a.snapshot,agreedAt:a.agreed_at}:{found:false});return}
+    if(table==='agree_order_agreement'){const a=db.order_agreements.find(x=>x.token===input.p_token);if(!a)throw new Error('この請求書のページは見つかりません');if(a.status==='agreed'){send({success:true,already:true});return}if(a.status!=='sent')throw new Error('この請求書は取り消されました。担当者から届いた新しいメールをご確認ください');finish(a,'link');send({success:true,already:false});return}
+    if(!staff){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+    if(table==='order_agreement_issuer'){send({missing});return}
+    const d=db.deals.find(d=>d.id===input.p_deal_id)
+    if(table==='create_order_agreement'){
+     if(input.p_due_date<input.p_issue_date)throw new Error('振込期限は発行日以降の日付にしてください')
+     if(db.order_agreements.some(a=>a.deal_id===d.id&&a.status==='agreed'))throw new Error('この案件は契約成立済みです')
+     if(missing.length)throw new Error('設定に請求書の発行者情報が足りません: '+missing.join('・'))
+     const lines=db.deal_quotes.filter(q=>q.deal_id===d.id&&q.status==='approved').map(q=>{const v=db.deal_product_variants.find(v=>v.id===q.variant_id),p=db.deal_products.find(p=>p.id===v?.product_id);return {name:p?.description||'商品',quantity:q.quantity,unit_jpy:Number(q.selling_price_jpy),net_jpy:Number(q.total_billing_jpy),sort:p?.sort_order||0}}).sort((a,b)=>a.sort-b.sort).map(({sort,...l})=>l)
+     if(!lines.length)throw new Error('承認済みのお見積がありません')
+     const sub=lines.reduce((s,l)=>s+l.net_jpy,0),total=Math.ceil(sub*1.1-1e-9),seq=Math.max(0,...db.order_agreements.filter(a=>a.deal_id===d.id).map(a=>a.seq))+1,no=`${d.deal_code}-I${seq}`
+     const c=db.client_contacts.filter(c=>c.client_id===d.client_id).sort((a,b)=>Number(!!b.is_primary)-Number(!!a.is_primary))[0]
+     db.order_agreements.filter(a=>a.deal_id===d.id&&a.status==='sent').forEach(a=>{a.status='cancelled'})
+     const a={id:randomUUID(),deal_id:d.id,seq,invoice_number:no,token:(randomUUID()+randomUUID()).replaceAll('-',''),status:'sent',issue_date:input.p_issue_date,due_date:input.p_due_date,contact_name:c?.name||null,contact_email:c?.email||null,send_status:null,sent_at:null,agreed_at:null,agreed_via:null,created_at:new Date().toISOString(),
+      snapshot:{invoice_number:no,issue_date:input.p_issue_date,due_date:input.p_due_date,deal_name:d.deal_name,deal_code:d.deal_code,client_name:d.client_name_text,brand:d.brand_text||null,lines,subtotal_jpy:sub,tax_rate:10,tax_jpy:total-sub,total_jpy:total,issuer:{name:'検証用株式会社',address:'東京都検証区1-2-3',phone:null,email:null,registration_number:'T0000000000000'},bank:{bank_name:'検証銀行',branch_name:'本店',account_type:'普通',account_number:'0000001',account_holder:'ケンショウ（カ'},notes:null}}
+     db.order_agreements.push(a);d.process_stage=Math.max(d.process_stage||1,5);send({success:true,id:a.id,token:a.token,invoiceNumber:no,contactName:a.contact_name,contactEmail:a.contact_email,snapshot:a.snapshot});return
+    }
+    if(table==='mark_order_agreement_sent'){const a=db.order_agreements.find(x=>x.id===input.p_id);Object.assign(a,{send_status:input.p_status,sent_at:new Date().toISOString()});send({success:true});return}
+    if(table==='staff_decide_order_agreement'){const a=db.order_agreements.find(x=>x.deal_id===d.id&&x.status==='sent');if(!a)throw new Error('承認待ちの請求書がありません');if(input.p_decision==='cancel'){a.status='cancelled';d.waiting_on='us'}else finish(a,'staff');send({success:true});return}
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程4: 価格の保存・お見積の提示と返事の代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage4-sql.test.ts (PGlite) で検証する。
   if(['save_offer_prices_v1','create_price_offer','mark_price_offer_sent','staff_decide_price_offer','price_offer_by_token','decide_price_offer'].includes(table)){
    db.price_offers ||= [];db.client_contacts ||= [];db.notifications ||= []
