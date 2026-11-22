@@ -158,7 +158,8 @@ test('発行元の会社を選べる。登録情報が足りない会社では�
   await expect(spring).toContainText('登録番号 T9999999999999 ・ 角印あり')
   await expect(spring).not.toContainText('請求書に未登録')
   await spring.getByRole('button', { name: '既定にする' }).click()
-  await expect(spring).toContainText('既定')
+  await expect(spring.getByText('既定', { exact: true })).toBeVisible() // 「既定」の印が付くまで待つ
+  await expect(spring.getByRole('button', { name: '既定にする' })).toHaveCount(0)
   await shot(page, '55-company-list')
   const saved = (await state(request)).issuer_companies.find((c: { name: string }) => c.name === '株式会社Springroll')
   expect(saved).toMatchObject({ is_default: true, registration_number: 'T9999999999999', account_holder: 'カ）スプリングロール' })
