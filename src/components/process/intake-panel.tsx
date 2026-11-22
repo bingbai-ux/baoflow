@@ -5,8 +5,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { registerIntakeFile, saveIntake, type DealIntake, type IntakeKind, type IntakeStep } from '@/lib/actions/deal-intake'
+import { uploadProcessFiles } from '@/lib/process/upload'
+import { saveIntake, type DealIntake, type IntakeKind, type IntakeStep } from '@/lib/actions/deal-intake'
 import { deleteDesignImage } from '@/lib/actions/designs'
 import { useUi } from '@/components/ui/ui-store'
 
@@ -25,7 +25,6 @@ const usd = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits
 const STEPS: Record<'customer' | 'template', IntakeStep[]> = { customer: ['artwork_received', 'artwork_sent', 'factory_ok'], template: ['template_received', 'template_sent', 'artwork_received', 'artwork_sent', 'factory_ok'] }
 const LABEL: Record<IntakeStep, string> = { template_received: '工場から雛形を受け取る', template_sent: '雛形を顧客へ渡す', artwork_received: '顧客から入稿データを受け取る', artwork_sent: '入稿データを工場へ渡す', factory_ok: '工場がデータを確認' }
 const FILE_OF: Partial<Record<IntakeStep, IntakeKind>> = { template_received: 'template', template_sent: 'template', artwork_received: 'artwork', artwork_sent: 'artwork' }
-const MAX_BYTES = 52428800
 
 export function IntakePanel({ dealId, intake, files, costUsd, agreed, today, readOnly }: {
   dealId: string; intake: DealIntake; files: IntakeFile[]; /** 承認済み見積の原価合計（$）。前払い額の目安に使う */ costUsd: number | null; agreed: boolean; today: string; readOnly?: boolean
@@ -59,18 +58,7 @@ export function IntakePanel({ dealId, intake, files, costUsd, agreed, today, rea
     if (!picked.length) return
     setError(null); setUploading(kind)
     try {
-      const supabase = createClient()
-      for (const file of picked) {
-        if (file.size > MAX_BYTES) throw new Error(`${file.name}: ファイルが大きすぎます（50MB まで）`)
-        if (file.size === 0) throw new Error(`${file.name}: 空のファイルです`)
-        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'file'
-        const storagePath = `${dealId}/${crypto.randomUUID()}_${safe}`
-        const up = await supabase.storage.from('deal-images').upload(storagePath, file, { cacheControl: '3600', upsert: false })
-        if (up.error) throw new Error(`${file.name}: アップロードできませんでした`)
-        const r = await registerIntakeFile(dealId, kind, { storagePath, name: file.name, size: file.size, type: file.type })
-        if (r.error) throw new Error(`${file.name}: ${r.error}`)
-      }
-      toast(`${picked.length}件のファイルを登録しました`); router.refresh()
+      toast(`${await uploadProcessFiles(dealId, `intake_${kind}`, picked)}件のファイルを登録しました`); router.refresh()
     } catch (err) { setError(err instanceof Error ? err.message : 'アップロードできませんでした'); router.refresh() } finally { setUploading(null) }
   }
   const remove = (f: IntakeFile) => { setError(null); startTransition(async () => {

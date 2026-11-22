@@ -907,3 +907,11 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - 入稿のファイルは既存の deal_design_files に category 'intake_template'（雛形）/ 'intake_artwork'（入稿データ）で登録する。本体は保管場所 deal-images の「案件ID/ランダム名」にブラウザから直接アップロードする。
 - RPC（staff）: save_deal_intake(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'pattern' {pattern} / 'step' {step, done} / 'prepay_rate' {rate} / 'prepay_paid' {paid_on, amount_usd, note} / 'prepay_unpaid' / 'start'。契約成立（order_agreements.status='agreed'）が前提。手順は順番どおりにしか記録できず、取り消しは後ろから。'start' は工場のデータ確認と前払いの記録が必要で、deals.process_stage を 7 以上・waiting_on='factory' にする。deal_intake_steps(p_pattern text) → 手順の並び。
 - simple_status は変えない。
+
+## 再設計 工程7（2026-11-22・本番 baoflow-v2 に適用済み）
+`20261122700000_process_redesign_stage7.sql`。追加のみ。
+- sample_rounds: id UUID, deal_id UUID→deals, round integer（UNIQUE(deal_id, round)）, expected_on date（サンプルの完成予定日）, completed_at（工場から写真・動画を受け取った）, shared_at（顧客へ渡した）, result text ('approved'|'revise'), feedback text（修正の内容）, decided_at, created_by, created_at。RLS: staff は読むだけ。
+- deal_productions: deal_id UUID PK→deals, started_on date, due_on date（完成予定日。>= started_on）, transit_days integer（完成から到着までの日数。0〜365）, finished_at, created_at, updated_at。RLS: staff は読むだけ。到着目安 = due_on + transit_days。
+- サンプルのファイルは既存の deal_design_files に category 'sample_r<回>'（写真・動画）/ 'sample_fix_r<回>'（顧客の修正データ）で登録する。
+- RPC（staff）: save_deal_production(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'sample_start' {expected_on} / 'sample_done' / 'sample_shared' / 'sample_result' {result, feedback} / 'production_start' {started_on, due_on, transit_days} / 'production_update' {due_on, transit_days} / 'production_finish'。工程6の「製作開始へ進む」（deal_intakes.production_started_at）が前提。deal_products.sample_required が1つでも true の案件は、承認済みの回が無いと本製造を開始できない。'production_finish' で deals.process_stage を 8 以上にする。
+- simple_status は変えない。

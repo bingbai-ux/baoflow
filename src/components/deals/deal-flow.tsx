@@ -48,6 +48,8 @@ import type { AgreementRow } from '@/lib/actions/order-agreement'
 import type { IssuerChoice } from '@/lib/actions/issuer-companies'
 import { IntakePanel } from '@/components/process/intake-panel'
 import type { DealIntake } from '@/lib/actions/deal-intake'
+import { ProductionPanel } from '@/components/process/production-panel'
+import type { DealProduction } from '@/lib/actions/deal-production'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -129,6 +131,8 @@ interface DealFlowProps {
   issuers: IssuerChoice[]
   /** 再設計 工程6: 入稿の受け渡し記録と工場への前払い */
   intake: DealIntake
+  /** 再設計 工程7: サンプルの回と本製造の予定 */
+  production: DealProduction
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -177,6 +181,7 @@ export function DealFlow({
   agreements,
   issuers,
   intake,
+  production,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -382,11 +387,19 @@ export function DealFlow({
       ),
     },
     {
-      title: '製作開始を指示 → 製作',
+      title: 'サンプル → 本製造',
       actor: 'factory',
       summary:
-        statusIdx >= 4 ? '製作中(工場待ち)' : statusIdx === 3 ? '指示待ち' : 'データ確認後',
-      body: <StepProduction deal={deal} statusIdx={statusIdx} quotes={quotes} orders={factoryOrders} factories={factories} />,
+        production.finishedAt ? '製造完了' : production.startedOn ? '製造中' : production.rounds.length ? `サンプル 第${production.rounds.length}回` : statusIdx >= 4 ? '製作中(工場待ち)' : statusIdx === 3 ? '指示待ち' : 'データ確認後',
+      body: (
+        <div className="space-y-4">
+          <ProductionPanel dealId={deal.id} production={production} today={today} readOnly={archived} intakeStarted={!!intake.startedAt} desiredDate={dueDate}
+            sampleRequired={products.some(p => (p as { sample_required?: boolean }).sample_required === true)}
+            files={designFiles.filter(f => /^sample(_fix)?_r\d+$/.test(f.category || '')).map(f => ({ id: f.id, category: f.category!, name: f.file_name || 'ファイル', url: f.file_url, sizeBytes: f.file_size_bytes, createdAt: f.created_at })).sort((a, b) => a.createdAt.localeCompare(b.createdAt))} />
+          {/* 新しい流れ（お見積の承認）を通っていない案件だけ、従来の操作を残す */}
+          {!offers.some(o => o.status === 'approved') && <StepProduction deal={deal} statusIdx={statusIdx} quotes={quotes} orders={factoryOrders} factories={factories} />}
+        </div>
+      ),
     },
     {
       title: '完成・出荷 → 輸送・通関',

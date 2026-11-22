@@ -106,6 +106,32 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程7: サンプルと本製造の代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage7-sql.test.ts (PGlite) で検証する。
+  if(table==='save_deal_production'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   db.deal_intakes ||= [];db.sample_rounds ||= [];db.deal_productions ||= []
+   try{
+    const d=db.deals.find(d=>d.id===input.p_deal_id),a=input.p_action,p=input.p_payload||{},now=new Date().toISOString();if(!d)throw new Error('案件が見つかりません')
+    if(!db.deal_intakes.some(i=>i.deal_id===d.id&&i.production_started_at))throw new Error('先に入稿と前払いを済ませて「製作開始へ進む」を押してください')
+    const rounds=db.sample_rounds.filter(r=>r.deal_id===d.id).sort((x,y)=>x.round-y.round),r=rounds[rounds.length-1],pr=db.deal_productions.find(x=>x.deal_id===d.id)
+    if(pr?.finished_at)throw new Error('製造完了を記録したあとは変更できません')
+    const need=db.deal_products.some(x=>x.deal_id===d.id&&x.sample_required===true),add=(day,n)=>new Date(Date.parse(day+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
+    let wait='us',stage=7,note=a
+    if(a==='sample_start'){if(pr?.started_on)throw new Error('本製造を開始したあとはサンプルを依頼できません');if(r&&r.result!=='revise')throw new Error(r.result==='approved'?'サンプルは承認済みです':'進行中のサンプルがあります');if(!p.expected_on)throw new Error('サンプルの完成予定日を選んでください');db.sample_rounds.push({id:randomUUID(),deal_id:d.id,round:(r?.round||0)+1,expected_on:p.expected_on,completed_at:null,shared_at:null,result:null,feedback:null,decided_at:null,created_at:now});wait='factory'}
+    else if(['sample_done','sample_shared','sample_result'].includes(a)){
+     if(!r||r.result)throw new Error('進行中のサンプルがありません')
+     if(a==='sample_done'){if(!db.deal_design_files.some(f=>f.deal_id===d.id&&f.category==='sample_r'+r.round))throw new Error('先にサンプルの写真・動画を登録してください');r.completed_at ||= now}
+     else if(a==='sample_shared'){if(!r.completed_at)throw new Error('先に工場からの受け取りを記録してください');r.shared_at ||= now;wait='client'}
+     else{if(!r.shared_at)throw new Error('先に顧客へ渡したことを記録してください');if(p.result==='revise'&&!String(p.feedback||'').trim())throw new Error('修正の内容を入力してください');Object.assign(r,{result:p.result,feedback:String(p.feedback||'').trim()||null,decided_at:now})}
+    }
+    else if(a==='production_start'){if(pr?.started_on)throw new Error('本製造は開始済みです');if(need&&r?.result!=='approved')throw new Error('サンプルが必要な案件です。顧客がサンプルを承認してから本製造を開始してください');if(r&&!r.result)throw new Error('進行中のサンプルがあります');if(p.due_on<p.started_on)throw new Error('完成予定日は開始日以降の日付にしてください');db.deal_productions.push({deal_id:d.id,started_on:p.started_on,due_on:p.due_on,transit_days:Number(p.transit_days),finished_at:null});note=`本製造を開始（完成予定 ${p.due_on}・到着目安 ${add(p.due_on,Number(p.transit_days))}）`;wait='factory'}
+    else if(a==='production_update'){if(!pr?.started_on)throw new Error('本製造がまだ開始されていません');Object.assign(pr,{due_on:p.due_on,transit_days:Number(p.transit_days)});wait='factory'}
+    else if(a==='production_finish'){if(!pr?.started_on)throw new Error('本製造がまだ開始されていません');pr.finished_at=now;stage=8}
+    else throw new Error('操作が不正です')
+    d.process_stage=Math.max(d.process_stage||1,stage);d.waiting_on=wait;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note,kind:'status',created_at:now})
+    send({success:true});return
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程6: 入稿の受け渡し記録と前払いの代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage6-sql.test.ts (PGlite) で検証する。
   if(table==='save_deal_intake'){
    if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
