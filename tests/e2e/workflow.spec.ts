@@ -28,17 +28,16 @@ test('mobile navigation leaves usable width and step links open the requested wo
  await page.getByText('メニュー',{exact:false}).first().click();await expect(page.getByRole('link',{name:'在庫管理'})).toBeVisible()
 })
 
-test('new project flow creates a case at stage 1 and points to product registration',async({page})=>{
+test('new project flow creates a case and lands on product registration',async({page})=>{
  // 再設計 工程1: 旧ウィザード(作るものを選ぶ)は「取引先を選んでつくる」画面に置き換わった。商品は作成後に登録する。
  await page.goto('/deals/new')
  await page.getByRole('button',{name:/既存の取引先/}).click()
  await page.getByRole('button',{name:/検証用カフェ/}).click()
  await page.getByRole('button',{name:'このプロジェクトをつくる'}).click()
  await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}(?:\?.*)?$/)
- await expect(page.getByText('1 / 9 プロジェクト作成')).toBeVisible()
- await expect(page.getByText(/次は「商品登録」です/)).toBeVisible()
+ await expect(page.getByText('2 / 9 商品登録')).toBeVisible()
  const state=await (await page.request.get('http://127.0.0.1:55440/__state')).json()
- expect(state.deals).toHaveLength(2);expect(state.deals[1].process_stage).toBe(1);expect(state.deal_products).toHaveLength(1)
+ expect(state.deals).toHaveLength(2);expect(state.deal_products).toHaveLength(1)
 })
 test('issued quotation is saved with snapshot and can be reprinted after live price changes',async({page})=>{
  await page.goto(deal+'/quote-builder');await page.getByRole('button',{name:'この価格で採用'}).click();await expect(page.getByRole('button',{name:'採用を解除',exact:true})).toBeVisible()

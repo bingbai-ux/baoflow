@@ -47,7 +47,7 @@ test('case entry searches directly, preserves filters and returns focus, and pre
   await expect(preview.getByRole('button', { name: /入金|見積依頼/ })).toHaveCount(0)
   await page.getByRole('button', { name: '概要を閉じる' }).click()
   await expect(preview).toHaveCount(0)
-  await page.getByRole('link', { name: /検証用パウチ.*LOCAL-001/ }).click()
+  await page.locator('#case-33333333-3333-4333-8333-333333333333').click() // 再設計: 一覧は1行=1件の表になり、番号は別の列
   await expect(page).toHaveURL(/step=6.*from=/)
   await page.getByRole('link', { name: '← 案件一覧へ戻る', exact: true }).click()
   await expect(page).toHaveURL(/q=LOCAL-001/)
@@ -62,7 +62,7 @@ test('legacy confirmed without adoption guides to adoption, not invoice or paid,
   await page.goto(deal)
   await expect(page.getByRole('region', { name: '次の対応' })).toContainText('採用見積を確認')
   await expect(page.getByText('未採用', { exact: true })).toBeVisible()
-  await page.getByRole('combobox', { name: '表示する工程' }).selectOption('7')
+  await page.getByRole('list', { name: '工程の進み具合' }).getByRole('button', { name: /5 請求/ }).click() // 再設計: 工程の切り替えは9工程バーで行う
   await expect(page.getByRole('button', { name: '請求書をつくる', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: '支払条件を確認した → 発注準備へ', exact: true })).toBeDisabled()
   const state = await (await request.get(fixture + '/__state')).json()

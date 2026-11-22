@@ -11,8 +11,7 @@ import { listCatalog } from '@/lib/actions/catalog'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
-import { StageHeader } from '@/components/process/stage-header'
-import { daysLeft, stageLabel, todayInJapan } from '@/lib/process/stages'
+import { todayInJapan } from '@/lib/process/stages'
 
 // Sprint 10 (#18): 案件詳細 =「一本の線」。
 // 問い合わせ→仕様→RFQ→工場回答→原価→売値→見積書→入金→入稿→製作→輸送→到着→完了 の
@@ -171,16 +170,10 @@ export default async function DealDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <StageHeader dealId={deal.id} stage={deal.process_stage} dueDate={deal.desired_delivery_date} today={todayInJapan()} archived={!!deal.archived_at} />
-      {deal.process_stage === 1 && (products || []).length === 0 && (
-        <p className="mb-3 rounded-[16px] bg-[#E9F056] p-3 text-[12.5px] text-[#666C14]">プロジェクトができました。次は「商品登録」です。下の「商品仕様・数量を入力」から商品を追加してください。</p>
-      )}
       <dl aria-label="案件の状況" className="flex flex-wrap gap-x-5 gap-y-2 border-b border-[#E2E1DA] pb-3 mb-3 text-[12px]">
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">待ち先</dt><dd className="font-bold">{waitingLabel(deal.waiting_on)}</dd><dd><details><summary className="cursor-pointer text-[11px] underline">変更</summary><WaitingOnBadge dealId={deal.id} value={deal.waiting_on} /></details></dd></div>
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">希望納期</dt><dd className="font-bold tabular-nums">{deal.desired_delivery_date ? formatDate(deal.desired_delivery_date) : <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
         <div className="flex items-center gap-2"><dt className="text-[#84787D]">担当</dt><dd className="font-bold">{flowDeal.sales_user?.display_name || <Link href={`/deals/${id}/edit`} className="underline">未設定 · 設定する</Link>}</dd></div>
-        {/* スマホでは工程カードを出さない代わりに、ここへ文字で出す（作業欄を押し下げないため） */}
-        <div className="flex items-center gap-2 sm:hidden"><dt className="text-[#84787D]">工程</dt><dd className="font-bold tabular-nums">{deal.process_stage}/9 {stageLabel(deal.process_stage)} · {daysLeft(deal.desired_delivery_date, todayInJapan(), deal.process_stage).text}</dd></div>
       </dl>
 
       <details className="mb-3"><summary className="inline-flex min-h-11 items-center cursor-pointer underline text-[12px]">業務台帳を開く</summary><nav aria-label="案件の業務台帳" className="flex flex-wrap gap-x-4">
@@ -192,6 +185,10 @@ export default async function DealDetailPage({ params }: Props) {
       {hasLegacyQuotes&&<details className="mb-3 rounded-card border border-[#E2E1DA] p-3"><summary className="min-h-11 cursor-pointer font-bold">旧仕様・見積との対応を確認</summary><p className="text-xs mb-3">出自と採用見積との対応は未確認です。旧仕様を閲覧しても新商品へ自動紐付けしません。新発注の前に原仕様・工場見積と照合し、確認した商品・仕様で新価格版を作成してください。旧履歴・金額は保持します。</p>{legacy.data?.length?legacy.data.map(spec=><div key={spec.id} className="border-t border-[#E2E1DA] py-3 text-xs"><p className="font-bold">{spec.product_name||'名称未登録'} · 旧仕様 {spec.id.slice(0,8)}</p><p>分類 {spec.product_category||'未登録'} ／ 高さ {spec.height_mm??'未登録'}・幅 {spec.width_mm??'未登録'}・奥行 {spec.depth_mm??'未登録'} mm</p><p>素材 {spec.material_category||'未登録'} ／ 印刷 {spec.printing_method||'未登録'} ／ 色 {spec.print_colors||'未登録'}</p><p>加工 {spec.processing_list?.join('・')||'未登録'}</p></div>):<p className="text-xs">旧仕様の記録はありません。原資料から確認が必要です。</p>}</details>}
       <DealFlow
         financeHold={financeHold}
+        processStage={deal.process_stage}
+        dueDate={deal.desired_delivery_date}
+        today={todayInJapan()}
+        archived={!!deal.archived_at}
         deal={flowDeal as never}
         products={(products || []) as never}
         catalog={catalog}

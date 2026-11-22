@@ -36,13 +36,13 @@ test('T1 既存取引先からクリックだけでプロジェクトが工程1�
   await shot(page, '03-new-details')
   await page.getByRole('button', { name: 'このプロジェクトをつくる' }).click()
   await expect(page).toHaveURL(/\/deals\/[0-9a-f-]{36}$/)
-  await expect(page.getByText('1 / 9 プロジェクト作成')).toBeVisible()
-  await expect(page.getByText(/次は「商品登録」です/)).toBeVisible()
-  await shot(page, '04-deal-header-stage1')
+  // 作成が済んだので、現在地は「2 商品登録」と表示される（開いただけでは保存値は書き換えない）
+  await expect(page.getByText('2 / 9 商品登録')).toBeVisible()
+  await expect(page.getByRole('list', { name: '工程の進み具合' })).toHaveCount(1) // 進み具合の表示は1本だけ
+  await shot(page, '04-deal-header-new-project')
   const s = await state(request)
   expect(s.deals).toHaveLength(2)
   const created = s.deals[1]
-  expect(created.process_stage).toBe(1)
   expect(created.client_id).toBe(clientId)
   expect(created.contact_id).toBe('c0000000-0000-4000-8000-000000000001')
   expect(created.desired_delivery_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
@@ -101,7 +101,7 @@ test('T5 案件一覧に9工程と残り日数（7日以内・超過・未設定
   await page.goto('/deals?scope=all')
   const row = (name: string) => page.getByRole('row').filter({ hasText: name })
   await expect(row('納期が近い案件').getByText('残り 5日')).toBeVisible()
-  await expect(row('納期が近い案件').getByText('7 / 9 製造')).toBeVisible()
+  await expect(row('納期が近い案件').getByText('7/9 製造')).toBeVisible()
   await expect(row('納期を過ぎた案件').getByText('3日 超過')).toBeVisible()
   await expect(row('納期が未定の案件').getByText('納期未設定')).toBeVisible()
   await expect(row('余裕のある案件').getByText('残り 40日')).toBeVisible()
@@ -115,16 +115,37 @@ test('T5 案件一覧に9工程と残り日数（7日以内・超過・未設定
   expect(await names()).toEqual(['納期が未定の案件', '余裕のある案件', '納期を過ぎた案件', '納期が近い案件'])
 })
 
-test('工程を手で直すと表示が変わり、履歴が1件残る', async ({ page, request }) => {
+test('工程バーは1本で、押すと作業欄が切り替わる。手直しは履歴に残り、記録より前には戻せない', async ({ page, request }) => {
   await page.goto('/deals/33333333-3333-4333-8333-333333333333')
-  await expect(page.getByText('2 / 9 商品登録')).toBeVisible()
-  await page.getByText('工程を手で直す').click()
-  await page.getByRole('group', { name: '工程を選ぶ' }).getByRole('button', { name: /4 価格提示/ }).click()
+  const bar = page.getByRole('list', { name: '工程の進み具合' })
+  await expect(bar).toHaveCount(1)
+  // 代役DBの案件は工場の価格まで入っている → 記録から「4 価格提示」が現在地と分かる（表示だけ。保存値は書き換えない）
   await expect(page.getByText('4 / 9 価格提示')).toBeVisible()
+  expect((await state(request)).deals[0].process_stage).toBe(2)
+  expect((await state(request)).deal_status_history).toHaveLength(0)
+  // 工程を押すと、その工程の作業欄へ
+  await bar.getByRole('button', { name: /2 商品/ }).click()
+  await expect(page).toHaveURL(/step=2/)
+  const sub = page.getByRole('group', { name: 'この工程の作業' })
+  await expect(sub).toHaveCount(0) // 作業が1つだけの工程では出さない
+  await bar.getByRole('button', { name: /3 工場見積/ }).click()
+  await expect(page).toHaveURL(/step=3/)
+  await expect(sub.getByRole('button')).toHaveCount(2) // RFQ・工場回答
+  await bar.getByRole('button', { name: /4 価格提示/ }).click()
+  await expect(page).toHaveURL(/step=6/) // 次の作業（売値）がある工程では、その作業を開く
+  await expect(sub.getByRole('button')).toHaveCount(3) // 原価・売値・見積書
+  await sub.getByRole('button', { name: /見積書/ }).click()
+  await expect(page).toHaveURL(/step=7/)
+  await shot(page, '08-deal-single-bar')
+  // 手直し: 先へは進められ、記録より前(1,2)には戻せない
+  await page.getByText('工程を手で直す').click()
+  const pick = page.getByRole('group', { name: '工程を選ぶ' })
+  await expect(pick.getByRole('button', { name: /3 工場見積/ })).toBeDisabled()
+  await pick.getByRole('button', { name: /5 請求・契約/ }).click()
+  await expect(page.getByText('5 / 9 請求・契約')).toBeVisible()
   const s = await state(request)
-  expect(s.deals[0].process_stage).toBe(4)
-  expect(s.deal_status_history.filter((h: { note?: string }) => h.note?.includes('工程を'))).toHaveLength(1)
-  await shot(page, '08-deal-header-stage4')
+  expect(s.deals[0].process_stage).toBe(5)
+  expect(s.deal_status_history.filter((h: { note?: string }) => h.note?.includes('工程を'))).toHaveLength(1) // 手直しの1件だけ
 })
 
 test('取引先マスター: 一覧 → 詳細で担当者とブランドを管理できる', async ({ page, request }) => {

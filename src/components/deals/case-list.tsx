@@ -7,8 +7,8 @@ import { useEffect, useState } from 'react'
 import { type SimpleStatus } from '@/lib/types'
 import { formatJPY, formatDate } from '@/lib/utils/format'
 import { waitingLabel, type approvedAmount, type caseAction } from '@/lib/deals/case-workspace'
-import { daysLeft, stageLabel } from '@/lib/process/stages'
-import { ProcessCell, DaysLeftBadge } from '@/components/process/process-bar'
+import { daysLeft, stageLabel, shownStage } from '@/lib/process/stages'
+import { ProcessInline, DaysLeftBadge } from '@/components/process/process-bar'
 
 export interface CaseListRow {
   id: string; deal_code: string; deal_name: string | null; client_name_text: string | null; brand_text: string | null; process_stage: number
@@ -18,7 +18,10 @@ export interface CaseListRow {
 }
 const views = [{ key: 'todo', label: '自分の要対応' }, { key: 'active', label: '進行中' }, { key: 'all', label: 'すべて' }, { key: 'done', label: '完了' }]
 const button = 'min-h-[44px] inline-flex items-center justify-center rounded-full border border-[#E2E1DA] px-3 text-[12px] font-bold'
-const rowGrid = 'lg:grid lg:grid-cols-[minmax(150px,1.4fr)_minmax(88px,.8fr)_168px_minmax(140px,1.2fr)_112px_100px_72px_48px]'
+// PC幅は「1行=1件」の表。各セルは1行に収め、長い文字は … で切る（全文はマウスを乗せると出る）。
+// 担当の列は画面が広いとき（2xl 以上）だけ出す。狭いときは案件名・取引先の幅を優先する。
+const rowGrid = 'lg:grid lg:items-center lg:grid-cols-[100px_minmax(120px,1.7fr)_minmax(90px,1fr)_178px_minmax(96px,1.2fr)_48px_88px_100px_92px_40px] 2xl:grid-cols-[100px_minmax(120px,1.7fr)_minmax(90px,1fr)_178px_minmax(96px,1.2fr)_48px_88px_100px_92px_72px_40px]'
+const cell = 'lg:px-2 lg:py-0 lg:truncate text-[12px]'
 const sorts = [{ key: 'due', label: '納期が近い順' }, { key: 'stage', label: '工程順' }, { key: 'updated', label: '更新が新しい順' }]
 const amountText = (r: CaseListRow) => r.amount.label || formatJPY(r.amount.total)
 
@@ -27,7 +30,8 @@ export function CaseList({ rows, selfId, today }: { rows: CaseListRow[]; selfId:
   const q = params.get('q') || '', client = params.get('client') || '', status = params.get('status') || ''
   const view = params.get('scope') || (status === 'delivered' ? 'done' : status ? 'all' : 'active')
   const sort = sorts.some(x => x.key === params.get('sort')) ? params.get('sort')! : 'due'
-  const done = (r: CaseListRow) => r.process_stage === 9 || r.simple_status === 'delivered'
+  const stageOf = (r: CaseListRow) => shownStage(r.process_stage, r.action.step)
+  const done = (r: CaseListRow) => stageOf(r) === 9 || r.simple_status === 'delivered'
   const from = '/deals' + (params.toString() ? '?' + params.toString() : '')
   const preview = rows.find(r => r.id === params.get('selected'))
   const [search, setSearch] = useState(q)
@@ -48,7 +52,7 @@ export function CaseList({ rows, selfId, today }: { rows: CaseListRow[]; selfId:
     return !q || [r.deal_name, r.deal_code, r.client_name_text].some(v => v?.toLocaleLowerCase().includes(q.toLocaleLowerCase()))
   }).sort((a, b) => {
     const due = (a.desired_delivery_date || '9999').localeCompare(b.desired_delivery_date || '9999'), updated = (b.last_activity_at || '').localeCompare(a.last_activity_at || '')
-    if (sort === 'stage') return a.process_stage - b.process_stage || due || updated
+    if (sort === 'stage') return stageOf(a) - stageOf(b) || due || updated
     if (sort === 'updated') return updated
     return Number(overdue(b)) - Number(overdue(a)) || due || updated
   })
@@ -86,21 +90,26 @@ export function CaseList({ rows, selfId, today }: { rows: CaseListRow[]; selfId:
       {(q || client || status) && <button type="button" onClick={() => { setSearch(''); update({ q: '', client: '', status: '' }) }} className={button}>検索・絞込を解除</button>}
     </form>
     <p aria-live="polite" className="text-[12px] text-[#84787D]">{filtered.length}件 · 採用額（税込・登録済み分）{known ? formatJPY(total) : '登録済み採用額なし'}{missing ? ` · 金額未登録 ${missing}案件` : ''} · 未採用 {filtered.filter(r => !r.amount.count).length}案件</p>
-    <div className="rounded-card border border-[#E2E1DA] bg-white overflow-hidden" role="table" aria-label="案件一覧">
-      <div role="row" className={rowGrid + ' hidden bg-[#FBFAF6] border-b border-[#E2E1DA] text-[11px] text-[#84787D]'}>{['案件名・番号', '取引先', '工程（9工程）', '次の対応・待ち先', '希望納期・残り', '採用額（税込）', '担当', '概要'].map(t => <div role="columnheader" key={t} className="p-3">{t}</div>)}</div>
-      {filtered.map(r => <div role="row" key={r.id} className={rowGrid + ' grid grid-cols-2 gap-x-3 lg:gap-0 p-3 lg:p-0 border-b last:border-0 border-[#E2E1DA] hover:bg-[#FBFAF6]'}>
-        <div role="cell" className="col-span-2 lg:col-span-1 lg:p-3"><Link id={'case-' + r.id} href={href(r)} onClick={() => remember(r.id)} className="block text-[13px] font-bold underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"><span>{r.deal_name || '案件名未設定'}</span><span className="block text-[11px] text-[#84787D] font-normal tabular-nums mt-1">{r.deal_code}</span></Link></div>
-        <div role="cell" className="lg:p-3 text-[12px] break-words">{r.client_name_text || <span className="text-[#84787D]">取引先未設定</span>}{r.brand_text && <span className="block text-[11px] text-[#84787D]">{r.brand_text}</span>}</div>
-        <div role="cell" className="col-span-2 lg:col-span-1 py-1 lg:p-3"><ProcessCell stage={r.process_stage} /></div>
-        <div role="cell" className="col-span-2 lg:col-span-1 py-2 lg:p-3 text-[12px]"><Link href={href(r)} onClick={() => remember(r.id)} className="font-bold underline-offset-4 hover:underline">{r.action.label}</Link><span className="block text-[11px] text-[#84787D] mt-1">{waitingLabel(r.waiting_on)}</span></div>
-        <div role="cell" className="lg:p-3 text-[12px] tabular-nums"><span className="lg:hidden text-[11px] text-[#84787D]">希望納期 </span>{r.desired_delivery_date && <span className="block">{formatDate(r.desired_delivery_date)}</span>}<DaysLeftBadge value={daysLeft(r.desired_delivery_date, today, done(r) ? 9 : r.process_stage)} /></div>
-        <div role="cell" className="lg:p-3 text-[12px] tabular-nums"><span className="lg:hidden text-[11px] text-[#84787D]">採用額 </span>{amountText(r)}{r.amount.missing > 0 && <span className="block text-[11px] text-[#84787D]">{r.amount.missing}件不足</span>}</div>
-        <div role="cell" className="lg:p-3 text-[12px]"><span className="lg:hidden text-[11px] text-[#84787D]">担当 </span>{r.owner || '未設定'}</div>
-        <div role="cell" className="lg:px-1 lg:py-2"><button type="button" aria-label={`${r.deal_name || r.deal_code}の概要`} className="min-h-[44px] px-1 text-[11px] underline" onClick={() => update({ selected: r.id })}>概要</button></div>
-      </div>)}
+    <div className="rounded-card border border-[#E2E1DA] bg-white overflow-x-auto" role="table" aria-label="案件一覧">
+      <div className="lg:min-w-[960px]">
+      <div role="row" className={rowGrid + ' hidden bg-[#FBFAF6] border-b border-[#E2E1DA] text-[11px] text-[#84787D]'}>{['番号', '案件名', '取引先', '工程', '次の対応', '待ち', '希望納期', '残り', '採用額(税込)', '担当', ''].map((t, i) => <div role="columnheader" key={i} className={'px-2 py-2 whitespace-nowrap' + (i === 8 ? ' text-right' : i === 9 ? ' lg:hidden 2xl:block' : '')}>{t || <span className="sr-only">概要</span>}</div>)}</div>
+      {filtered.map((r, n) => { const left = daysLeft(r.desired_delivery_date, today, done(r) ? 9 : stageOf(r)); return <div role="row" key={r.id} className={rowGrid + ' grid grid-cols-2 gap-x-3 gap-y-1 lg:gap-0 p-3 lg:p-0 lg:min-h-[44px] border-b last:border-0 border-[#E2E1DA] hover:bg-[#EFEFEA] ' + (n % 2 ? 'lg:bg-[#FBFAF6]' : 'bg-white')}>
+        <div role="cell" className={cell + ' order-2 lg:order-none !text-[11px] text-[#84787D] tabular-nums'}>{r.deal_code}</div>
+        <div role="cell" className={cell + ' order-1 lg:order-none col-span-2 lg:col-span-1'}><Link id={'case-' + r.id} href={href(r)} onClick={() => remember(r.id)} title={r.deal_name || undefined} className="block lg:truncate text-[13px] font-bold underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"><span>{r.deal_name || '案件名未設定'}</span></Link></div>
+        <div role="cell" className={cell + ' order-3 lg:order-none'} title={[r.client_name_text, r.brand_text].filter(Boolean).join(' / ') || undefined}>{r.client_name_text || <span className="text-[#84787D]">取引先未設定</span>}{r.brand_text && <span className="text-[#84787D]"> / {r.brand_text}</span>}</div>
+        <div role="cell" className={cell + ' order-4 lg:order-none col-span-2 lg:col-span-1'}><ProcessInline stage={stageOf(r)} /></div>
+        <div role="cell" className={cell + ' order-5 lg:order-none col-span-2 lg:col-span-1'} title={r.action.label}><Link href={href(r)} onClick={() => remember(r.id)} className="underline-offset-4 hover:underline">{r.action.label}</Link></div>
+        <div role="cell" className={cell + ' order-6 lg:order-none'}><span className="lg:hidden"><span className="text-[11px] text-[#84787D]">待ち先 </span>{waitingLabel(r.waiting_on)}</span><span className="hidden lg:inline" title={waitingLabel(r.waiting_on)}>{r.waiting_on === 'us' ? '営業' : r.waiting_on === 'client' ? '顧客' : r.waiting_on === 'factory' ? '工場' : '—'}</span></div>
+        <div role="cell" className={cell + ' order-7 lg:order-none tabular-nums'}><span className="lg:hidden text-[11px] text-[#84787D]">希望納期 </span>{r.desired_delivery_date ? formatDate(r.desired_delivery_date) : '—'}</div>
+        <div role="cell" className={cell + ' order-8 lg:order-none'}><DaysLeftBadge value={left} /></div>
+        <div role="cell" className={cell + ' order-9 lg:order-none tabular-nums lg:text-right'} title={r.amount.missing > 0 ? `金額が未入力の見積 ${r.amount.missing}件` : undefined}><span className="lg:hidden text-[11px] text-[#84787D]">採用額 </span>{amountText(r)}{r.amount.missing > 0 && <span className="text-[11px] text-[#84787D]"> ({r.amount.missing}件不足)</span>}</div>
+        <div role="cell" className={cell + ' order-10 lg:order-none lg:hidden 2xl:block'}><span className="lg:hidden text-[11px] text-[#84787D]">担当 </span>{r.owner || '未設定'}</div>
+        <div role="cell" className="order-11 lg:order-none lg:px-1"><button type="button" aria-label={`${r.deal_name || r.deal_code}の概要`} className="min-h-[44px] px-1 text-[11px] underline" onClick={() => update({ selected: r.id })}>概要</button></div>
+      </div> })}
+      </div>
       {!filtered.length && <div className="p-8 text-center text-[13px]">{rows.length ? '条件に一致する案件がありません。絞り込みを変更してください。' : 'まだ案件がありません。新規案件から始めてください。'}</div>}
     </div>
     {archiveTarget&&<ArchiveDealModal dealId={archiveTarget.id} dealName={archiveTarget.deal_name||archiveTarget.deal_code} initialReason="other" onClose={()=>setArchiveTarget(null)} onArchived={()=>{setArchiveTarget(null);update({selected:''});router.refresh()}}/>}
-    {preview && <section aria-label="案件の概要" className="rounded-card border border-[#E2E1DA] bg-white p-4"><div className="flex justify-between gap-3"><h2 className="text-[15px] font-bold">{preview.deal_name || preview.deal_code}</h2><button type="button" onClick={() => update({ selected: '' })} className={button}>概要を閉じる</button></div><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px] my-3"><div><dt className="text-[#84787D]">現在の工程</dt><dd>{preview.process_stage} / 9 {stageLabel(preview.process_stage)}</dd></div><div><dt className="text-[#84787D]">担当・待ち先</dt><dd>{preview.owner || '未設定'} / {waitingLabel(preview.waiting_on)}</dd></div><div><dt className="text-[#84787D]">希望納期</dt><dd>{preview.desired_delivery_date ? formatDate(preview.desired_delivery_date) : '未設定'}</dd></div><div><dt className="text-[#84787D]">採用額（税込）</dt><dd>{amountText(preview)}</dd></div></dl><p className="text-[12px] text-[#84787D] mb-3">{preview.action.reason}</p><Link href={href(preview)} onClick={() => remember(preview.id)} className={button}>作業画面を開く</Link><button type="button" className={button+" ml-2"} onClick={()=>setArchiveTarget(preview)}>アーカイブ・復元可能</button></section>}
+    {preview && <section aria-label="案件の概要" className="rounded-card border border-[#E2E1DA] bg-white p-4"><div className="flex justify-between gap-3"><h2 className="text-[15px] font-bold">{preview.deal_name || preview.deal_code}</h2><button type="button" onClick={() => update({ selected: '' })} className={button}>概要を閉じる</button></div><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px] my-3"><div><dt className="text-[#84787D]">現在の工程</dt><dd>{stageOf(preview)} / 9 {stageLabel(stageOf(preview))}</dd></div><div><dt className="text-[#84787D]">担当・待ち先</dt><dd>{preview.owner || '未設定'} / {waitingLabel(preview.waiting_on)}</dd></div><div><dt className="text-[#84787D]">希望納期</dt><dd>{preview.desired_delivery_date ? formatDate(preview.desired_delivery_date) : '未設定'}</dd></div><div><dt className="text-[#84787D]">採用額（税込）</dt><dd>{amountText(preview)}</dd></div></dl><p className="text-[12px] text-[#84787D] mb-3">{preview.action.reason}</p><Link href={href(preview)} onClick={() => remember(preview.id)} className={button}>作業画面を開く</Link><button type="button" className={button+" ml-2"} onClick={()=>setArchiveTarget(preview)}>アーカイブ・復元可能</button></section>}
   </div>
 }

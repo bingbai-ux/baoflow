@@ -1,6 +1,7 @@
 'use client'
 
-// 再設計 工程1: 案件ヘッダーの9工程バー・残り日数・工程の手動変更。
+// 再設計 工程1: 案件画面の9工程バー・残り日数・工程の手動変更。
+// 進み具合の表示はこの1本だけ（従来の13ステップの帯は、このバーに統合した）。
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,7 +11,15 @@ import { setProcessStage } from '@/lib/actions/projects'
 import { formatDate } from '@/lib/utils/format'
 import { useUi } from '@/components/ui/ui-store'
 
-export function StageHeader({ dealId, stage, dueDate, today, archived }: { dealId: string; stage: number; dueDate: string | null; today: string; archived?: boolean }) {
+export function StageHeader({ dealId, stage, dueDate, today, archived, selected, onSelect, minStage = 1, children }: {
+  dealId: string; stage: number; dueDate: string | null; today: string; archived?: boolean
+  /** いま作業欄に表示している工程（1〜9）と、その切り替え */
+  selected?: number; onSelect?: (stage: number) => void
+  /** 記録（見積・発行済み書類など）から分かる最低の工程。これより前へは手で戻せない */
+  minStage?: number
+  /** 表示中の工程の中の作業（複数あるときだけ）を並べる場所 */
+  children?: React.ReactNode
+}) {
   const router = useRouter()
   const { toast } = useUi()
   const [pending, startTransition] = useTransition()
@@ -38,19 +47,20 @@ export function StageHeader({ dealId, stage, dueDate, today, archived }: { dealI
           <DaysLeftBadge value={left} />
         </p>
       </div>
-      <ProcessBar stage={current} />
+      <ProcessBar stage={current} selected={selected} onSelect={onSelect} />
+      {children}
       {!archived && (
         <details className="mt-2">
           <summary className="inline-flex min-h-[44px] cursor-pointer items-center text-[11px] text-[#84787D] underline">工程を手で直す</summary>
           <div role="group" aria-label="工程を選ぶ" className="flex flex-wrap gap-1">
             {PROCESS_STAGES.map(s => (
-              <button key={s.n} type="button" disabled={pending} aria-pressed={s.n === current} onClick={() => change(s.n)}
-                className={'min-h-[44px] rounded-full border px-3 text-[12px] font-bold disabled:opacity-60 ' + (s.n === current ? 'border-[#351E28] bg-[#351E28] text-[#C9A2B8]' : 'border-[#E2E1DA] bg-white text-[#351E28] hover:bg-[#FBFAF6]')}>
+              <button key={s.n} type="button" disabled={pending || s.n < minStage} aria-pressed={s.n === current} onClick={() => change(s.n)}
+                className={'min-h-[44px] rounded-full border px-3 text-[12px] font-bold disabled:opacity-40 ' + (s.n === current ? 'border-[#351E28] bg-[#351E28] text-[#C9A2B8]' : 'border-[#E2E1DA] bg-white text-[#351E28] hover:bg-[#FBFAF6]')}>
                 <span className="tabular-nums">{s.n}</span> {s.label}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-[11px] text-[#84787D]">変更は履歴に残ります。</p>
+          <p className="mt-1 text-[11px] text-[#84787D]">変更は履歴に残ります。{minStage > 1 && `すでにある記録から「${stageLabel(minStage)}」まで進んでいると分かるため、それより前には戻せません。`}</p>
         </details>
       )}
       {error && <p role="alert" className="mt-2 text-[12.5px] text-[#B03616]">{error}</p>}

@@ -40,3 +40,16 @@ export function daysLeft(dueDate: string | null | undefined, today: string, stag
 export function todayInJapan(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
 }
+
+// 9工程 → 従来の13ステップ（作業欄、0始まり）の対応。工程バーを押すと、その工程の作業欄へ切り替わる。
+export const STAGE_STEPS: number[][] = [[0], [1], [2, 3], [4, 5, 6], [7], [8], [9], [10], [11, 12]]
+/** 13ステップの番号（0始まり）が属する工程（1〜9）。 */
+export const stageOfStep = (i: number) => Math.max(1, STAGE_STEPS.findIndex(g => g.includes(i)) + 1)
+/**
+ * 画面に出す「現在の工程」。保存値と、記録から分かる次の作業（1始まりのステップ番号）の工程のうち、進んでいる方。
+ * 案件を開いただけでは保存値を書き換えないので、一覧と案件画面はどちらもこの関数で同じ値を出す。
+ */
+export function shownStage(stored: number | null | undefined, nextActionStep?: number | null): number {
+  const base = clampStage(stored)
+  return nextActionStep ? Math.max(base, stageOfStep(nextActionStep - 1)) : base
+}

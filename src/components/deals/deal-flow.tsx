@@ -13,6 +13,8 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { hasFactoryPrice, hasCarton, hasFactoryReplies } from '@/lib/deals/readiness'
 import { useRouter } from 'next/navigation'
+import { StageHeader } from '@/components/process/stage-header'
+import { STAGE_STEPS, stageOfStep, stageLabel, daysLeft } from '@/lib/process/stages'
 import { InlineCell } from '@/components/deals/inline-cell'
 import {
   QuoteTable,
@@ -106,7 +108,13 @@ interface DealFlowProps {
   factories: Array<{ id: string; factory_name: string }>
   statusHistory: FlowHistoryRow[]
   communications: DealCommunication[]
+  /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
+  processStage: number
+  dueDate: string | null
+  today: string
+  archived?: boolean
 }
+
 
 type Actor = 'us' | 'factory' | 'client'
 
@@ -134,6 +142,10 @@ export function DealFlow({
   statusHistory,
   communications,
   financeHold,
+  processStage,
+  dueDate,
+  today,
+  archived,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -328,20 +340,24 @@ export function DealFlow({
   ]
   const sel = Math.min(selected ?? currentIdx, steps.length - 1)
   const step = steps[sel]
-  const stepStrip = useRef<HTMLDivElement>(null)
-  useEffect(() => { stepStrip.current?.querySelector(`[data-step="${sel}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [sel])
+  // 工程の「現在地」は、保存値と、記録から分かる次の作業の工程のうち進んでいる方（表示だけ。開いただけでは何も書き換えない）。
+  const derivedStage = stageOfStep(currentIdx)
+  const shownStage = Math.max(processStage, derivedStage)
+  const selStage = stageOfStep(sel)
+  const viewStage = (n: number) => { const group = STAGE_STEPS[n - 1]; viewStep(group.includes(currentIdx) ? currentIdx : group[0]) }
   const selDone = doneList[sel]
   const selCurrent = sel === currentIdx
 
   return (
     <div className="pb-8">
       <section aria-label="次の対応" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E1DA] pb-3">
-        <div><p className="text-[11px] text-[#84787D]">次の対応</p><p className="text-[15px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
+        <div><p className="text-[11px] text-[#84787D]">次の対応<span className="sm:hidden tabular-nums"> · 工程 {shownStage}/9 {stageLabel(shownStage)} · {daysLeft(dueDate, today, shownStage).text}</span></p><p className="text-[15px] font-bold">{action.label}</p><p className="text-[12px] text-[#84787D] mt-1">{action.reason}</p></div>
         <div className="flex gap-2 flex-wrap">{financeHold?<Link className="min-h-[44px] inline-flex items-center rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold" href={`/deals/${deal.id}/settlement`}>{action.label}</Link>:<button type="button" onClick={() => { viewStep(currentIdx); document.getElementById('case-step-work')?.focus() }} className={`min-h-[44px] rounded-full border border-[#E2E1DA] px-4 text-[12px] font-bold ${selCurrent || specEditing ? 'bg-white' : 'bg-[#E9F056] text-[#666C14]'}`}>{action.label}</button>}<button type="button" aria-expanded={contactsOpen} aria-controls="case-contact-records" onClick={() => setContactsOpen(v => !v)} className="min-h-[44px] rounded-full border border-[#E2E1DA] bg-white px-3 text-[12px]">会話・連絡記録を{contactsOpen ? '閉じる' : '開く'}</button></div>
       </section>
       <div className="flex flex-col xl:flex-row gap-4"><div className="min-w-0 flex-1">
       {approvedQuotes.some(q => !q.variant_id) && products.length === 0 && <p role="status" className="mb-3 rounded-[12px] border border-[#E2E1DA] bg-[#FFD8C2] p-3 text-[12px] text-[#351E28]">過去の採用見積には商品・仕様の紐付けがありません。元の見積と帳票は保持しています。閲覧・再発行はできますが、新しい工場発注の前に元資料で仕様を確認し、新しい商品・仕様と見積を登録してください。過去の見積を推測で紐付けないでください。</p>}
-      <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+      {/* スマホは工程バーを出さず、この選択欄だけで作業欄を切り替える */}
+      <div className="mb-3 flex items-center justify-between gap-2 flex-wrap sm:hidden">
         <label className="flex items-center gap-2 text-[12px] font-bold min-w-0">
           工程を表示
           <select aria-label="表示する工程" value={sel} onChange={e => viewStep(Number(e.target.value))}
@@ -350,17 +366,21 @@ export function DealFlow({
           </select>
         </label>
       </div>
-      {/* Desktop overview; mobile uses the same single, labelled section selector. */}
-      <div className="hidden lg:block sticky top-0 z-10 bg-white rounded-[16px] border border-[#E2E1DA] px-3 py-2 mb-3 overflow-x-auto">
-        <div ref={stepStrip} className="flex items-start min-w-[900px]">
-          {steps.map((st, i) => <button key={st.title} type="button" onClick={() => viewStep(i)} data-step={i}
-            aria-label={`${i + 1}. ${SHORT_LABELS[i]}${doneList[i] ? ' 記録あり' : i === currentIdx ? ' 次の作業' : ''}`}
-            aria-current={i === currentIdx ? 'step' : undefined} aria-pressed={i === sel}
-            className={`flex-1 min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-[10px] text-[10px] ${i === sel ? 'ring-1 ring-[#351E28]' : ''} ${doneList[i] ? 'bg-[#D7EFFF] text-[#33566F]' : i === currentIdx ? 'bg-[#EFEFEA] text-[#351E28]' : 'text-[#84787D]'}`}>
-            <span className="fc-num font-extrabold">{doneList[i] ? '✓' : i + 1}</span><span>{SHORT_LABELS[i]}</span>
-          </button>)}
-        </div>
-      </div>
+      {/* PC・タブレット: 進み具合の表示はこの9工程バー1本だけ。押すとその工程の作業欄に切り替わる */}
+      <StageHeader dealId={deal.id} stage={shownStage} dueDate={dueDate} today={today} archived={archived} selected={selStage} onSelect={viewStage} minStage={derivedStage}>
+        {STAGE_STEPS[selStage - 1].length > 1 && (
+          <div role="group" aria-label="この工程の作業" className="mt-2 flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-[11px] text-[#84787D]">この工程の作業</span>
+            {STAGE_STEPS[selStage - 1].map(i => (
+              <button key={i} type="button" data-step={i} aria-pressed={i === sel} onClick={() => viewStep(i)}
+                aria-label={`${SHORT_LABELS[i]}${doneList[i] ? ' 記録あり' : i === currentIdx ? ' 次の作業' : ''}`}
+                className={'min-h-[44px] rounded-full border px-3 text-[12px] font-bold ' + (i === sel ? 'border-[#351E28] bg-[#351E28] text-[#C9A2B8]' : 'border-[#E2E1DA] bg-white text-[#351E28] hover:bg-[#FBFAF6]')}>
+                {doneList[i] ? '✓ ' : ''}{SHORT_LABELS[i]}{i === currentIdx ? '（次の作業）' : ''}
+              </button>
+            ))}
+          </div>
+        )}
+      </StageHeader>
 
       {/* 選択中ステップの詳細 */}
       <div id="case-step-work" tabIndex={-1}
@@ -370,7 +390,7 @@ export function DealFlow({
       >
         <div className="px-5 py-3 border-b border-[#EFEFEA] flex items-center gap-2.5 flex-wrap">
           <span className="fc-num text-[12px] font-extrabold text-[#84787D]">
-            {sel + 1} / {steps.length}
+            {selStage} / 9
           </span>
           <h2 className="text-[15px] font-display font-bold text-[#351E28]">{step.title}</h2>
           <span className="rounded-full bg-[#EFEFEA] border border-[#E2E1DA] text-[#4C5544] text-[10px] font-bold px-2 py-[2px] whitespace-nowrap">
