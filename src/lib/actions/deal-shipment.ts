@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { defaultIssuerName } from './issuer-companies'
+import { logSentMail } from '@/lib/process/talk-log'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export interface DealShipment {
@@ -72,6 +73,7 @@ export async function recordShipped(dealId: string, input: { carrier: string; tr
       if (!res.ok) status = 'rejected'
       else { const body = await res.json(); if (typeof body.id === 'string' && body.id) status = 'accepted' }
     } catch { /* 結果が分からないときは unknown のまま記録する */ }
+    if (status === 'accepted') await logSentMail(supabase, dealId, `【発送のお知らせ】${data.dealName}`, text)
     if (status !== 'accepted') notice = status === 'rejected' ? '顧客へのお知らせメールを送れませんでした。追跡番号を直接お伝えください。' : '顧客へのお知らせメールが届いたか確認できません。追跡番号を直接お伝えください。'
   }
   const mark = await supabase.rpc('save_deal_shipment', { p_deal_id: dealId, p_action: 'notified', p_payload: { status } })

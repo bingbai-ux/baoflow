@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
 import { defaultIssuerName } from './issuer-companies'
+import { logSentMail } from '@/lib/process/talk-log'
 import { sendEmail } from '@/lib/utils/email'
 import { customerConfirmationPDF, type ConfirmationSnapshot } from '@/lib/pdf/customer-confirmation'
 
@@ -71,6 +72,7 @@ export async function sendCustomerConfirmation(dealId: string): Promise<{ link: 
     else { const body = await res.json(); if (typeof body.id === 'string' && body.id) status = 'accepted' }
   } catch { /* 結果が分からないときは unknown のまま記録する */ }
   const mark = await supabase.rpc('mark_customer_confirmation_sent', { p_id: data.id, p_status: status })
+  if (status === 'accepted') await logSentMail(supabase, dealId, subject, `商品内容の確認を依頼しました（明細PDFつき）。\n確認ページ: ${link}`)
   revalidatePath(`/deals/${dealId}`); revalidatePath('/deals')
   if (mark.error) return { link, sent: status === 'accepted', to, error: '送信結果を記録できませんでした。画面を読み直して状態を確認してください。' }
   if (status !== 'accepted') return { link, sent: false, to, error: status === 'rejected' ? 'メールを送れませんでした。宛先を確認するか、下のリンクを直接お送りください。' : 'メールが届いたか確認できません。下のリンクを直接お送りください。' }

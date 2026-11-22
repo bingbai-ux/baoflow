@@ -54,6 +54,8 @@ import { ShippingPanel } from '@/components/process/shipping-panel'
 import type { DealShipment } from '@/lib/actions/deal-shipment'
 import { ReceiptPanel } from '@/components/process/receipt-panel'
 import type { ReceiptRow } from '@/lib/actions/deal-receipt'
+import { TalkPanel } from '@/components/process/talk-panel'
+import type { TalkContext } from '@/lib/actions/deal-talk'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -141,6 +143,8 @@ interface DealFlowProps {
   shipment: DealShipment
   /** 再設計 工程9: 受領の確認（検収）の履歴 */
   receipts: ReceiptRow[]
+  /** トーク欄: 顧客の宛先と、メール・AIが使える状態か */
+  talkContext: TalkContext
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -192,6 +196,7 @@ export function DealFlow({
   production,
   shipment,
   receipts,
+  talkContext,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -551,7 +556,7 @@ export function DealFlow({
       </UtilitySection>
       <UtilitySection title={`過去書類 (${documents.length})`}><DocList docs={documents} /><Link href={`/deals/${deal.id}/documents`} className="min-h-[44px] inline-flex items-center text-[12px] underline">帳票履歴を開く</Link></UtilitySection>
       </div>
-      {contactsOpen && <aside id="case-contact-records" aria-label="案件の連絡記録" className="xl:w-[300px] xl:shrink-0 rounded-card border border-[#E2E1DA] bg-white p-3 self-start min-w-0 max-w-full"><CaseChat key={deal.id} dealId={deal.id}/><details className="mt-4 border-t border-[#E2E1DA]"><summary className="min-h-11 flex items-center text-xs cursor-pointer">メール・電話の連絡記録</summary><p className="text-[11px] text-[#84787D] mb-3">社内記録です。会話相手には送信しません。</p><DealCommunicationTab dealId={deal.id} initial={communications} /></details></aside>}
+      {contactsOpen && <aside id="case-contact-records" aria-label="案件の連絡記録" className="xl:w-[340px] xl:shrink-0 rounded-card border border-[#E2E1DA] bg-white p-3 self-start min-w-0 max-w-full"><TalkPanel dealId={deal.id} talks={communications} context={talkContext} /><div className="mt-4 border-t border-[#E2E1DA] pt-3"><CaseChat key={deal.id} dealId={deal.id}/></div></aside>}
       </div>
     </div>
   )

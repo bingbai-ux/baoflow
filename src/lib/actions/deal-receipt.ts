@@ -6,6 +6,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
+import { logSentMail } from '@/lib/process/talk-log'
 import { sendEmail } from '@/lib/utils/email'
 import { deliveryNotePDF } from '@/lib/pdf/receipt-delivery-note'
 import type { ReceiptSnapshot } from '@/lib/process/receipt-format'
@@ -77,6 +78,7 @@ export async function requestReceipt(dealId: string, arrivedOn: string): Promise
   const status = await resend(to, `【お届けのご確認】${s.deal_name || ''}`,
     `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。${s.issuer.name} です。\n「${s.deal_name || ''}」をお届けしました。内容をご確認のうえ、下のページで「受領しました」を押してください（ログインは不要です）。納品書をお送りします。\n\n${link}\n\n${s.issuer.name}`, `deal-receipt/${data.id}`)
   const mark = await supabase.rpc('mark_deal_receipt_sent', { p_id: data.id, p_status: status })
+  if (status === 'accepted') await logSentMail(supabase, dealId, `【お届けのご確認】${s.deal_name || ''}`, `お届けの確認を依頼しました（到着日 ${arrivedOn.replace(/-/g, '/')}）。\n確認ページ: ${link}`)
   revalidatePath(`/deals/${dealId}`)
   if (mark.error) return { link, sent: status === 'accepted', to, error: '送信結果を記録できませんでした。画面を読み直して状態を確認してください。' }
   if (status !== 'accepted') return { link, sent: false, to, error: status === 'rejected' ? 'メールを送れませんでした。宛先を確認するか、下のリンクを直接お送りください。' : 'メールが届いたか確認できません。下のリンクを直接お送りください。' }

@@ -24,8 +24,14 @@ const server=http.createServer(async(req,res)=>{
  if(url.pathname==='/__role'){if(!['sales','client','factory','logistics'].includes(input.role)){send({error:'invalid local role'},400);return}Object.assign(db.profiles[0],{role:input.role,client_id:input.role==='client'?IDs.client:null,factory_id:input.role==='factory'?'77777777-7777-4777-8777-777777777777':null});send({ok:true});return}
  if(url.pathname==='/__fail'){failure=input.table;send({ok:true});return}
  if(url.pathname==='/__state'){send(db);return}
+ if(url.pathname==='/__ai_fail'){db.ai_fail=input.fail===true;send({ok:true});return}
  if(url.pathname==='/auth/v1/user'){send(user);return}
  if(url.pathname.startsWith('/auth/v1/')){send({user,access_token:'fixture',expires_in:3600,token_type:'bearer'});return}
+ // AI（Claude API）の代役: 受け取った依頼を記録し、決まった返事を返す。指示文に「カタログ」があれば候補のJSON、それ以外は返信の下書き。
+ if(url.pathname==='/anthropic/v1/messages'){db.ai_requests ||= [];const system=String(input.system||''),user=input.messages?.[0]?.content,text=typeof user==='string'?user:(user||[]).map(b=>b.type==='text'?b.text:`[${b.type}:${b.source?.media_type}]`).join('\n');db.ai_requests.push({model:input.model,system,text})
+  const reply=db.ai_fail?null:system.includes('カタログ')?JSON.stringify({categories:[{l1:'袋',l2:'スタンド袋',l3:'ジップ付きスタンド'},{l1:'袋',l2:'ガゼット袋',l3:null},{l1:'カップ',l2:'紙カップ',l3:'二重断熱'},{l1:'袋',l2:'ガゼット袋',l3:null}],materials:['クラフト紙','アルミ蒸着','  '],print_colors:['1色','特色2色'],accessories:['バルブ','窓']}):system.includes('中国の工場あて')?'您好，样品已收到。\n--- 日本語訳 ---\nサンプルを受け取りました。':'お世話になっております。ご連絡の件、確認のうえご連絡します。'
+  if(reply===null){send({type:'error',error:{type:'overloaded_error',message:'Overloaded'}},529);return}
+  send({id:'msg_fixture',type:'message',role:'assistant',model:input.model,content:[{type:'text',text:reply}],stop_reason:'end_turn',stop_sequence:null,usage:{input_tokens:1,output_tokens:1}});return}
  // ファイル保管の代役: アップロード・削除の要求があったことだけ記録する（中身は保存しない）
  if(url.pathname.startsWith('/storage/v1/object/')){db.storage_objects ||= [];const path=decodeURIComponent(url.pathname.slice('/storage/v1/object/'.length));if(req.method==='POST'){db.storage_objects.push(path);send({Key:path,Id:randomUUID()})}else if(req.method==='DELETE'){const gone=(input.prefixes||[]).map(x=>'deal-images/'+x);db.storage_objects=db.storage_objects.filter(x=>!gone.includes(x));send(gone.map(name=>({name})))}else send({})
   return}
