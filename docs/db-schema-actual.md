@@ -884,7 +884,7 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - 見積行の状態: 提示で 'presented'、承認で選ばれた数量が 'approved'・他は 'rejected'、差し戻しで 'revising'、取り消しで 'drafting'。
 - 承認で deals.process_stage を 5 以上へ、simple_status が 'quoting' なら 'quote_confirmed' へ、waiting_on='us'、履歴1行、リンク経由ならお知らせ1行。
 
-## 再設計 工程5（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+## 再設計 工程5（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261122400000_process_redesign_stage5.sql`。追加のみ。
 - order_agreements: id UUID, deal_id UUID→deals, seq integer（案件内の通し番号。UNIQUE(deal_id, seq)）, invoice_number text UNIQUE（{deal_code}-I{seq}）, token text UNIQUE, status text ('sent'|'agreed'|'cancelled'), issue_date date, due_date date（>= issue_date）, snapshot jsonb（明細 lines・subtotal_jpy・tax_rate・tax_jpy・total_jpy・発行者 issuer・振込先 bank・notes。原価・工場名なし）, contact_name, contact_email, send_status, sent_at, agreed_at, agreed_via text ('link'|'staff'), agreed_by UUID→profiles, agree_ip, agree_user_agent, created_by, created_at, expires_at。1案件に sent/agreed は合わせて1件まで。RLS: staff は読むだけ。
 - 明細は deal_quotes の status='approved' の行。消費税は請求書全体で1回だけ計算（切り上げ）。
