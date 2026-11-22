@@ -684,10 +684,12 @@ function StepRfq({
   const [modalOpen, setModalOpen] = useState(false)
   // 顧客の確認が一度取れていれば依頼に進める（あとで商品を直しても再確認は不要）。再設計より前に依頼済みの案件もそのまま進める。
   const unlocked = confirmation.everConfirmed || rfqCount > 0
+  // 確認が済んだら、次の作業（工場への依頼）を上に出し、確認の記録は下へ回す
+  const confirmPanel = <CustomerConfirmPanel dealId={deal.id} state={confirmation} hasProducts={products.length > 0} readOnly={archived} />
   return (
     <div className="space-y-3">
       {products.length===0&&<p className="text-[12px]">先に商品を登録してください。<Link className="underline ml-2 min-h-[44px] inline-flex items-center" href={`/deals/${deal.id}?step=2`}>商品を登録する</Link></p>}
-      <CustomerConfirmPanel dealId={deal.id} state={confirmation} hasProducts={products.length > 0} readOnly={archived} />
+      {!confirmation.everConfirmed && confirmPanel}
       <section aria-label="工場への見積依頼" className="rounded-[16px] border border-[#E2E1DA] bg-white p-4">
       <div className="flex items-center justify-between gap-2.5 flex-wrap">
         <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-bold"><span className="tabular-nums text-[#84787D]">2</span>工場に見積を依頼
@@ -712,6 +714,7 @@ function StepRfq({
       <PendingRfqAnswers dealId={deal.id} />
       <RfqHistory dealId={deal.id} />
       </section>
+      {confirmation.everConfirmed && confirmPanel}
       {modalOpen && (
         <RfqCreateModal
           dealId={deal.id}
