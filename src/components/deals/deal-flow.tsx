@@ -50,6 +50,8 @@ import { IntakePanel } from '@/components/process/intake-panel'
 import type { DealIntake } from '@/lib/actions/deal-intake'
 import { ProductionPanel } from '@/components/process/production-panel'
 import type { DealProduction } from '@/lib/actions/deal-production'
+import { ShippingPanel } from '@/components/process/shipping-panel'
+import type { DealShipment } from '@/lib/actions/deal-shipment'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -133,6 +135,8 @@ interface DealFlowProps {
   intake: DealIntake
   /** 再設計 工程7: サンプルの回と本製造の予定 */
   production: DealProduction
+  /** 再設計 工程8: 発送の記録 */
+  shipment: DealShipment
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -182,6 +186,7 @@ export function DealFlow({
   issuers,
   intake,
   production,
+  shipment,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -402,10 +407,18 @@ export function DealFlow({
       ),
     },
     {
-      title: '完成・出荷 → 輸送・通関',
+      title: '完了報告 → ラベル → 発送',
       actor: 'factory',
-      summary: statusIdx >= 5 ? '発送済み・輸送中' : '工場の発送待ち',
-      body: <StepShipping deal={deal} statusIdx={statusIdx} orders={factoryOrders} />,
+      summary: shipment.shippedOn ? `発送済み ${shipment.trackingNumber || ''}` : shipment.requestedAt ? '工場の発送待ち' : statusIdx >= 5 ? '発送済み・輸送中' : '工場の発送待ち',
+      body: (
+        <div className="space-y-4">
+          <ShippingPanel dealId={deal.id} shipment={shipment} today={today} readOnly={archived} productionFinished={!!production.finishedAt} transitDays={production.transitDays} defaultName={deal.client_name_text || ''}
+            foodInspection={products.some(p => (p as { food_inspection_required?: boolean }).food_inspection_required === true)}
+            files={designFiles.filter(f => /^ship_(done|pack|label)$/.test(f.category || '')).map(f => ({ id: f.id, category: f.category!, name: f.file_name || 'ファイル', url: f.file_url, sizeBytes: f.file_size_bytes, createdAt: f.created_at })).sort((a, b) => a.createdAt.localeCompare(b.createdAt))} />
+          {/* 新しい流れ（お見積の承認）を通っていない案件だけ、従来の操作を残す */}
+          {!offers.some(o => o.status === 'approved') && <StepShipping deal={deal} statusIdx={statusIdx} orders={factoryOrders} />}
+        </div>
+      ),
     },
     {
       title: '到着検品 → 直接納品 or 在庫入庫',

@@ -915,3 +915,11 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - サンプルのファイルは既存の deal_design_files に category 'sample_r<回>'（写真・動画）/ 'sample_fix_r<回>'（顧客の修正データ）で登録する。
 - RPC（staff）: save_deal_production(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'sample_start' {expected_on} / 'sample_done' / 'sample_shared' / 'sample_result' {result, feedback} / 'production_start' {started_on, due_on, transit_days} / 'production_update' {due_on, transit_days} / 'production_finish'。工程6の「製作開始へ進む」（deal_intakes.production_started_at）が前提。deal_products.sample_required が1つでも true の案件は、承認済みの回が無いと本製造を開始できない。'production_finish' で deals.process_stage を 8 以上にする。
 - simple_status は変えない。
+
+## 再設計 工程8（2026-11-22・本番 baoflow-v2 に適用済み）
+`20261122800000_process_redesign_stage8.sql`。追加のみ。
+- deal_shipments: deal_id UUID PK→deals, completion_received_at（工場の完了報告を確認した）, completion_note, ship_to_name / ship_to_postal_code / ship_to_address / ship_to_phone, carton_count integer (1〜999), inspection_days integer（食品検査の日数。検査がある案件だけ）, requested_at（工場へ発送を依頼した）, packed_at（梱包とラベル貼付の写真を確認した）, carrier, tracking_number, tracking_url, shipped_on date（入っていれば発送完了）, shipped_recorded_at, notify_status text ('accepted'|'rejected'|'unknown'|'skipped'。顧客へのお知らせメール), notified_at, created_at, updated_at。RLS: staff は読むだけ。
+- 写真は既存の deal_design_files に category 'ship_done'（完成品）/ 'ship_pack'（梱包）/ 'ship_label'（ラベル貼付）で登録する。
+- RPC（staff）: save_deal_shipment(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'completion' {note} / 'destination' {name, postal_code, address, phone, carton_count, inspection_days} / 'request' / 'packed' / 'shipped' {carrier, tracking_number, tracking_url, shipped_on} / 'notified' {status}。工程7の製造完了（deal_productions.finished_at）が前提。deal_products.food_inspection_required が1つでも true の案件は inspection_days が必須。'shipped' で deals.process_stage を 9 以上・waiting_on='client' にし、顧客の担当者（名前・メール）を返す。
+- 段ボールラベルPDF: GET /deals/<案件ID>/carton-labels（営業・管理者のみ。届け先と箱数が未保存なら 409）。箱数ぶんのページ。
+- 到着目安 = shipped_on + deal_productions.transit_days + inspection_days。simple_status は変えない。

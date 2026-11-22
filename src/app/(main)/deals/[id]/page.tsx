@@ -15,6 +15,7 @@ import { listOrderAgreements } from '@/lib/actions/order-agreement'
 import { listIssuerChoices } from '@/lib/actions/issuer-companies'
 import { getDealIntake } from '@/lib/actions/deal-intake'
 import { getDealProduction } from '@/lib/actions/deal-production'
+import { getDealShipment } from '@/lib/actions/deal-shipment'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -63,7 +64,7 @@ export default async function DealDetailPage({ params }: Props) {
   if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
-  const [factoryOrderResult, factories, options, confirmation, offers, factoryExtras, agreements, issuers, intake, production, settings] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems(), getConfirmationState(id), listPriceOffers(id), getFactoryExtras(id), listOrderAgreements(id), listIssuerChoices(), getDealIntake(id), getDealProduction(id),
+  const [factoryOrderResult, factories, options, confirmation, offers, factoryExtras, agreements, issuers, intake, production, shipment, settings] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems(), getConfirmationState(id), listPriceOffers(id), getFactoryExtras(id), listOrderAgreements(id), listIssuerChoices(), getDealIntake(id), getDealProduction(id), getDealShipment(id),
     supabase.from('system_settings').select('default_exchange_rate, default_tax_rate, default_cost_ratio').limit(1).maybeSingle()])
   if (settings.error || !settings.data || settings.data.default_tax_rate == null) throw new Error('Settings could not be loaded')
   if (factoryOrderResult.error) throw new Error('Factory orders could not be loaded')
@@ -203,6 +204,7 @@ export default async function DealDetailPage({ params }: Props) {
         issuers={issuers}
         intake={intake}
         production={production}
+        shipment={shipment}
         factoryExtras={factoryExtras}
         pricingDefaults={{ fx: Number(settings.data.default_exchange_rate) || 0, tax: Number(settings.data.default_tax_rate), ratio: Number(settings.data.default_cost_ratio) || null }}
         dueDate={deal.desired_delivery_date}

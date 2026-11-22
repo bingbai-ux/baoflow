@@ -51,10 +51,10 @@ export async function registerIntakeFile(dealId: string, kind: IntakeKind, file:
   return registerProcessFile(dealId, `intake_${kind}`, file)
 }
 
-/** 工程の作業で使うファイルの登録（入稿: intake_template / intake_artwork、サンプル: sample_r<回> / sample_fix_r<回>）。 */
+/** 工程の作業で使うファイルの登録（入稿: intake_template / intake_artwork、サンプル: sample_r<回> / sample_fix_r<回>、発送: ship_done / ship_pack / ship_label）。 */
 export async function registerProcessFile(dealId: string, category: string, file: { storagePath: string; name: string; size: number; type: string }): Promise<{ error: string | null }> {
   if (!UUID.test(dealId || '')) return { error: '案件が見つかりません' }
-  if (!/^(intake_(template|artwork)|sample(_fix)?_r[1-9]\d?)$/.test(category || '')) return { error: 'ファイルの種類を確認してください' }
+  if (!/^(intake_(template|artwork)|sample(_fix)?_r[1-9]\d?|ship_(done|pack|label))$/.test(category || '')) return { error: 'ファイルの種類を確認してください' }
   // 保管場所は「案件ID/ランダムな名前」の形だけを受け付ける（他の案件のファイルを登録させない）
   if (typeof file?.storagePath !== 'string' || !new RegExp(`^${dealId}/[0-9a-f-]{36}_[A-Za-z0-9._-]{1,200}$`, 'i').test(file.storagePath)) return { error: 'ファイルの保存先が正しくありません' }
   if (!file.name?.trim() || !Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_BYTES) return { error: 'ファイルを確認してください（50MB まで）' }

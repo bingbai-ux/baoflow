@@ -106,6 +106,29 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程8: 発送の代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage8-sql.test.ts (PGlite) で検証する。
+  if(table==='save_deal_shipment'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   db.deal_shipments ||= [];db.deal_productions ||= [];db.client_contacts ||= []
+   try{
+    const d=db.deals.find(d=>d.id===input.p_deal_id),a=input.p_action,p=input.p_payload||{},now=new Date().toISOString();if(!d)throw new Error('案件が見つかりません')
+    if(!db.deal_productions.some(x=>x.deal_id===d.id&&x.finished_at))throw new Error('先に製造完了を記録してください')
+    let s=db.deal_shipments.find(x=>x.deal_id===d.id);if(!s){s={deal_id:d.id,completion_received_at:null,completion_note:null,ship_to_name:null,ship_to_postal_code:null,ship_to_address:null,ship_to_phone:null,carton_count:null,inspection_days:null,requested_at:null,packed_at:null,carrier:null,tracking_number:null,tracking_url:null,shipped_on:null,notify_status:null};db.deal_shipments.push(s)}
+    const has=c=>db.deal_design_files.some(f=>f.deal_id===d.id&&f.category===c),food=db.deal_products.some(x=>x.deal_id===d.id&&x.food_inspection_required===true)
+    if(a==='notified'){s.notify_status=p.status;send({success:true});return}
+    if(s.shipped_on)throw new Error('発送完了を記録したあとは変更できません')
+    let wait='us',stage=8
+    if(a==='completion'){if(!has('ship_done'))throw new Error('先に完成品の写真・動画を登録してください');s.completion_received_at ||= now;s.completion_note ||= String(p.note||'').trim()||null}
+    else if(a==='destination'){if(!String(p.name||'').trim()||!String(p.address||'').trim())throw new Error('届け先の名前と住所を入力してください');if(!(Number(p.carton_count)>=1))throw new Error('箱数を入力してください');if(food&&String(p.inspection_days??'')==='')throw new Error('食品検査の日数を入力してください');Object.assign(s,{ship_to_name:String(p.name).trim(),ship_to_postal_code:String(p.postal_code||'').trim()||null,ship_to_address:String(p.address).trim(),ship_to_phone:String(p.phone||'').trim()||null,carton_count:Number(p.carton_count),inspection_days:food?Number(p.inspection_days):null});send({success:true});return}
+    else if(a==='request'){if(!s.completion_received_at)throw new Error('先に工場の完了報告を確認してください');if(!s.ship_to_address||!s.carton_count)throw new Error('先に届け先と箱数を保存してください');s.requested_at ||= now;wait='factory'}
+    else if(a==='packed'){if(!s.requested_at)throw new Error('先に工場へ発送を依頼してください');if(!has('ship_pack'))throw new Error('先に梱包の写真を登録してください');if(!has('ship_label'))throw new Error('先にラベルを貼った写真を登録してください');s.packed_at ||= now;wait='factory'}
+    else if(a==='shipped'){if(!s.packed_at)throw new Error('先に梱包とラベル貼付の写真を確認してください');if(!String(p.tracking_number||'').trim())throw new Error('追跡番号を入力してください');Object.assign(s,{carrier:String(p.carrier||'').trim()||null,tracking_number:String(p.tracking_number).trim(),tracking_url:String(p.tracking_url||'').trim()||null,shipped_on:p.shipped_on});wait='client';stage=9}
+    else throw new Error('操作が不正です')
+    d.process_stage=Math.max(d.process_stage||1,stage);d.waiting_on=wait;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note:'発送: '+a,kind:'status',created_at:now})
+    if(a==='shipped'){const c=db.client_contacts.filter(c=>c.client_id===d.client_id).sort((x,y)=>Number(!!y.is_primary)-Number(!!x.is_primary))[0];send({success:true,contactName:c?.name||null,contactEmail:c?.email||null,clientName:d.client_name_text,dealName:d.deal_name});return}
+    send({success:true});return
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程7: サンプルと本製造の代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage7-sql.test.ts (PGlite) で検証する。
   if(table==='save_deal_production'){
    if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
