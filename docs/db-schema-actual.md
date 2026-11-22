@@ -892,3 +892,11 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - RPC（staff）: order_agreement_issuer() → {issuer, bank, notes, tax_rate, missing[]}、create_order_agreement(p_deal_id uuid, p_issue_date date, p_due_date date)、mark_order_agreement_sent(p_id uuid, p_status text)、staff_decide_order_agreement(p_deal_id uuid, p_decision 'agree'|'cancel')。
 - RPC（ログイン不要・リンクの持ち主）: order_agreement_by_token(p_token text)、agree_order_agreement(p_token, p_ip, p_ua)。
 - 契約成立で deals.process_stage を 6 以上へ、waiting_on='us'、履歴1行、リンク経由ならお知らせ1行。simple_status は変えない。
+
+## 発行元の会社マスター（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+`20261122500000_issuer_companies.sql`。
+- issuer_companies: id UUID, name text（UNIQUE・大文字小文字を区別しない）, postal_code, address, phone, email, registration_number text（'T'+数字13桁）, bank_name, branch_name, account_type, account_number, account_holder, logo_data text / stamp_data text（PNG か JPEG の data URL。700,000文字まで）, is_default boolean（true は1社だけ）, archived_at, created_at, updated_at。RLS: staff は読むだけ。初期値は 株式会社FOOD&COMPANY（既定）と 株式会社Springroll（会社名のみ）。
+- system_settings.company_info の name が 'kokon inc.' なら '株式会社FOOD&COMPANY' に直す。
+- RPC（staff）: save_issuer_company(p_payload jsonb)（logo_data / stamp_data はキーがあるときだけ更新、null で外す。archived=true で使わない会社に）、set_default_issuer_company(p_id uuid)、issuer_company_missing(issuer_companies) → 請求書に足りない項目。
+- create_order_agreement(p_deal_id, p_issue_date, p_due_date, p_issuer_id uuid): 発行元を選んで発行（snapshot.issuer に id・name・postal_code・address・phone・email・registration_number、snapshot.bank に振込先）。引数3つの版は既定の会社で発行する。order_agreement_by_token は発行元のロゴ・角印（logo / stamp）も返す。
+- 商品内容の確認・お見積書のPDFとメールの署名は、既定の会社の名前を使う。

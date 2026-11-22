@@ -51,6 +51,11 @@ export default async function SettingsPage() {
         </p>
       </div>
 
+      <a href="/settings/companies" className="mb-4 flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-[16px] border border-[#E2E1DA] bg-white p-4 no-underline hover:bg-[#FBFAF6]">
+        <span><span className="block text-[15px] font-bold text-[#351E28]">発行元の会社</span></span>
+        <span className="rounded-full bg-[#351E28] px-4 py-2 text-[12px] font-bold text-[#C9A2B8]">発行元の会社を開く</span>
+      </a>
+
       <a href="/settings/product-master" className="mb-4 flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-[16px] border border-[#E2E1DA] bg-white p-4 no-underline hover:bg-[#FBFAF6]">
         <span><span className="block text-[15px] font-bold text-[#351E28]">商品マスター</span></span>
         <span className="rounded-full bg-[#351E28] px-4 py-2 text-[12px] font-bold text-[#C9A2B8]">商品マスターを開く</span>

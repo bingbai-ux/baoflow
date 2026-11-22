@@ -6,6 +6,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
+import { defaultIssuerName } from './issuer-companies'
 import { sendEmail } from '@/lib/utils/email'
 import { priceOfferPDF } from '@/lib/pdf/price-offer'
 import { offerNumber, type OfferSnapshot } from '@/lib/process/offer-format'
@@ -65,9 +66,10 @@ export async function sendPriceOffer(dealId: string): Promise<{ link: string | n
 
   const s = data.snapshot as OfferSnapshot
   const now = new Date()
-  const pdf = await priceOfferPDF(s, jstDay(now), jstDay(new Date(now.getTime() + 30 * 86400000)))
+  const issuerName = await defaultIssuerName()
+  const pdf = await priceOfferPDF(s, jstDay(now), jstDay(new Date(now.getTime() + 30 * 86400000)), issuerName)
   const subject = `【お見積書】${s.deal_name || ''}（${offerNumber(s)}）`
-  const text = `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。(bao) です。\nお見積書（第${s.round}回）をお送りします。添付をご確認のうえ、下のページで「承認」または「変更を依頼」をお選びください（ログインは不要です）。\n\n${link}\n\n(bao) 株式会社FOOD&COMPANY`
+  const text = `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。(bao) です。\nお見積書（第${s.round}回）をお送りします。添付をご確認のうえ、下のページで「承認」または「変更を依頼」をお選びください（ログインは不要です）。\n\n${link}\n\n(bao) ${issuerName}`
   let status: 'accepted' | 'rejected' | 'unknown' = 'unknown'
   try {
     const res = await fetch('https://api.resend.com/emails', {

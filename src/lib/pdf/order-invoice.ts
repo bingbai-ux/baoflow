@@ -3,14 +3,14 @@ import fontkit from '@pdf-lib/fontkit'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { yen } from '@/lib/process/offer-format'
-import { bankLine, jpDate, type InvoiceSnapshot } from '@/lib/process/invoice-format'
+import { bankLine, issuerAddress, jpDate, type InvoiceSnapshot } from '@/lib/process/invoice-format'
 
 // 再設計 工程5: 顧客へ送る「請求書」PDF。
 
 let fontBytes: Promise<Uint8Array> | undefined
 const INK = rgb(0.208, 0.118, 0.157), SOFT = rgb(0.518, 0.471, 0.49)
 
-export async function orderInvoicePDF(s: InvoiceSnapshot): Promise<Uint8Array> {
+export async function orderInvoicePDF(s: InvoiceSnapshot, images: { logo?: string | null; stamp?: string | null } = {}): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.registerFontkit(fontkit)
   fontBytes ??= readFile(join(process.cwd(), 'public/fonts/NotoSansJP-Regular.ttf'))
@@ -32,6 +32,9 @@ export async function orderInvoicePDF(s: InvoiceSnapshot): Promise<Uint8Array> {
       if (part) flush()
     }
   }
+  // 登録済みのロゴ（右上）。画像は PNG / JPEG の data URL
+  const embed = async (data: string) => { const bytes = Buffer.from(data.slice(data.indexOf(',') + 1), 'base64'); return data.startsWith('data:image/png') ? pdf.embedPng(bytes) : pdf.embedJpg(bytes) }
+  if (images.logo) { const img = await embed(images.logo), k = Math.min(120 / img.width, 48 / img.height); page.drawImage(img, { x: W - LEFT - img.width * k, y: H - 44 - img.height * k, width: img.width * k, height: img.height * k }) }
   write('請求書', 20); y -= 6
   write(`${s.client_name || ''} 御中`, 14)
   write(`件名: ${s.deal_name || ''}${s.brand ? `（${s.brand}）` : ''}`, 10, SOFT)
@@ -43,11 +46,14 @@ export async function orderInvoicePDF(s: InvoiceSnapshot): Promise<Uint8Array> {
   write('お振込先', 11)
   write(bankLine(s.bank), 10.5, INK, 14); y -= 6
   if (s.notes) { write(s.notes, 9.5, SOFT); y -= 6 }
+  const issuerTop = y
   write(s.issuer.name, 11)
-  write(s.issuer.address, 10, SOFT)
+  write(issuerAddress(s.issuer), 10, SOFT)
   const contact = [s.issuer.phone ? `TEL ${s.issuer.phone}` : null, s.issuer.email].filter(Boolean).join('　')
   if (contact) write(contact, 10, SOFT)
   if (s.issuer.registration_number) write(`登録番号: ${s.issuer.registration_number}`, 10, SOFT)
+  // 角印は発行者名の右に重ねる（同じページに収まっているときだけ）
+  if (images.stamp && issuerTop > 110) { const img = await embed(images.stamp), k = Math.min(56 / img.width, 56 / img.height); page.drawImage(img, { x: W - LEFT - 56 - 20, y: issuerTop - img.height * k + 14, width: img.width * k, height: img.height * k, opacity: 0.9 }) }
   pdf.getPages().forEach((p, i) => p.drawText(`${i + 1} / ${pdf.getPageCount()}`, { x: W - 80, y: 30, size: 9, font, color: SOFT }))
   return pdf.save()
 }

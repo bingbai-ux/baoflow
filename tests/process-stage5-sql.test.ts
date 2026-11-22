@@ -8,6 +8,9 @@ import { readFile } from 'node:fs/promises'
 const uid = '11111111-1111-4111-8111-111111111111'
 const deal = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', client = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 
+const PNG = 'data:image/png;base64,iVBORw0KGgo='
+const companyId = async (db: PGlite, name: string) => (await db.query<{ id: string }>('select id from issuer_companies where name=$1', [name])).rows[0].id
+
 async function setup() {
   const db = new PGlite()
   await db.exec(`create role anon;create role authenticated;create schema auth;
@@ -20,7 +23,7 @@ async function setup() {
   insert into profiles values('${uid}','sales@example.test');
   create table system_settings(company_info jsonb, bank_accounts jsonb[], invoice_registration_number text, invoice_default_text text, default_tax_rate numeric);
   -- 本番と同じ形: 振込先の要素が文字列として入っている
-  insert into system_settings values('{"name":"デモ株式会社","address":"東京都世田谷区1-2-3","phone":"","email":""}',
+  insert into system_settings values('{"name":"kokon inc.","address":"","phone":"","email":""}',
     array[to_jsonb('{"bank_name":"楽天銀行","branch_name":"第一営業支店","account_type":"普通","account_number":"1234567","account_holder":"デモ（カ","is_default":true}'::text)], 'T1234567890123', '※振込手数料はお客様負担にてお願いいたします。', 10);
   create table deals(id uuid primary key, deal_code text, deal_name text, client_id uuid, client_name_text text, brand_text text, contact_id uuid, sales_user_id uuid,
     master_status text default 'M01', simple_status simple_status default 'quote_confirmed', process_stage smallint not null default 5, waiting_on text default 'us', archived_at timestamptz, last_activity_at timestamptz);
@@ -38,6 +41,9 @@ async function setup() {
     select '${deal}', v.id, x.qty, x.unit, ceil(x.unit*x.qty), ceil(ceil(x.unit*x.qty)*1.1), 0.05, x.st::quote_status
     from v join p on p.id=v.product_id join (values (1,1000,60,'rejected'),(1,5000,25.5,'approved'),(2,3333,12.34,'approved')) x(no,qty,unit,st) on x.no=p.product_no;`)
   await db.exec(await readFile(new URL('../supabase/migrations/20261122400000_process_redesign_stage5.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20261122500000_issuer_companies.sql', import.meta.url), 'utf8'))
+  await db.query('select save_issuer_company($1)', [JSON.stringify({ id: await companyId(db, '株式会社FOOD&COMPANY'), name: '株式会社FOOD&COMPANY', address: '東京都世田谷区1-2-3', registration_number: 't1234567890123',
+    bank_name: '楽天銀行', branch_name: '第一営業支店', account_type: '普通', account_number: '1234567', account_holder: 'カ）フードアンドカンパニー', logo_data: PNG, stamp_data: PNG })])
   return db
 }
 type Made = { id: string; token: string; invoiceNumber: string; contactEmail: string; snapshot: Record<string, unknown> & { lines: Array<Record<string, unknown>>; issuer: Record<string, string>; bank: Record<string, string> } }
@@ -53,18 +59,23 @@ test('発行: 承認済みの見積だけが明細になり、消費税は全体
     assert.deepEqual(r.snapshot.lines.map(l => [l.name, l.quantity, Number(l.unit_jpy), Number(l.net_jpy)]), [['平袋', 5000, 25.5, 127500], ['スタンド袋', 3333, 12.34, 41130]])
     // 小計 168,630 → 税込 ceil(185,493.0) = 185,493（行ごとの税込 140,250 + 45,243 と一致）
     assert.deepEqual([Number(r.snapshot.subtotal_jpy), Number(r.snapshot.tax_jpy), Number(r.snapshot.total_jpy)], [168630, 16863, 185493])
-    assert.deepEqual(r.snapshot.issuer, { name: 'デモ株式会社', address: '東京都世田谷区1-2-3', phone: null, email: null, registration_number: 'T1234567890123' })
+    assert.deepEqual({ ...r.snapshot.issuer, id: 'x' }, { id: 'x', name: '株式会社FOOD&COMPANY', postal_code: null, address: '東京都世田谷区1-2-3', phone: null, email: null, registration_number: 'T1234567890123' })
+    assert.equal((await db.query<{ n: string }>("select company_info->>'name' n from system_settings")).rows[0].n, '株式会社FOOD&COMPANY', '以前の誤った社名は直っている')
     assert.equal(r.snapshot.bank.account_number, '1234567')
     assert.ok(!/factory|0\.05/.test(JSON.stringify(r.snapshot)), '原価・工場の情報を含まない')
     await assert.rejects(create(db, '2026-11-22', '2026-11-21'), /発行日以降/)
     const again = await create(db)
     assert.equal(again.invoiceNumber, 'PF-1-I2')
     assert.deepEqual((await db.query<{ s: string }>('select status s from order_agreements order by seq')).rows.map(x => x.s), ['cancelled', 'sent'], '承認待ちは常に1通')
-    // 設定に足りない項目があれば発行しない
-    await db.exec(`update system_settings set company_info = company_info || '{"address":""}', bank_accounts = array['{"bank_name":"楽天銀行"}'::jsonb]`)
-    await assert.rejects(create(db), /発行者情報が足りません: 住所・支店名・口座種別・口座番号・口座名義/)
+    // 発行元を選んで発行できる。登録情報が足りない会社では発行しない
+    const spring = await companyId(db, '株式会社Springroll')
+    await assert.rejects(db.query('select create_order_agreement($1,$2,$3,$4)', [deal, '2026-11-22', '2026-12-22', spring]), /「株式会社Springroll」の登録情報が足りません: 住所・銀行名・支店名・口座種別・口座番号・口座名義/)
+    await db.query('select save_issuer_company($1)', [JSON.stringify({ id: spring, name: '株式会社Springroll', address: '神奈川県横浜市4-5-6', bank_name: 'みずほ銀行', branch_name: '横浜支店', account_type: '普通', account_number: '7654321', account_holder: 'カ）スプリングロール' })])
+    const s2 = (await db.query<{ r: Made }>('select create_order_agreement($1,$2,$3,$4) as r', [deal, '2026-11-22', '2026-12-22', spring])).rows[0].r
+    assert.deepEqual([s2.snapshot.issuer.name, s2.snapshot.issuer.registration_number, s2.snapshot.bank.bank_name], ['株式会社Springroll', null, 'みずほ銀行'])
+    await assert.rejects(db.query('select create_order_agreement($1,$2,$3,$4)', [deal, '2026-11-22', '2026-12-22', null]), /発行元の会社を選んでください/)
     await db.exec("update deal_quotes set status='drafting'")
-    await assert.rejects(create(db), /発行者情報|承認済みのお見積がありません/)
+    await assert.rejects(create(db), /承認済みのお見積がありません/)
   } finally { await db.close() }
 })
 
@@ -113,5 +124,35 @@ test('取り消し・期限切れ・金額変更後は成立しない。営業�
     await assert.rejects(db.query("select staff_decide_order_agreement($1,'cancel')", [deal]), /営業・管理者/)
     await assert.rejects(db.query('select mark_order_agreement_sent($1,$2)', [second.id, 'accepted']), /営業・管理者/)
     await assert.rejects(db.query('select order_agreement_issuer()'), /営業・管理者/)
+    await assert.rejects(db.query('select save_issuer_company($1)', [JSON.stringify({ name: '別会社' })]), /営業・管理者/)
+  } finally { await db.close() }
+})
+
+test('会社マスター: 2社を登録して既定を切り替えられる。画像・登録番号の形式を検査し、顧客ページにロゴと角印が出る', async () => {
+  const db = await setup()
+  try {
+    const fc = await companyId(db, '株式会社FOOD&COMPANY'), spring = await companyId(db, '株式会社Springroll')
+    assert.deepEqual((await db.query<{ name: string; d: boolean }>('select name, is_default d from issuer_companies order by is_default desc')).rows, [{ name: '株式会社FOOD&COMPANY', d: true }, { name: '株式会社Springroll', d: false }])
+    const save = (payload: object) => db.query('select save_issuer_company($1)', [JSON.stringify(payload)])
+    await assert.rejects(save({ name: ' ' }), /会社名を入力/)
+    await assert.rejects(save({ name: '株式会社springroll' }), /同じ会社名/)
+    await assert.rejects(save({ id: spring, name: '株式会社Springroll', registration_number: 'T123' }), /「T」と数字13桁/)
+    await assert.rejects(save({ id: spring, name: '株式会社Springroll', logo_data: 'data:image/svg+xml;base64,AAAA' }), /PNG か JPEG/)
+    await assert.rejects(save({ id: spring, name: '株式会社Springroll', stamp_data: 'data:image/png;base64,' + 'A'.repeat(700000) }), /大きすぎます/)
+    await assert.rejects(save({ id: fc, name: '株式会社FOOD&COMPANY', archived: true }), /既定の会社は/)
+    // 画像のキーを送らない保存では、登録済みの画像を消さない
+    await save({ id: fc, name: '株式会社FOOD&COMPANY', address: '東京都世田谷区1-2-3', bank_name: '楽天銀行', branch_name: '第一営業支店', account_type: '普通', account_number: '1234567', account_holder: 'カ）フードアンドカンパニー' })
+    assert.equal((await db.query<{ l: string }>('select logo_data l from issuer_companies where id=$1', [fc])).rows[0].l, PNG)
+    await save({ id: fc, name: '株式会社FOOD&COMPANY', address: '東京都世田谷区1-2-3', bank_name: '楽天銀行', branch_name: '第一営業支店', account_type: '普通', account_number: '1234567', account_holder: 'カ）フードアンドカンパニー', logo_data: null })
+    assert.equal((await db.query<{ l: string | null }>('select logo_data l from issuer_companies where id=$1', [fc])).rows[0].l, null, 'null を送ると画像を外す')
+    const r = await create(db)
+    await customer(db)
+    const view = (await db.query<{ v: { logo: string | null; stamp: string | null } }>('select order_agreement_by_token($1) as v', [r.token])).rows[0].v
+    assert.deepEqual([view.logo, view.stamp], [null, PNG])
+    await staff(db)
+    await db.query('select set_default_issuer_company($1)', [spring])
+    assert.deepEqual((await db.query<{ name: string }>('select name from issuer_companies where is_default')).rows, [{ name: '株式会社Springroll' }], '既定は常に1社')
+    await save({ id: fc, name: '株式会社FOOD&COMPANY', archived: true })
+    await assert.rejects(db.query('select set_default_issuer_company($1)', [fc]), /会社が見つかりません/)
   } finally { await db.close() }
 })

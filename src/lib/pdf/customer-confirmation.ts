@@ -16,7 +16,7 @@ export function itemLines(item: ConfirmationItem): string[] {
   return [`数量: ${item.quantities.map(q => q.toLocaleString('ja-JP')).join(' / ')}`, extras, item.notes ? `補足: ${item.notes}` : '', item.memo ? `備考: ${item.memo}` : ''].filter(Boolean)
 }
 
-export async function customerConfirmationPDF(s: ConfirmationSnapshot, issuedOn: string): Promise<Uint8Array> {
+export async function customerConfirmationPDF(s: ConfirmationSnapshot, issuedOn: string, issuerName: string): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.registerFontkit(fontkit)
   fontBytes ??= readFile(join(process.cwd(), 'public/fonts/NotoSansJP-Regular.ttf'))
@@ -48,7 +48,7 @@ export async function customerConfirmationPDF(s: ConfirmationSnapshot, issuedOn:
   })
   y -= 6
   write('内容に問題がなければ、メールのリンクから「この内容で進める」を押してください。', 10)
-  write('株式会社FOOD&COMPANY (bao)', 10, SOFT)
+  write(`${issuerName} (bao)`, 10, SOFT)
   pdf.getPages().forEach((p, i) => p.drawText(`${i + 1} / ${pdf.getPageCount()}`, { x: W - 80, y: 30, size: 9, font, color: SOFT }))
   return pdf.save()
 }

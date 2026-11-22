@@ -6,6 +6,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireSalesAccess } from './deal-access'
+import { defaultIssuerName } from './issuer-companies'
 import { sendEmail } from '@/lib/utils/email'
 import { customerConfirmationPDF, type ConfirmationSnapshot } from '@/lib/pdf/customer-confirmation'
 
@@ -55,7 +56,8 @@ export async function sendCustomerConfirmation(dealId: string): Promise<{ link: 
   if (!process.env.RESEND_API_KEY || !from) return { link, sent: false, to, error: 'メール送信の設定がありません。下のリンクを担当者へ直接お送りください。' }
 
   const s = data.snapshot as ConfirmationSnapshot
-  const pdf = await customerConfirmationPDF(s, today())
+  const issuerName = await defaultIssuerName()
+  const pdf = await customerConfirmationPDF(s, today(), issuerName)
   const subject = `【ご確認のお願い】${s.deal_name || '商品内容'}（${s.deal_code || ''}）`
   const text = `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。(bao) です。\nご依頼の商品内容をまとめました。添付の明細をご確認のうえ、問題がなければ下のページで「この内容で進める」を押してください（ログインは不要です）。\n\n${link}\n\n内容に修正がある場合は、このメールにご返信ください。\n\n(bao) / 株式会社FOOD&COMPANY`
   let status: 'accepted' | 'rejected' | 'unknown' = 'unknown'

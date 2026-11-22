@@ -10,7 +10,7 @@ import { offerNumber, optionLine, type OfferSnapshot } from '@/lib/process/offer
 let fontBytes: Promise<Uint8Array> | undefined
 const INK = rgb(0.208, 0.118, 0.157), SOFT = rgb(0.518, 0.471, 0.49)
 
-export async function priceOfferPDF(s: OfferSnapshot, issuedOn: string, validUntil: string): Promise<Uint8Array> {
+export async function priceOfferPDF(s: OfferSnapshot, issuedOn: string, validUntil: string, issuerName: string): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.registerFontkit(fontkit)
   fontBytes ??= readFile(join(process.cwd(), 'public/fonts/NotoSansJP-Regular.ttf'))
@@ -43,7 +43,7 @@ export async function priceOfferPDF(s: OfferSnapshot, issuedOn: string, validUnt
   })
   y -= 6
   write('ご承認・変更のご希望は、メールのリンクからお知らせください。', 10)
-  write('株式会社FOOD&COMPANY (bao)', 10, SOFT)
+  write(`${issuerName} (bao)`, 10, SOFT)
   pdf.getPages().forEach((p, i) => p.drawText(`${i + 1} / ${pdf.getPageCount()}`, { x: W - 80, y: 30, size: 9, font, color: SOFT }))
   return pdf.save()
 }

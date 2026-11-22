@@ -34,23 +34,16 @@ export async function listOrderAgreements(dealId: string): Promise<AgreementRow[
   }))
 }
 
-/** 請求書に載せる発行者・振込先のうち、設定に足りない項目（営業・管理者のみ）。 */
-export async function getInvoiceIssuerGaps(): Promise<string[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('order_agreement_issuer')
-  if (error) throw new Error('Invoice issuer settings could not be loaded')
-  return Array.isArray(data?.missing) ? (data.missing as string[]) : []
-}
-
 /** 請求書をつくり、PDFを付けたメールを送る。メールの設定や宛先が無いときは送らず、ページのリンクだけ返す。 */
-export async function issueOrderInvoice(dealId: string, issueDate: string, dueDate: string): Promise<{ link: string | null; sent: boolean; to: string | null; error: string | null }> {
+export async function issueOrderInvoice(dealId: string, issueDate: string, dueDate: string, issuerId: string): Promise<{ link: string | null; sent: boolean; to: string | null; error: string | null }> {
   const fail = (error: string) => ({ link: null, sent: false, to: null, error })
   if (!UUID.test(dealId || '')) return fail('案件が見つかりません')
   if (!DAY.test(issueDate || '') || !DAY.test(dueDate || '')) return fail('発行日と振込期限を選んでください')
+  if (!UUID.test(issuerId || '')) return fail('発行元の会社を選んでください')
   const supabase = await createClient()
   const accessError = await requireSalesAccess(supabase)
   if (accessError) return fail(accessError)
-  const { data, error } = await supabase.rpc('create_order_agreement', { p_deal_id: dealId, p_issue_date: issueDate, p_due_date: dueDate })
+  const { data, error } = await supabase.rpc('create_order_agreement', { p_deal_id: dealId, p_issue_date: issueDate, p_due_date: dueDate, p_issuer_id: issuerId })
   if (error || !data?.success) return fail(error?.message || '請求書をつくれませんでした')
   revalidatePath(`/deals/${dealId}`); revalidatePath('/deals')
   const origin = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
@@ -62,7 +55,7 @@ export async function issueOrderInvoice(dealId: string, issueDate: string, dueDa
   if (!process.env.RESEND_API_KEY || !from) return { link, sent: false, to, error: 'メール送信の設定がありません。下のリンクを担当者へ直接お送りください。' }
 
   const s = data.snapshot as InvoiceSnapshot
-  const pdf = await orderInvoicePDF(s)
+  const pdf = await orderInvoicePDF(s, { logo: data.logo as string | null, stamp: data.stamp as string | null })
   const subject = `【ご請求書】${s.deal_name || ''}（${s.invoice_number}）`
   const text = `${s.client_name || ''} ${data.contactName || 'ご担当者'} 様\n\nお世話になっております。${s.issuer.name} です。\nご請求書をお送りします（ご請求金額 ${yen(s.total_jpy)}・お振込期限 ${jpDate(s.due_date)}）。\n添付をご確認のうえ、下のページで「この内容で発注する」を押してください（ログインは不要です）。ボタンを押した時点でご契約成立となります。\n\n${link}\n\n${s.issuer.name}`
   let status: 'accepted' | 'rejected' | 'unknown' = 'unknown'
@@ -96,13 +89,15 @@ export async function recordAgreementDecision(dealId: string, decision: 'agree' 
 
 // ---- ここから下は、ログインしていない顧客がリンクから使う ----
 
-export async function loadAgreement(token: string): Promise<{ status: 'sent' | 'agreed' | 'cancelled' | 'expired' | 'missing'; snapshot: InvoiceSnapshot | null; agreedAt: string | null }> {
-  if (!TOKEN.test(token || '')) return { status: 'missing', snapshot: null, agreedAt: null }
+export async function loadAgreement(token: string): Promise<{ status: 'sent' | 'agreed' | 'cancelled' | 'expired' | 'missing'; snapshot: InvoiceSnapshot | null; agreedAt: string | null; logo: string | null; stamp: string | null }> {
+  const none = { status: 'missing' as const, snapshot: null, agreedAt: null, logo: null, stamp: null }
+  if (!TOKEN.test(token || '')) return none
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('order_agreement_by_token', { p_token: token })
   if (error) throw new Error('Invoice could not be loaded')
-  if (!data?.found) return { status: 'missing', snapshot: null, agreedAt: null }
-  return { status: data.status, snapshot: data.snapshot as InvoiceSnapshot, agreedAt: data.agreedAt || null }
+  if (!data?.found) return none
+  const image = (v: unknown) => typeof v === 'string' && /^data:image\/(png|jpeg);base64,/.test(v) ? v : null
+  return { status: data.status, snapshot: data.snapshot as InvoiceSnapshot, agreedAt: data.agreedAt || null, logo: image(data.logo), stamp: image(data.stamp) }
 }
 
 export async function agreeByCustomer(token: string): Promise<{ success: boolean; error?: string }> {
