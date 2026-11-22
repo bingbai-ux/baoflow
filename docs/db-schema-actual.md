@@ -900,3 +900,10 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - RPC（staff）: save_issuer_company(p_payload jsonb)（logo_data / stamp_data はキーがあるときだけ更新、null で外す。archived=true で使わない会社に）、set_default_issuer_company(p_id uuid)、issuer_company_missing(issuer_companies) → 請求書に足りない項目。
 - create_order_agreement(p_deal_id, p_issue_date, p_due_date, p_issuer_id uuid): 発行元を選んで発行（snapshot.issuer に id・name・postal_code・address・phone・email・registration_number、snapshot.bank に振込先）。引数3つの版は既定の会社で発行する。order_agreement_by_token は発行元のロゴ・角印（logo / stamp）も返す。
 - 商品内容の確認・お見積書のPDFとメールの署名は、既定の会社の名前を使う。
+
+## 再設計 工程6（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+`20261122600000_process_redesign_stage6.sql`。追加のみ。
+- deal_intakes: deal_id UUID PK→deals, pattern text ('customer' 顧客がデータを用意 | 'template' 工場の雛形を使う), template_received_at / template_sent_at / artwork_received_at / artwork_sent_at / factory_ok_at timestamptz（手順を記録した日時）, prepay_rate integer (30|50|100), prepay_amount_usd numeric, prepay_paid_on date（入っていれば前払い済み）, prepay_note text, prepay_recorded_by UUID→profiles, prepay_recorded_at, production_started_at, created_at, updated_at。RLS: staff は読むだけ。
+- 入稿のファイルは既存の deal_design_files に category 'intake_template'（雛形）/ 'intake_artwork'（入稿データ）で登録する。本体は保管場所 deal-images の「案件ID/ランダム名」にブラウザから直接アップロードする。
+- RPC（staff）: save_deal_intake(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'pattern' {pattern} / 'step' {step, done} / 'prepay_rate' {rate} / 'prepay_paid' {paid_on, amount_usd, note} / 'prepay_unpaid' / 'start'。契約成立（order_agreements.status='agreed'）が前提。手順は順番どおりにしか記録できず、取り消しは後ろから。'start' は工場のデータ確認と前払いの記録が必要で、deals.process_stage を 7 以上・waiting_on='factory' にする。deal_intake_steps(p_pattern text) → 手順の並び。
+- simple_status は変えない。

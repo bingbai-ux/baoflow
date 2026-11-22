@@ -26,6 +26,9 @@ const server=http.createServer(async(req,res)=>{
  if(url.pathname==='/__state'){send(db);return}
  if(url.pathname==='/auth/v1/user'){send(user);return}
  if(url.pathname.startsWith('/auth/v1/')){send({user,access_token:'fixture',expires_in:3600,token_type:'bearer'});return}
+ // ファイル保管の代役: アップロード・削除の要求があったことだけ記録する（中身は保存しない）
+ if(url.pathname.startsWith('/storage/v1/object/')){db.storage_objects ||= [];const path=decodeURIComponent(url.pathname.slice('/storage/v1/object/'.length));if(req.method==='POST'){db.storage_objects.push(path);send({Key:path,Id:randomUUID()})}else if(req.method==='DELETE'){const gone=(input.prefixes||[]).map(x=>'deal-images/'+x);db.storage_objects=db.storage_objects.filter(x=>!gone.includes(x));send(gone.map(name=>({name})))}else send({})
+  return}
  const table=url.pathname.split('/').pop()
  if(failure===table){failure=null;send({code:'XX000',message:'Local simulated database failure'},500);return}
  if(url.pathname.includes('/rpc/')){
@@ -103,6 +106,35 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程6: 入稿の受け渡し記録と前払いの代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage6-sql.test.ts (PGlite) で検証する。
+  if(table==='save_deal_intake'){
+   if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+   db.deal_intakes ||= [];db.order_agreements ||= []
+   try{
+    const d=db.deals.find(d=>d.id===input.p_deal_id),p=input.p_payload||{};if(!d)throw new Error('案件が見つかりません')
+    if(!db.order_agreements.some(a=>a.deal_id===d.id&&a.status==='agreed'))throw new Error('先に請求書の承認（契約成立）が必要です')
+    let i=db.deal_intakes.find(x=>x.deal_id===d.id);if(!i){i={deal_id:d.id,pattern:null,template_received_at:null,template_sent_at:null,artwork_received_at:null,artwork_sent_at:null,factory_ok_at:null,prepay_rate:null,prepay_amount_usd:null,prepay_paid_on:null,prepay_note:null,production_started_at:null};db.deal_intakes.push(i)}
+    if(i.production_started_at)throw new Error('製作開始へ進んだあとは変更できません')
+    const steps=i.pattern==='customer'?['artwork_received','artwork_sent','factory_ok']:i.pattern==='template'?['template_received','template_sent','artwork_received','artwork_sent','factory_ok']:[],now=new Date().toISOString()
+    const log=note=>db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note,kind:'status',created_at:now})
+    if(input.p_action==='pattern'){if(i.pattern!==p.pattern&&steps.some(s=>i[s+'_at']))throw new Error('記録を始めたあとは進め方を変えられません。先に記録を取り消してください');i.pattern=p.pattern}
+    else if(input.p_action==='step'){
+     const at=steps.indexOf(p.step);if(at<0)throw new Error('この進め方には無い手順です')
+     if(p.done===false){if(steps[at+1]&&i[steps[at+1]+'_at'])throw new Error('後ろの手順の記録を先に取り消してください');i[p.step+'_at']=null;log('入稿: 取り消し '+p.step)}
+     else if(!i[p.step+'_at']){
+      if(at>0&&!i[steps[at-1]+'_at'])throw new Error('前の手順を先に記録してください')
+      const need=p.step==='template_received'?'intake_template':p.step==='artwork_received'?'intake_artwork':null
+      if(need&&!db.deal_design_files.some(f=>f.deal_id===d.id&&f.category===need))throw new Error(need==='intake_template'?'先に雛形のファイルを登録してください':'先に入稿データのファイルを登録してください')
+      i[p.step+'_at']=now;d.waiting_on=p.step==='template_sent'?'client':p.step==='artwork_sent'?'factory':'us';log('入稿: '+p.step)}
+    }
+    else if(input.p_action==='prepay_rate'){if(![30,50,100].includes(Number(p.rate)))throw new Error('前払いの割合を選んでください');if(i.prepay_paid_on)throw new Error('振込の記録を取り消してから変更してください');i.prepay_rate=Number(p.rate)}
+    else if(input.p_action==='prepay_paid'){if(i.prepay_rate==null)throw new Error('先に前払いの割合を選んでください');if(!(Number(p.amount_usd)>0))throw new Error('振り込んだ金額（$）を入力してください');Object.assign(i,{prepay_amount_usd:Number(p.amount_usd),prepay_paid_on:p.paid_on,prepay_note:String(p.note||'').trim()||null});log('工場への前払いを記録')}
+    else if(input.p_action==='prepay_unpaid'){Object.assign(i,{prepay_amount_usd:null,prepay_paid_on:null,prepay_note:null})}
+    else if(input.p_action==='start'){if(!i.factory_ok_at)throw new Error('工場のデータ確認がまだ記録されていません');if(!i.prepay_paid_on)throw new Error('工場への前払いがまだ記録されていません');i.production_started_at=now;d.process_stage=Math.max(d.process_stage||1,7);d.waiting_on='factory';log('製作開始へ進んだ')}
+    else throw new Error('操作が不正です')
+    send({success:true});return
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程5: 請求書の発行と契約成立の代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage5-sql.test.ts (PGlite) で検証する。
   if(['save_issuer_company','set_default_issuer_company','order_agreement_issuer','create_order_agreement','mark_order_agreement_sent','staff_decide_order_agreement','order_agreement_by_token','agree_order_agreement'].includes(table)){
    db.order_agreements ||= [];db.client_contacts ||= [];db.notifications ||= []

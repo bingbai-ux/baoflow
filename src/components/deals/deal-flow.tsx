@@ -46,6 +46,8 @@ import type { FactoryExtras, OfferRow } from '@/lib/actions/price-offer'
 import { InvoicePanel } from '@/components/process/invoice-panel'
 import type { AgreementRow } from '@/lib/actions/order-agreement'
 import type { IssuerChoice } from '@/lib/actions/issuer-companies'
+import { IntakePanel } from '@/components/process/intake-panel'
+import type { DealIntake } from '@/lib/actions/deal-intake'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -125,6 +127,8 @@ interface DealFlowProps {
   /** 再設計 工程5: 請求書（契約）の履歴と、発行元として選べる会社 */
   agreements: AgreementRow[]
   issuers: IssuerChoice[]
+  /** 再設計 工程6: 入稿の受け渡し記録と工場への前払い */
+  intake: DealIntake
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -172,6 +176,7 @@ export function DealFlow({
   pricingDefaults,
   agreements,
   issuers,
+  intake,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -362,10 +367,19 @@ export function DealFlow({
       ),
     },
     {
-      title: '入金確認 → 工場へ前払い → 入稿データ最終確認',
+      title: '入稿 → 工場へ前払い → 製作開始へ',
       actor: 'us',
-      summary: `入稿データ添付 ${designFiles.length}件`,
-      body: <StepDataCheck deal={deal} designFiles={designFiles} statusIdx={statusIdx} />,
+      summary: intake.startedAt ? '製作開始へ進行済み' : intake.done.factory_ok ? (intake.prepayPaidOn ? '製作開始へ進めます' : '前払い 未払い') : `入稿データ ${designFiles.filter(f => f.category === 'intake_artwork').length}件`,
+      body: (
+        <div className="space-y-4">
+          <IntakePanel dealId={deal.id} intake={intake} today={today} readOnly={archived} agreed={agreements.some(a => a.status === 'agreed')}
+            costUsd={approvedQuotes.length > 0 && approvedQuotes.every(q => Number(q.total_cost_usd) > 0) ? approvedQuotes.reduce((s, q) => s + Number(q.total_cost_usd), 0) : null}
+            files={designFiles.filter(f => f.category === 'intake_template' || f.category === 'intake_artwork').map(f => ({ id: f.id, kind: f.category === 'intake_template' ? 'template' as const : 'artwork' as const,
+              name: f.file_name || 'ファイル', url: f.file_url, sizeBytes: f.file_size_bytes, createdAt: f.created_at })).sort((a, b) => a.createdAt.localeCompare(b.createdAt))} />
+          {/* 新しい流れ（お見積の承認）を通っていない案件だけ、従来の操作を残す */}
+          {!offers.some(o => o.status === 'approved') && <StepDataCheck deal={deal} designFiles={designFiles} statusIdx={statusIdx} />}
+        </div>
+      ),
     },
     {
       title: '製作開始を指示 → 製作',

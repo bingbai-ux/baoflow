@@ -13,6 +13,7 @@ import { getConfirmationState } from '@/lib/actions/customer-confirmation'
 import { getFactoryExtras, listPriceOffers } from '@/lib/actions/price-offer'
 import { listOrderAgreements } from '@/lib/actions/order-agreement'
 import { listIssuerChoices } from '@/lib/actions/issuer-companies'
+import { getDealIntake } from '@/lib/actions/deal-intake'
 import { approvedAmount, waitingLabel } from '@/lib/deals/case-workspace'
 import { CaseReturnLink } from '@/components/deals/case-return-link'
 import { formatJPY, formatDate } from '@/lib/utils/format'
@@ -61,7 +62,7 @@ export default async function DealDetailPage({ params }: Props) {
   if (dealError && dealError.code !== 'PGRST116') throw new Error('Deal could not be loaded')
   if (!deal) notFound()
 
-  const [factoryOrderResult, factories, options, confirmation, offers, factoryExtras, agreements, issuers, settings] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems(), getConfirmationState(id), listPriceOffers(id), getFactoryExtras(id), listOrderAgreements(id), listIssuerChoices(),
+  const [factoryOrderResult, factories, options, confirmation, offers, factoryExtras, agreements, issuers, intake, settings] = await Promise.all([listFactoryOrders(id), listFactoriesForRfq(), listOptionItems(), getConfirmationState(id), listPriceOffers(id), getFactoryExtras(id), listOrderAgreements(id), listIssuerChoices(), getDealIntake(id),
     supabase.from('system_settings').select('default_exchange_rate, default_tax_rate, default_cost_ratio').limit(1).maybeSingle()])
   if (settings.error || !settings.data || settings.data.default_tax_rate == null) throw new Error('Settings could not be loaded')
   if (factoryOrderResult.error) throw new Error('Factory orders could not be loaded')
@@ -199,6 +200,7 @@ export default async function DealDetailPage({ params }: Props) {
         offers={offers}
         agreements={agreements}
         issuers={issuers}
+        intake={intake}
         factoryExtras={factoryExtras}
         pricingDefaults={{ fx: Number(settings.data.default_exchange_rate) || 0, tax: Number(settings.data.default_tax_rate), ratio: Number(settings.data.default_cost_ratio) || null }}
         dueDate={deal.desired_delivery_date}
