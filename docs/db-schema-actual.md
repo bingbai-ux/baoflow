@@ -867,7 +867,7 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
   save_project_product_v1(p_request_id uuid, p_payload jsonb) → {success, productId, variantId, name}（wizard_requests に operation='project_product'。価格・見積の記録がある数量は外せない。deals.process_stage を 2 以上に進める）。
   reorder_project_products(p_deal_id uuid, p_ids uuid[])。delete_project_product(p_product_id uuid)（価格・見積・サンプルの記録がある商品は断る）。いずれも authenticated のみ・staff 判定あり。
 
-## 再設計 工程3（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+## 再設計 工程3（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261122200000_process_redesign_stage3.sql`。追加のみ。
 - customer_confirmations: id UUID, deal_id UUID→deals, token text UNIQUE, status text ('pending'|'confirmed'|'cancelled'), snapshot jsonb（送った時点の商品内容。工場名・原価なし）, contact_name text, contact_email text, send_status text ('accepted'|'rejected'|'unknown'), sent_at, confirmed_at, confirmed_via text ('link'|'staff'), confirmed_by UUID→profiles, confirm_ip text, confirm_user_agent text, created_by UUID→profiles, created_at, expires_at。1案件に pending は1件まで。RLS: staff は読むだけ。書き込みは下の関数のみ。
 - RPC（staff）: create_customer_confirmation(p_deal_id uuid) → {success,id,token,contactName,contactEmail,snapshot}、mark_customer_confirmation_sent(p_id uuid, p_status text)、staff_confirm_customer_confirmation(p_deal_id uuid)。
