@@ -940,11 +940,11 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - 返信用アドレス: c-<案件IDの32文字>@<MAIL_REPLY_DOMAIN>（顧客）/ f-<同>@<MAIL_REPLY_DOMAIN>（工場）。送るメールの reply_to に付ける。
 - 使う既存カラム: deal_communications（deal_id, author_user_id, author_role, channel, subject, body, is_read, occurred_at, updated_at）、deal_design_files（deal_id, file_url, storage_path, file_name, file_type, file_size_bytes, version_number, category, comment）、factories（id, factory_name, contact_email, wechat）、deal_quotes（deal_id, factory_id）。
 
-## カタログ取込の置き場（2026-11-22 作成・本番 baoflow-v2 には未適用）
+## カタログ取込の置き場（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261123100000_catalog_import_bucket.sql`。追加のみ。
 - 保管場所 catalog-imports（非公開・1件 50MB・PDF / JPEG / PNG）。storage.objects のポリシー: is_staff() の人だけ 読む・置く・消す。読み取りが終わったら画面側で消す。
 
-## 工場の返信ページ・AIの使い分け（2026-11-22 作成・本番 baoflow-v2 には未適用）
+## 工場の返信ページ・AIの使い分け（2026-11-22・本番 baoflow-v2 に適用済み）
 `20261123200000_talk_links_ai_settings.sql`。追加のみ。
 - talk_links: id UUID, token text UNIQUE, deal_id UUID→deals, factory_id UUID→factories, status text ('active'|'cancelled'), post_count integer, last_posted_at, created_by, created_at, expires_at（90日）。同じ案件・工場で有効なリンクは1つ。RLS: staff は読むだけ。
 - RPC（staff）: create_talk_link(p_deal_id uuid, p_factory_id uuid)（deal_quotes に見積がある工場だけ。有効なリンクがあれば同じ token を返す）、cancel_talk_link(p_id uuid)。
