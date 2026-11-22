@@ -12,7 +12,7 @@ export default async function ConfirmPage({ params }: { params: Promise<{ token:
   const c = await loadConfirmation(token)
   const s = c.snapshot
   return (
-    <main id="external-content" className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+    <div>
       {!s || c.status === 'missing' ? (
         <div className="rounded-[16px] border border-[#E2E1DA] bg-white p-6"><h1 className="text-[21px] font-extrabold">ページが見つかりません</h1><p className="mt-2 text-[14px]">リンクが正しいかご確認ください。</p></div>
       ) : (
@@ -36,6 +36,6 @@ export default async function ConfirmPage({ params }: { params: Promise<{ token:
           </div>
         </>
       )}
-    </main>
+    </div>
   )
 }

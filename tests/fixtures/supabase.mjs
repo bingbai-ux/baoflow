@@ -103,6 +103,51 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程4: 価格の保存・お見積の提示と返事の代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage4-sql.test.ts (PGlite) で検証する。
+  if(['save_offer_prices_v1','create_price_offer','mark_price_offer_sent','staff_decide_price_offer','price_offer_by_token','decide_price_offer'].includes(table)){
+   db.price_offers ||= [];db.client_contacts ||= [];db.notifications ||= []
+   const staff=['sales','admin'].includes(db.profiles[0]?.role)
+   const quotesOf=dealId=>db.deal_quotes.filter(q=>q.deal_id===dealId)
+   const finish=(o,decision,via,choices,comment)=>{
+    const d=db.deals.find(d=>d.id===o.deal_id),all=o.snapshot.items.flatMap(i=>i.options.map(x=>x.quote_id))
+    if(decision==='approve'){
+     const ids=o.snapshot.items.map(i=>{const id=choices?.[i.product_id]||(i.options.length===1?i.options[0].quote_id:null);if(!id||!i.options.some(x=>x.quote_id===id))throw new Error(`「${i.name}」の数量を選んでください`);return id})
+     quotesOf(d.id).forEach(q=>{if(ids.includes(q.id))q.status='approved';else if(all.includes(q.id)&&q.status==='presented')q.status='rejected'})
+     Object.assign(o,{status:'approved',decided_at:new Date().toISOString(),decided_via:via,choices:ids});d.process_stage=Math.max(d.process_stage||1,5);d.waiting_on='us';if(d.simple_status==='quoting')d.simple_status='quote_confirmed'
+    }else{
+     if(!String(comment||'').trim())throw new Error('変更したい内容を入力してください')
+     quotesOf(d.id).forEach(q=>{if(all.includes(q.id)&&q.status==='presented')q.status='revising'})
+     Object.assign(o,{status:'returned',decided_at:new Date().toISOString(),decided_via:via,return_comment:String(comment).trim()});d.waiting_on='us'
+    }
+    db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note:`第${o.round}回お見積 ${decision}${via==='staff'?'（営業が記録）':''}`,kind:'status',created_at:new Date().toISOString()})
+    if(via==='link')db.notifications.push({id:randomUUID(),user_id:d.sales_user_id,deal_id:d.id,type:'dashboard',status:'pending',content:`${d.client_name_text||'顧客'} が「${d.deal_name}」の第${o.round}回お見積を${decision==='approve'?'承認しました。請求書を発行できます。':'差し戻しました: '+String(comment).trim()}`,created_at:new Date().toISOString()})
+   }
+   try{
+    if(table==='price_offer_by_token'){const o=db.price_offers.find(x=>x.token===input.p_token);send(o?{found:true,status:o.status,snapshot:o.snapshot,decidedAt:o.decided_at,choices:o.choices||null,createdAt:o.created_at,expiresAt:o.expires_at}:{found:false});return}
+    if(table==='decide_price_offer'){const o=db.price_offers.find(x=>x.token===input.p_token);if(!o)throw new Error('このお見積のページは見つかりません');if((o.status==='approved'&&input.p_decision==='approve')||(o.status==='returned'&&input.p_decision==='return')){send({success:true,already:true});return}if(o.status!=='sent')throw new Error('このお見積は受付を終了しました。担当者から届いた新しいメールをご確認ください');finish(o,input.p_decision,'link',input.p_choices,input.p_comment);send({success:true,already:false});return}
+    if(!staff){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+    const d=db.deals.find(d=>d.id===input.p_deal_id)
+    if(table==='save_offer_prices_v1'){
+     if(db.price_offers.some(o=>o.deal_id===d.id&&o.status==='sent'))throw new Error('顧客の返事待ちの間は価格を変更できません。先に提示を取り消してください')
+     const p=input.p_payload,fx=Number(p.exchange_rate),tax=Number(p.tax_rate)
+     const next=p.lines.map(l=>{const q=db.deal_quotes.find(q=>q.id===l.quote_id&&q.deal_id===d.id);if(!q)throw new Error('見積の行が見つかりません');const unit=Number(l.factory_unit_price_usd),sell=Number(l.selling_price_jpy);if(!(unit>0))throw new Error('工場単価を入力してください');if(!(sell>0))throw new Error('提示単価を入力してください（小数は2桁まで）');const total=q.quantity*unit+Number(l.fees_usd||0)+Number(l.freight_usd||0),unitJpy=total/q.quantity*fx;if(sell<unitJpy)throw new Error(`提示単価が原価を下回っています（数量 ${q.quantity}）`);const net=Math.ceil(sell*q.quantity-1e-9);return [q,{factory_unit_price_usd:unit,plate_fee_usd:Number(l.fees_usd||0),other_fees_usd:0,pantone_color_fee_usd:0,china_freight_usd:Number(l.freight_usd||0),domestic_china_freight_usd:0,factory_calculated_freight_usd:0,total_cost_usd:total,unit_cost_usd:total/q.quantity,exchange_rate:fx,cost_ratio:unitJpy/sell,selling_price_jpy:sell,total_billing_jpy:net,total_billing_tax_jpy:Math.ceil(net*(1+tax/100)-1e-9)}]})
+     next.forEach(([q,v])=>Object.assign(q,v));for(const [id,days] of Object.entries(p.production_days||{})){const x=db.deal_products.find(x=>x.id===id&&x.deal_id===d.id);if(x)x.production_days=days}
+     d.process_stage=Math.max(d.process_stage||1,4);send({success:true,saved:next.length});return
+    }
+    if(table==='create_price_offer'){
+     const items=db.deal_products.filter(p=>p.deal_id===d.id).sort((a,b)=>(a.sort_order||a.product_no)-(b.sort_order||b.product_no)).map(p=>{const vs=db.deal_product_variants.filter(v=>v.product_id===p.id).map(v=>v.id);return {product_id:p.id,name:p.description,production_days:p.production_days??null,shipping_mode:p.shipping_mode||null,options:quotesOf(d.id).filter(q=>vs.includes(q.variant_id)&&q.quantity>0&&Number(q.selling_price_jpy)>0&&q.status!=='rejected').sort((a,b)=>a.quantity-b.quantity).map(q=>({quote_id:q.id,quantity:q.quantity,unit_jpy:Number(q.selling_price_jpy),net_jpy:Number(q.total_billing_jpy),tax_jpy:Number(q.total_billing_tax_jpy)}))}})
+     if(!items.length)throw new Error('先に商品を登録してください');if(items.some(i=>!i.options.length))throw new Error('提示単価が未入力の商品があります')
+     const c=db.client_contacts.filter(c=>c.client_id===d.client_id).sort((a,b)=>Number(!!b.is_primary)-Number(!!a.is_primary))[0]
+     db.price_offers.filter(o=>o.deal_id===d.id&&o.status==='sent').forEach(o=>{o.status='cancelled'})
+     const round=Math.max(0,...db.price_offers.filter(o=>o.deal_id===d.id).map(o=>o.round))+1,created=new Date()
+     const o={id:randomUUID(),deal_id:d.id,round,token:(randomUUID()+randomUUID()).replaceAll('-',''),status:'sent',snapshot:{deal_name:d.deal_name,deal_code:d.deal_code,client_name:d.client_name_text,brand:d.brand_text||null,tax_rate:10,round,items},contact_name:c?.name||null,contact_email:c?.email||null,send_status:null,sent_at:null,decided_at:null,decided_via:null,choices:null,return_comment:null,created_at:created.toISOString(),expires_at:new Date(created.getTime()+30*86400000).toISOString()}
+     db.price_offers.push(o);const ids=items.flatMap(i=>i.options.map(x=>x.quote_id));quotesOf(d.id).forEach(q=>{if(ids.includes(q.id)&&['drafting','revising',undefined,null].includes(q.status))q.status='presented'})
+     d.process_stage=Math.max(d.process_stage||1,4);send({success:true,id:o.id,token:o.token,round,contactName:o.contact_name,contactEmail:o.contact_email,snapshot:o.snapshot});return
+    }
+    if(table==='mark_price_offer_sent'){const o=db.price_offers.find(x=>x.id===input.p_id);Object.assign(o,{send_status:input.p_status,sent_at:new Date().toISOString()});send({success:true});return}
+    if(table==='staff_decide_price_offer'){const o=db.price_offers.find(x=>x.deal_id===d.id&&x.status==='sent');if(!o)throw new Error('返事待ちのお見積がありません');if(input.p_decision==='cancel'){o.status='cancelled';quotesOf(d.id).forEach(q=>{if(q.status==='presented')q.status='drafting'});d.waiting_on='us'}else finish(o,input.p_decision,'staff',input.p_choices,input.p_comment);send({success:true});return}
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程3: 顧客の商品内容確認の代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage3-sql.test.ts (PGlite) で検証する。
   if(['create_customer_confirmation','staff_confirm_customer_confirmation','mark_customer_confirmation_sent','customer_confirmation_by_token','confirm_customer_confirmation'].includes(table)){
    db.customer_confirmations ||= [];db.client_contacts ||= []
@@ -193,7 +238,7 @@ const server=http.createServer(async(req,res)=>{
   send(null);return
  }
  if(!db[table])db[table]=[]
- let rows=db[table].filter(row=>{for(const [key,value]of url.searchParams){if(['select','order','limit','offset','on_conflict'].includes(key))continue;let actual=key.split('.').reduce((obj,k)=>obj?.[k],row);if(value.startsWith('gt.')&&Date.parse(actual)<=Date.parse(value.slice(3)))return false;if(value.startsWith('gt.')&&actual==null)return false;if(value.startsWith('cs.')){const expected=JSON.parse(value.slice(3));if(!actual||Object.entries(expected).some(([k,v])=>!Object.hasOwn(actual,k)||actual[k]!==v))return false}if(value.startsWith('eq.')&&String(actual)!==value.slice(3))return false;if(value==='is.null'&&actual!=null)return false;if(value==='not.is.null'&&actual==null)return false;if(value.startsWith('in.(')&&!value.slice(4,-1).split(',').includes(String(actual)))return false;if(value.startsWith('like.')&&!String(actual??'').startsWith(value.slice(5).replace('%','')))return false}return true})
+ let rows=(db[table]||=[]).filter(row=>{for(const [key,value]of url.searchParams){if(['select','order','limit','offset','on_conflict'].includes(key))continue;let actual=key.split('.').reduce((obj,k)=>obj?.[k],row);if(value.startsWith('gt.')&&Date.parse(actual)<=Date.parse(value.slice(3)))return false;if(value.startsWith('gt.')&&actual==null)return false;if(value.startsWith('cs.')){const expected=JSON.parse(value.slice(3));if(!actual||Object.entries(expected).some(([k,v])=>!Object.hasOwn(actual,k)||actual[k]!==v))return false}if(value.startsWith('eq.')&&String(actual)!==value.slice(3))return false;if(value==='is.null'&&actual!=null)return false;if(value==='not.is.null'&&actual==null)return false;if(value.startsWith('in.(')&&!value.slice(4,-1).split(',').includes(String(actual)))return false;if(value.startsWith('like.')&&!String(actual??'').startsWith(value.slice(5).replace('%','')))return false}return true})
  if(['GET','HEAD'].includes(req.method)){rows=rows.map(row=>{
   if(table==='inbound_shipments')return {...row,client:db.clients.find(c=>c.id===row.client_id),deal:db.deals.find(d=>d.id===row.deal_id),lines:(db.inbound_shipment_items||[]).filter(l=>l.shipment_id===row.id)}
   if(table==='shipment_requests')return {...row,client:db.clients.find(c=>c.id===row.client_id),items:(db.shipment_request_items||[]).filter(l=>l.request_id===row.id).map(l=>({...l,item:db.inventory_items.find(i=>i.id===l.item_id)}))}

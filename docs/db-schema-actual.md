@@ -874,3 +874,12 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - RPC（ログイン不要・リンクの持ち主）: customer_confirmation_by_token(p_token text) → {found,status,snapshot,confirmedAt}、confirm_customer_confirmation(p_token text, p_ip text, p_ua text)。
 - 確認済みになると deals.process_stage を 3 以上へ、waiting_on='us'、deal_status_history に1行、リンク経由なら notifications（type 'dashboard', status 'pending'）に1行。
 - 工場の回答フォームの追加項目（版代などの費用・送料・日数）は external_forms.submission_data.extras に入る（テーブル変更なし）。
+
+## 再設計 工程4（2026-11-22・本番 baoflow-v2 には【未適用】。適用後にこの見出しを書き換える）
+`20261122300000_process_redesign_stage4.sql`。追加のみ。
+- deal_products 追加カラム: production_days integer（製造日数。1〜999）。
+- price_offers: id UUID, deal_id UUID→deals, round integer（第何回。UNIQUE(deal_id, round)）, token text UNIQUE, status text ('sent'|'approved'|'returned'|'cancelled'), snapshot jsonb（提示内容。原価・工場名なし）, contact_name, contact_email, send_status text ('accepted'|'rejected'|'unknown'), sent_at, decided_at, decided_via text ('link'|'staff'), decided_by UUID→profiles, choices jsonb（承認された見積行IDの配列）, return_comment text, decide_ip, decide_user_agent, created_by, created_at, expires_at。1案件に sent は1件まで。RLS: staff は読むだけ。
+- RPC（staff）: save_offer_prices_v1(p_deal_id uuid, p_payload jsonb)（deal_quotes の原価・提示単価・原価率・総額・税込を計算して保存。plate_fee_usd=諸費用、china_freight_usd=送料にまとめ、他の費用列は0にする。pricing_snapshot がある行は断る）、create_price_offer(p_deal_id uuid)、mark_price_offer_sent(p_id uuid, p_status text)、staff_decide_price_offer(p_deal_id uuid, p_decision 'approve'|'return'|'cancel', p_choices jsonb, p_comment text)。
+- RPC（ログイン不要・リンクの持ち主）: price_offer_by_token(p_token text)、decide_price_offer(p_token, p_decision 'approve'|'return', p_choices jsonb, p_comment, p_ip, p_ua)。
+- 見積行の状態: 提示で 'presented'、承認で選ばれた数量が 'approved'・他は 'rejected'、差し戻しで 'revising'、取り消しで 'drafting'。
+- 承認で deals.process_stage を 5 以上へ、simple_status が 'quoting' なら 'quote_confirmed' へ、waiting_on='us'、履歴1行、リンク経由ならお知らせ1行。

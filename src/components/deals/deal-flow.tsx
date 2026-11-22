@@ -41,6 +41,8 @@ import { createQuote } from '@/lib/actions/quotes'
 import { createFactoryOrder, createInboundForFactoryOrder, type FactoryOrderRow } from '@/lib/actions/factory-orders'
 import { ProductRegistry } from '@/components/process/product-registry'
 import { CustomerConfirmPanel } from '@/components/process/customer-confirm-panel'
+import { PriceOfferPanel } from '@/components/process/price-offer-panel'
+import type { FactoryExtras, OfferRow } from '@/lib/actions/price-offer'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -113,6 +115,10 @@ interface DealFlowProps {
   communications: DealCommunication[]
   /** 再設計 工程3: 顧客の商品内容確認の状態 */
   confirmation: ConfirmationState
+  /** 再設計 工程4: お見積の履歴・工場回答の追加情報・為替などの初期値 */
+  offers: OfferRow[]
+  factoryExtras: FactoryExtras[]
+  pricingDefaults: { fx: number; tax: number; ratio: number | null }
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -155,6 +161,9 @@ export function DealFlow({
   archived,
   options,
   confirmation,
+  offers,
+  factoryExtras,
+  pricingDefaults,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -298,16 +307,26 @@ export function DealFlow({
       ),
     },
     {
-      title: '売値を決める(掛率 → 粗利)',
+      title: '価格を決めて提示',
       actor: 'us',
       summary:
         approvedQuotes.length > 0
           ? `${approvedQuotes.length}パターン採用 · 税込 ${formatJPY(
               approvedQuotes.reduce((s, q) => s + (Number(q.total_billing_tax_jpy) || 0), 0)
             )}`
-          : '掛率を入れて「この価格で採用」',
+          : offers.some(o => o.status === 'sent') ? '顧客の返事待ち' : '原価率か提示単価を入力',
       body: (
-        <StepPricing dealHead={dealHead} products={products} variants={variants} quotes={quotes} />
+        <PriceOfferPanel dealId={deal.id} offers={offers} extras={factoryExtras} readOnly={archived}
+          products={products.map(p => ({ id: p.id, name: p.description || '商品', productionDays: (p as { production_days?: number | null }).production_days ?? null }))}
+          lines={quotes.flatMap(q => {
+            const productId = variants.find(v => v.id === q.variant_id)?.product_id
+            if (!productId || !q.quantity || q.quantity <= 0) return []
+            const sum = (...v: Array<number | null | undefined>) => v.reduce<number>((a, b) => a + (Number(b) || 0), 0)
+            return [{ quoteId: q.id, productId, quantity: q.quantity, unitUsd: q.factory_unit_price_usd == null ? null : Number(q.factory_unit_price_usd),
+              feesUsd: sum(q.plate_fee_usd, q.other_fees_usd, q.pantone_color_fee_usd), freightUsd: sum(q.china_freight_usd, q.domestic_china_freight_usd, q.factory_calculated_freight_usd),
+              sellJpy: q.selling_price_jpy == null ? null : Number(q.selling_price_jpy), status: q.status, locked: q.pricing_snapshot != null }]
+          })}
+          defaults={{ ...pricingDefaults, fx: Number(quotes.find(q => Number(q.exchange_rate) > 0)?.exchange_rate) || pricingDefaults.fx }} />
       ),
     },
     {
@@ -367,7 +386,9 @@ export function DealFlow({
   const derivedStage = stageOfStep(currentIdx)
   const shownStage = Math.max(processStage, derivedStage)
   const selStage = stageOfStep(sel)
-  const viewStage = (n: number) => { const group = STAGE_STEPS[n - 1]; viewStep(group.includes(currentIdx) ? currentIdx : group[0]) }
+  // 工程4（価格提示）は1画面にまとめた。従来の原価・見積書の欄はURLとスマホの一覧からだけ開ける
+  const pills = (n: number) => n === 4 ? [5] : STAGE_STEPS[n - 1]
+  const viewStage = (n: number) => { const group = pills(n); viewStep(group.includes(currentIdx) ? currentIdx : group[0]) }
   const selDone = doneList[sel]
   const selCurrent = sel === currentIdx
 
@@ -391,10 +412,10 @@ export function DealFlow({
       </div>
       {/* PC・タブレット: 進み具合の表示はこの9工程バー1本だけ。押すとその工程の作業欄に切り替わる */}
       <StageHeader dealId={deal.id} stage={shownStage} dueDate={dueDate} today={today} archived={archived} selected={selStage} onSelect={viewStage} minStage={derivedStage}>
-        {STAGE_STEPS[selStage - 1].length > 1 && (
+        {pills(selStage).length > 1 && (
           <div role="group" aria-label="この工程の作業" className="mt-2 flex flex-wrap items-center gap-1">
             <span className="mr-1 text-[11px] text-[#84787D]">この工程の作業</span>
-            {STAGE_STEPS[selStage - 1].map(i => (
+            {pills(selStage).map(i => (
               <button key={i} type="button" data-step={i} aria-pressed={i === sel} onClick={() => viewStep(i)}
                 aria-label={`${SHORT_LABELS[i]}${doneList[i] ? ' 記録あり' : i === currentIdx ? ' 次の作業' : ''}`}
                 className={'min-h-[44px] rounded-full border px-3 text-[12px] font-bold ' + (i === sel ? 'border-[#351E28] bg-[#351E28] text-[#C9A2B8]' : 'border-[#E2E1DA] bg-white text-[#351E28] hover:bg-[#FBFAF6]')}>

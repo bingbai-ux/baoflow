@@ -132,10 +132,9 @@ test('工程バーは1本で、押すと作業欄が切り替わる。手直し�
   await expect(page).toHaveURL(/step=3/)
   await expect(sub.getByRole('button')).toHaveCount(2) // RFQ・工場回答
   await bar.getByRole('button', { name: /4 価格提示/ }).click()
-  await expect(page).toHaveURL(/step=6/) // 次の作業（売値）がある工程では、その作業を開く
-  await expect(sub.getByRole('button')).toHaveCount(3) // 原価・売値・見積書
-  await sub.getByRole('button', { name: /見積書/ }).click()
-  await expect(page).toHaveURL(/step=7/)
+  await expect(page).toHaveURL(/step=6/) // 工程4は「価格を決めて提示」の1画面
+  await expect(sub).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '価格の提示' })).toBeVisible()
   await shot(page, '08-deal-single-bar')
   // 手直し: 先へは進められ、記録より前(1,2)には戻せない
   await page.getByText('工程を手で直す').click()
