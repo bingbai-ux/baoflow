@@ -52,6 +52,8 @@ import { ProductionPanel } from '@/components/process/production-panel'
 import type { DealProduction } from '@/lib/actions/deal-production'
 import { ShippingPanel } from '@/components/process/shipping-panel'
 import type { DealShipment } from '@/lib/actions/deal-shipment'
+import { ReceiptPanel } from '@/components/process/receipt-panel'
+import type { ReceiptRow } from '@/lib/actions/deal-receipt'
 import type { ConfirmationState } from '@/lib/actions/customer-confirmation'
 import type { OptionItem } from '@/lib/actions/product-master'
 import { caseAction, approvedAmount, invalidDocumentQuotes } from '@/lib/deals/case-workspace'
@@ -137,6 +139,8 @@ interface DealFlowProps {
   production: DealProduction
   /** 再設計 工程8: 発送の記録 */
   shipment: DealShipment
+  /** 再設計 工程9: 受領の確認（検収）の履歴 */
+  receipts: ReceiptRow[]
   /** 再設計 工程2: 素材・印刷の色数・付属品の選択肢 */
   options: OptionItem[]
   /** 再設計: 9工程（保存値）・希望納期・今日（日本時間）・アーカイブ済みか */
@@ -187,6 +191,7 @@ export function DealFlow({
   intake,
   production,
   shipment,
+  receipts,
 }: DealFlowProps) {
   const statusIdx = SIMPLE_STATUS_ORDER.indexOf(deal.simple_status)
 
@@ -421,10 +426,20 @@ export function DealFlow({
       ),
     },
     {
-      title: '到着検品 → 直接納品 or 在庫入庫',
+      title: '到着 → 受領の確認 → 納品書',
       actor: 'us',
-      summary: statusIdx >= 6 ? '納品済み' : '到着したら検品して納品/入庫',
-      body: <StepArrival deal={deal} statusIdx={statusIdx} />,
+      summary: receipts.some(r => r.status === 'received') ? '受領済み・案件完了' : receipts.some(r => r.status === 'sent') ? '顧客の確認待ち' : statusIdx >= 6 ? '納品済み' : '到着したら顧客へ確認を依頼',
+      body: (
+        <div className="space-y-4">
+          <ReceiptPanel dealId={deal.id} receipts={receipts} shippedOn={shipment.shippedOn} today={today} readOnly={archived}
+            lines={approvedQuotes.filter(q => Number(q.quantity) > 0).map(q => {
+              const at = products.findIndex(p => p.id === variants.find(v => v.id === q.variant_id)?.product_id)
+              return { at: at < 0 ? products.length : at, name: products[at]?.description || '商品', quantity: Number(q.quantity) }
+            }).sort((a, b) => a.at - b.at || a.quantity - b.quantity)} />
+          {/* 新しい流れ（お見積の承認）を通っていない案件だけ、従来の操作を残す */}
+          {!offers.some(o => o.status === 'approved') && <StepArrival deal={deal} statusIdx={statusIdx} />}
+        </div>
+      ),
     },
     {
       title: '納品完了 → アーカイブ / リピート',
@@ -445,7 +460,8 @@ export function DealFlow({
   const shownStage = Math.max(processStage, derivedStage)
   const selStage = stageOfStep(sel)
   // 工程4（価格提示）は1画面にまとめた。従来の原価・見積書の欄はURLとスマホの一覧からだけ開ける
-  const pills = (n: number) => n === 4 ? [5] : STAGE_STEPS[n - 1]
+  // 工程9（検収）も、新しい流れの案件では1画面だけ出す
+  const pills = (n: number) => n === 4 ? [5] : n === 9 && offers.some(o => o.status === 'approved') ? [11] : STAGE_STEPS[n - 1]
   const viewStage = (n: number) => { const group = pills(n); viewStep(group.includes(currentIdx) ? currentIdx : group[0]) }
   const selDone = doneList[sel]
   const selCurrent = sel === currentIdx

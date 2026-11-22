@@ -106,6 +106,44 @@ const server=http.createServer(async(req,res)=>{
   if(table==='issue_document_atomic'){try{send(issueDocumentAtomic(input))}catch(error){send({code:'P0001',message:error.message},400)}return}
   if(table==='reserve_document_number'){send(`${({quotation:'QUO',invoice:'INV',delivery_note:'DLV',rfq:'RFQ',inventory_cert:'CRT'})[input.p_type]||'QUO'}-202609-${String(number++).padStart(3,'0')}`);return}
   if(table==='set_deal_simple_status'){const d=db.deals.find(d=>d.id===input.p_deal_id);d.simple_status=input.p_to;db.deal_status_history.push({id:randomUUID(),deal_id:d.id,to_simple_status:input.p_to,changed_at:now,kind:'status'});send(null);return}
+  // 再設計 工程9: 検収（受領の確認）とリピートの代役（ブラウザ配線確認用）。SQLの正しさは tests/process-stage9-sql.test.ts (PGlite) で検証する。
+  if(['create_deal_receipt','mark_deal_receipt_sent','staff_decide_deal_receipt','deal_receipt_by_token','confirm_deal_receipt','repeat_project_v1'].includes(table)){
+   db.deal_receipts ||= [];db.deal_shipments ||= [];db.client_contacts ||= [];db.notifications ||= [];db.order_agreements ||= [];db.wizard_requests ||= []
+   const staff=['sales','admin'].includes(db.profiles[0]?.role),now=new Date().toISOString()
+   const finish=(r,via)=>{const d=db.deals.find(d=>d.id===r.deal_id);Object.assign(r,{status:'received',received_at:now,received_via:via});d.process_stage=Math.max(d.process_stage||1,9);d.waiting_on='none'
+    db.deal_status_history.push({id:randomUUID(),deal_id:d.id,note:`受領 納品書 ${r.delivery_note_number}。案件完了${via==='staff'?'（営業が記録）':''}`,kind:'status',created_at:now})
+    if(via==='link')db.notifications.push({id:randomUUID(),user_id:d.sales_user_id,deal_id:d.id,type:'dashboard',status:'pending',content:`${d.client_name_text||'顧客'} が「${d.deal_name}」の受領を確認しました。案件完了です。`,created_at:now})}
+   try{
+    if(table==='deal_receipt_by_token'){const r=db.deal_receipts.find(x=>x.token===input.p_token),i=db.issuer_companies.find(c=>c.id===r?.snapshot.issuer.id);send(r?{found:true,status:r.status,snapshot:r.snapshot,receivedAt:r.received_at,logo:i?.logo_data||null,stamp:i?.stamp_data||null}:{found:false});return}
+    if(table==='confirm_deal_receipt'){const r=db.deal_receipts.find(x=>x.token===input.p_token);if(!r)throw new Error('このページは見つかりません');if(r.status==='received'){send({success:true,already:true});return}if(r.status!=='sent')throw new Error('この確認依頼は取り消されました。担当者から届いた新しいメールをご確認ください');finish(r,'link');send({success:true,already:false,customerEmail:r.contact_email,customerName:r.contact_name,snapshot:r.snapshot});return}
+    if(!staff){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}
+    const d=db.deals.find(d=>d.id===input.p_deal_id)
+    if(table==='create_deal_receipt'){
+     const s=db.deal_shipments.find(x=>x.deal_id===d.id);if(!s?.shipped_on)throw new Error('先に発送完了を記録してください');if(input.p_arrived_on<s.shipped_on)throw new Error('到着日は発送日以降の日付にしてください')
+     if(db.deal_receipts.some(r=>r.deal_id===d.id&&r.status==='received'))throw new Error('この案件は受領済みです')
+     const agreed=db.order_agreements.find(a=>a.deal_id===d.id&&a.status==='agreed'),i=db.issuer_companies.find(c=>c.id===agreed?.snapshot?.issuer?.id)||db.issuer_companies.find(c=>c.is_default)
+     const lines=db.deal_quotes.filter(q=>q.deal_id===d.id&&q.status==='approved').map(q=>{const v=db.deal_product_variants.find(v=>v.id===q.variant_id),p=db.deal_products.find(p=>p.id===v?.product_id);return {name:p?.description||'商品',quantity:q.quantity,sort:p?.sort_order||0}}).sort((a,b)=>a.sort-b.sort).map(({sort,...l})=>l)
+     if(!lines.length)throw new Error('承認済みのお見積がありません')
+     const c=db.client_contacts.filter(c=>c.client_id===d.client_id).sort((a,b)=>Number(!!b.is_primary)-Number(!!a.is_primary))[0]
+     db.deal_receipts.filter(r=>r.deal_id===d.id&&r.status==='sent').forEach(r=>{r.status='cancelled'})
+     const seq=Math.max(0,...db.deal_receipts.filter(r=>r.deal_id===d.id).map(r=>r.seq))+1,no=`${d.deal_code}-D${seq}`
+     const r={id:randomUUID(),deal_id:d.id,seq,delivery_note_number:no,token:(randomUUID()+randomUUID()).replaceAll('-',''),status:'sent',arrived_on:input.p_arrived_on,contact_name:c?.name||null,contact_email:c?.email||null,send_status:null,sent_at:null,received_at:null,received_via:null,created_at:now,
+      snapshot:{delivery_note_number:no,arrived_on:input.p_arrived_on,shipped_on:s.shipped_on,deal_name:d.deal_name,deal_code:d.deal_code,client_name:d.client_name_text,brand:d.brand_text||null,lines,ship_to:{name:s.ship_to_name,postal_code:s.ship_to_postal_code,address:s.ship_to_address},carton_count:s.carton_count,carrier:s.carrier,tracking_number:s.tracking_number,issuer:{id:i.id,name:i.name,postal_code:i.postal_code,address:i.address,phone:i.phone,email:i.email,registration_number:i.registration_number}}}
+     db.deal_receipts.push(r);d.waiting_on='client';send({success:true,id:r.id,token:r.token,contactName:r.contact_name,contactEmail:r.contact_email,snapshot:r.snapshot});return
+    }
+    if(table==='mark_deal_receipt_sent'){const r=db.deal_receipts.find(x=>x.id===input.p_id);Object.assign(r,{send_status:input.p_status,sent_at:now});send({success:true});return}
+    if(table==='staff_decide_deal_receipt'){const r=db.deal_receipts.find(x=>x.deal_id===d.id&&x.status==='sent');if(!r)throw new Error('返事待ちの確認依頼がありません');if(input.p_decision==='cancel'){r.status='cancelled';d.waiting_on='us';send({success:true});return}finish(r,'staff');send({success:true,id:r.id,snapshot:r.snapshot,contactName:r.contact_name,contactEmail:r.contact_email});return}
+    if(table==='repeat_project_v1'){
+     const prior=db.wizard_requests.find(r=>r.request_id===input.p_request_id);if(prior){send(prior.result);return}
+     const fresh={id:randomUUID(),deal_code:d.deal_code+'-R',deal_name:d.deal_name+'（リピート）',client_id:d.client_id,client_name_text:d.client_name_text,contact_id:d.contact_id||null,sales_user_id:d.sales_user_id,simple_status:'quoting',waiting_on:'us',process_stage:2,tags:[],desired_delivery_date:null,archived_at:null,master_status:'M01',created_at:now,updated_at:now,last_activity_at:now}
+     db.deals.push(fresh)
+     for(const p of db.deal_products.filter(p=>p.deal_id===d.id)){const pid=randomUUID();db.deal_products.push({...p,id:pid,deal_id:fresh.id,is_selected:false,production_days:null})
+      for(const v of db.deal_product_variants.filter(v=>v.product_id===p.id)){const vid=randomUUID();db.deal_product_variants.push({...v,id:vid,product_id:pid,deal_products:{deal_id:fresh.id}})
+       for(const quantity of [...new Set(db.deal_quotes.filter(q=>q.variant_id===v.id&&q.deal_id===d.id&&q.quantity>0).map(q=>q.quantity))].sort((a,b)=>a-b))db.deal_quotes.push({id:randomUUID(),deal_id:fresh.id,variant_id:vid,quantity,status:'drafting',version:1,created_at:now})}}
+     const result={success:true,dealId:fresh.id,dealCode:fresh.deal_code};db.wizard_requests.push({request_id:input.p_request_id,result});send(result);return
+    }
+   }catch(error){send({code:'P0001',message:error.message},400);return}
+  }
   // 再設計 工程8: 発送の代役（ブラウザ配線確認用）。順番・必須条件の正しさは tests/process-stage8-sql.test.ts (PGlite) で検証する。
   if(table==='save_deal_shipment'){
    if(!['sales','admin'].includes(db.profiles[0]?.role)){send({code:'42501',message:'この操作は営業・管理者のみ利用できます'},403);return}

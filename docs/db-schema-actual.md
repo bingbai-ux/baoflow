@@ -923,3 +923,12 @@ client_finance_requests.operation は record_refund / reserve_document_resend / 
 - RPC（staff）: save_deal_shipment(p_deal_id uuid, p_action text, p_payload jsonb)。p_action = 'completion' {note} / 'destination' {name, postal_code, address, phone, carton_count, inspection_days} / 'request' / 'packed' / 'shipped' {carrier, tracking_number, tracking_url, shipped_on} / 'notified' {status}。工程7の製造完了（deal_productions.finished_at）が前提。deal_products.food_inspection_required が1つでも true の案件は inspection_days が必須。'shipped' で deals.process_stage を 9 以上・waiting_on='client' にし、顧客の担当者（名前・メール）を返す。
 - 段ボールラベルPDF: GET /deals/<案件ID>/carton-labels（営業・管理者のみ。届け先と箱数が未保存なら 409）。箱数ぶんのページ。
 - 到着目安 = shipped_on + deal_productions.transit_days + inspection_days。simple_status は変えない。
+
+## 再設計 工程9（2026-11-22・本番 baoflow-v2 に適用済み）
+`20261122900000_process_redesign_stage9.sql`。追加のみ。
+- deal_receipts: id UUID, deal_id UUID→deals, seq integer（UNIQUE(deal_id, seq)）, delivery_note_number text UNIQUE（{deal_code}-D{seq}）, token text UNIQUE, status text ('sent'|'received'|'cancelled'), arrived_on date, snapshot jsonb（納品書の内容: lines[{name, quantity}]・ship_to・carton_count・carrier・tracking_number・issuer。金額・原価なし）, contact_name, contact_email, send_status, sent_at, received_at, received_via text ('link'|'staff'), received_by UUID→profiles, receive_ip, receive_user_agent, created_by, created_at, expires_at。1案件に sent/received は合わせて1件まで。RLS: staff は読むだけ。
+- 納品書の発行元は、契約成立した請求書と同じ会社（請求書が無い案件は既定の会社）。
+- RPC（staff）: create_deal_receipt(p_deal_id uuid, p_arrived_on date)（発送完了が前提）、mark_deal_receipt_sent(p_id uuid, p_status text)、staff_decide_deal_receipt(p_deal_id uuid, p_decision 'received'|'cancel')、repeat_project_v1(p_request_id uuid, p_deal_id uuid)（同じ取引先で新しい案件をつくり、商品の仕様と数量だけを写す。価格・工場回答・進み具合は写さない。同じ p_request_id は同じ結果）。
+- RPC（ログイン不要・リンクの持ち主）: deal_receipt_by_token(p_token text)（発行元のロゴ・角印も返す）、confirm_deal_receipt(p_token, p_ip, p_ua)。
+- 受領で deals.waiting_on='none'・process_stage 9、履歴1行、リンク経由ならお知らせ1行。simple_status と archived_at は変えない。
+- 納品書PDF: GET /deals/<案件ID>/delivery-note（営業・管理者のみ）、GET /external/receipt/<token>/delivery-note（顧客）。どちらも受領済みのときだけ。
