@@ -152,6 +152,14 @@ test('発行元の会社を選べる。登録情報が足りない会社では�
   await expect(form.getByRole('img', { name: 'ロゴの見本' })).toBeVisible()
   await form.getByLabel('ロゴの画像').setInputFiles({ name: 'logo.gif', mimeType: 'image/gif', buffer: png }) // 対応していない形式
   await expect(page.getByText('画像は PNG か JPEG を選んでください')).toBeVisible()
+  // 大きな画像（10MBまで）は選べて、帳票用の大きさに自動で縮めて保存する。10MBを超える画像は断る
+  const big = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 3000; c.height = 2000; const x = c.getContext('2d')!; x.fillStyle = '#351E28'; x.fillRect(200, 200, 2600, 1600); return c.toDataURL('image/png') })).split(',')[1], 'base64')
+  await form.getByLabel('ロゴの画像').setInputFiles({ name: 'big-logo.png', mimeType: 'image/png', buffer: big })
+  await expect(page.getByText('画像を帳票用の大きさに縮めました')).toBeVisible()
+  const preview = await form.getByRole('img', { name: 'ロゴの見本' }).evaluate((el: HTMLImageElement) => el.decode().then(() => [el.naturalWidth, el.naturalHeight]))
+  expect(preview).toEqual([1200, 800])
+  await form.getByLabel('角印（ハンコ）の画像').setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) })
+  await expect(page.getByText('画像が大きすぎます（10MB まで）')).toBeVisible()
   await shot(page, '54-company-form')
   await form.getByRole('button', { name: 'この内容で保存する' }).click()
   const spring = list.getByRole('listitem').filter({ hasText: '株式会社Springroll' })
